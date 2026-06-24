@@ -10,6 +10,14 @@ uv sync --all-extras --dev --group notebook
 
 This installs all application extras, development tools, and notebook tooling for local development.
 
+The notebook tooling includes JupyterLab, ipykernel, ipywidgets, tqdm, nbstripout, and Jupytext. Install the nbstripout Git filter once per clone to avoid committing generated notebook outputs:
+
+```powershell
+uv run nbstripout --install
+```
+
+Jupytext is included for pairing notebooks with plain text representations when useful for review or version control.
+
 If `uv` reports a hardlink fallback warning on Windows, set `UV_LINK_MODE` to `copy` for the current PowerShell session before running dependency commands:
 
 ```powershell
