@@ -1,0 +1,9 @@
+description: >
+  Declare which tickers the model is allowed to train on.
+  Market data will only be downloaded for included tickers.
+universes:
+  - list_name: se_large_cap
+    include: all
+    exclude:
+      - ticker: YUBICO.ST
+        reason: Recently promoted to large cap
