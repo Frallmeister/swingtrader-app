@@ -77,7 +77,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-eda_*.ipynb
+notebooks/prototyping/
 
 # IPython
 profile_default/
