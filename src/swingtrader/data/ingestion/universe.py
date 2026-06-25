@@ -33,6 +33,7 @@ def _create_template(list_name: str, description: str, date: datetime) -> dict:
         Universe document with metadata fields and an empty ``symbols`` list.
     """
     return {
+        "kind": "ticker_universe",
         "list_name": list_name,
         "description": description,
         "as_of_date": date,

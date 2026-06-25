@@ -1,3 +1,4 @@
+kind: ticker_universe
 list_name: se_large_cap
 description: Swedish Large Cap available ticker universe
 as_of_date: 2026-06-23
