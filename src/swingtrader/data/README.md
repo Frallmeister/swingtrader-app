@@ -34,6 +34,22 @@ Feature transformations belong in `features`. This code should produce cleaned, 
 
 Operational commands belong in `jobs`. Jobs should be thin orchestration layers that call reusable client, ingestion, bronze, and feature code. Render cron jobs should eventually run modules from this folder.
 
+## Universe and Ticker Onboarding
+
+Universe configuration defines desired ticker membership. Available universe files, such as Swedish Large Cap, describe which tickers can be considered. The active ticker configuration describes which tickers the model is allowed to train on or trade.
+
+Activating a ticker should be treated as a data onboarding event. Adding a ticker to the active configuration means the ticker is allowed, but it does not by itself mean that the ticker is ready for inference or eligible for training. The data layer should eventually provide workflows that compare the desired active universe with the data already present in the database and then backfill any missing tickers.
+
+The intended onboarding workflow is:
+
+1. Validate that the ticker exists in an available universe.
+2. Download historical market data for the ticker.
+3. Upsert the historical data into the bronze layer.
+4. Build or rebuild engineered features for the ticker.
+5. Validate that required data and features are complete enough for inference and future training.
+
+This makes the active ticker configuration the desired state and the database the actual state. Daily update jobs can then focus on already-onboarded active tickers, while a separate sync or activation job can handle newly active tickers that require historical backfill.
+
 ## Bronze Data Principles
 
 Bronze data should answer four questions:

@@ -1,5 +1,13 @@
 # Swingtrader
 
+## Project Direction
+
+Swingtrader is being built around a data-first workflow for market and macroeconomic data. During development, the project will download historical data for configured active tickers, store source-oriented records in a bronze layer, build engineered features, and train models from reproducible train, validation, and test splits.
+
+After deployment, the intended workflow is to run daily data updates that append new quotes and market data to bronze storage, refresh feature tables, and run the current production model on the latest feature data. New model versions can then be trained periodically as more data becomes available.
+
+Ticker activation should be treated as a data onboarding workflow, not just a config edit. The active universe defines which tickers are allowed, while bronze backfills, feature generation, and validation determine whether a ticker is ready for inference and eligible for future training runs.
+
 ## Development
 
 Use `uv` for dependency and environment management:
