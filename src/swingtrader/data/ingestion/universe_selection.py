@@ -8,21 +8,23 @@ from pathlib import Path
 
 import yaml
 
-
 ConfigDir = Path | Traversable
-LOADER = yaml.loader.SafeLoader
+ConfigFile = Path | Traversable
 
 
-def resolve_active_tickers(config_dir: Path|None = None) -> list[str]:
+def resolve_active_tickers(config_dir: ConfigDir | None = None) -> list[str]:
     if config_dir is None:
         config_dir = files("swingtrader.configs.universes")
-    yaml_files = _discover_yaml_files(config_dir=config_dir)
-    available_universes = _parse_available_universes(yaml_files)
-    active_tickers_data = _parse_active_tickers(yaml_files["active_tickers"])
+    active_tickers_data = _parse_active_tickers(
+        _get_config_file(config_dir=config_dir, list_name="active_tickers")
+    )
+    available_universes = _parse_available_universes(
+        config_dir=config_dir,
+        active_tickers_data=active_tickers_data,
+    )
 
     active_tickers_output = []
     for active_ticker_dict in active_tickers_data:
-        
         list_name = active_ticker_dict["list_name"]
         include = active_ticker_dict["include"]
         exclude = active_ticker_dict.get("exclude", [])
@@ -39,30 +41,40 @@ def resolve_active_tickers(config_dir: Path|None = None) -> list[str]:
             if ticker_to_exclude in active_tickers_output:
                 active_tickers_output.remove(ticker_to_exclude)
             else:
-                msg = f"Can't exclude ticker {ticker_to_exclude} since it's not in the available universe"
+                msg = (
+                    f"Can't exclude ticker {ticker_to_exclude} "
+                    "since it's not in the available universe"
+                )
                 raise UniverseConfigError(msg)
     return sorted(active_tickers_output)
 
 
-def _discover_yaml_files(config_dir: ConfigDir) -> dict:
-    """Find all yaml files and return them in a dict with filename-Path kwargs."""
-    files = {p.stem: p for p in config_dir.glob("*.yml")}
-    return files
+def _get_config_file(config_dir: ConfigDir, list_name: str) -> ConfigFile:
+    path = config_dir.joinpath(f"{list_name}.yml")
+    if not path.is_file():
+        msg = f"Missing universe config file: {list_name}.yml"
+        raise UniverseConfigError(msg)
+    return path
 
 
-def _parse_available_universes(files) -> dict:
+def _parse_available_universes(
+    config_dir: ConfigDir,
+    active_tickers_data: list[dict],
+) -> dict:
     universes = {}
-    for name, path in files.items():
-        if name != "active_tickers":
-            universes[name] = _get_universe_tickers(path)
-    
-    _validate_no_list_overlap([v for k, v in universes.items() if k != "active_tickers"])
+    for active_ticker_dict in active_tickers_data:
+        list_name = active_ticker_dict["list_name"]
+        if list_name not in universes:
+            universes[list_name] = _get_universe_tickers(
+                _get_config_file(config_dir=config_dir, list_name=list_name)
+            )
+
+    _validate_no_list_overlap(list(universes.values()))
     return universes
 
 
-def _get_universe_tickers(path: Path) -> list:
-    with path.open(encoding="utf-8") as fp:
-        data = yaml.load(fp, Loader=LOADER)
+def _get_universe_tickers(path: ConfigFile) -> list:
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
     kind = data["kind"]
     symbols = data["symbols"]
 
@@ -74,9 +86,8 @@ def _get_universe_tickers(path: Path) -> list:
     return list_of_tickers
 
 
-def _parse_active_tickers(path: Path) -> list[dict]:
-    with path.open(encoding="utf-8") as fp:
-        data = yaml.load(fp, Loader=LOADER)
+def _parse_active_tickers(path: ConfigFile) -> list[dict]:
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
     kind = data["kind"]
     if kind != "active_tickers":
         msg = f"Expected kind = 'active_tickers' but got {kind}"
@@ -89,13 +100,12 @@ def _verify_distinct_list(values: list):
         raise UniverseConfigError("The ticker list must contain only unique tickers.")
 
 
-
 def _validate_no_list_overlap(lists: list):
-    seen = set()
+    seen: set[str] = set()
     for lst in lists:
         current = set(lst)
         if seen & current:
-            raise UniverseConfigError("The universe files should not have overlaping tickers.")
+            raise UniverseConfigError("The universe files should not have overlapping tickers.")
         seen.update(current)
 
 
@@ -105,7 +115,6 @@ class UniverseConfigError(Exception):
     def __init__(self, message: str):
         self.message = message
         super().__init__(self.message)
-
 
 
 if __name__ == "__main__":
