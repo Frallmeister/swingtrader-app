@@ -2683,6 +2683,7 @@ name = "swingtrader-app"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "pyyaml" },
     { name = "tqdm" },
 ]
 
@@ -2735,6 +2736,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.3.4" },
     { name = "pyarrow", marker = "extra == 'data'", specifier = ">=24.0.0" },
     { name = "pyarrow", marker = "extra == 'modeling'", specifier = ">=24.0.0" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "requests", marker = "extra == 'data'", specifier = ">=2.34.2" },
     { name = "sqlalchemy", marker = "extra == 'data'", specifier = ">=2.0.51" },
     { name = "sqlalchemy", marker = "extra == 'modeling'", specifier = ">=2.0.51" },
