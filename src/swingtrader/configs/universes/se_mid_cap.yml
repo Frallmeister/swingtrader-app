@@ -1,0 +1,1014 @@
+kind: ticker_universe
+list_name: se_mid_cap
+description: Swedish Mid Cap available ticker universe
+as_of_date: 2026-06-26
+source: yfinance
+symbols:
+  - ticker: ACAD.ST
+    name: AcadeMedia AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Education & Training Services
+    sector: Consumer Defensive
+    exchange: STO
+  - ticker: ACAST.ST
+    name: Acast AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Entertainment
+    sector: Communication Services
+    exchange: STO
+  - ticker: ALLIGO-B.ST
+    name: Alligo AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Industrial Distribution
+    sector: Industrials
+    exchange: STO
+  - ticker: AMBEA.ST
+    name: Ambea AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Medical Care Facilities
+    sector: Healthcare
+    exchange: STO
+  - ticker: APOTEA.ST
+    name: Apotea AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Pharmaceutical Retailers
+    sector: Healthcare
+    exchange: STO
+  - ticker: ARJO-B.ST
+    name: Arjo AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Medical Distribution
+    sector: Healthcare
+    exchange: STO
+  - ticker: ARP.ST
+    name: Arctic Paper S.A.
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Paper & Paper Products
+    sector: Basic Materials
+    exchange: STO
+  - ticker: ATT.ST
+    name: Attendo AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Medical Care Facilities
+    sector: Healthcare
+    exchange: STO
+  - ticker: AVARDA.ST
+    name: Avarda Bank AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Banks - Regional
+    sector: Financial Services
+    exchange: STO
+  - ticker: BERG-B.ST
+    name: Bergman & Beving Aktiebolag ser
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Conglomerates
+    sector: Industrials
+    exchange: STO
+  - ticker: BESQ.ST
+    name: null
+    country: null
+    currency: null
+    asset_type: NONE
+    industry: null
+    sector: null
+    exchange: null
+  - ticker: BETCO.ST
+    name: Better Collective A/S
+    country: Denmark
+    currency: SEK
+    asset_type: EQUITY
+    industry: Software - Application
+    sector: Technology
+    exchange: STO
+  - ticker: BHG.ST
+    name: BHG Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Internet Retail
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: BICO.ST
+    name: BICO Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Medical Devices
+    sector: Healthcare
+    exchange: STO
+  - ticker: BINV.ST
+    name: BioInvent International AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Biotechnology
+    sector: Healthcare
+    exchange: STO
+  - ticker: BIOG-B.ST
+    name: BioGaia AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Drug Manufacturers - Specialty & Generic
+    sector: Healthcare
+    exchange: STO
+  - ticker: BMAX.ST
+    name: Byggmax Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Home Improvement Retail
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: BONAV-B.ST
+    name: Bonava AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Residential Construction
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: BOOZT.ST
+    name: Boozt AB
+    country: Denmark
+    currency: SEK
+    asset_type: EQUITY
+    industry: Apparel Retail
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: BRIN-B.ST
+    name: Brinova Fastigheter AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: BTS-B.ST
+    name: BTS Group AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Consulting Services
+    sector: Industrials
+    exchange: STO
+  - ticker: CAT-B.ST
+    name: Catella AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Asset Management
+    sector: Financial Services
+    exchange: STO
+  - ticker: CCC.ST
+    name: Cavotec Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Specialty Industrial Machinery
+    sector: Industrials
+    exchange: STO
+  - ticker: CEVI.ST
+    name: CellaVision AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Medical Devices
+    sector: Healthcare
+    exchange: STO
+  - ticker: CIBUS.ST
+    name: Cibus Real Estate AB (publ)
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate - Diversified
+    sector: Real Estate
+    exchange: STO
+  - ticker: CINT.ST
+    name: Cint Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Software - Application
+    sector: Technology
+    exchange: STO
+  - ticker: CLA-B.ST
+    name: Cloetta AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Confectioners
+    sector: Consumer Defensive
+    exchange: STO
+  - ticker: COOR.ST
+    name: Coor Service Management Holding
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Specialty Business Services
+    sector: Industrials
+    exchange: STO
+  - ticker: CTT.ST
+    name: CTT Systems AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Aerospace & Defense
+    sector: Industrials
+    exchange: STO
+  - ticker: DIOS.ST
+    name: Diös Fastigheter AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate - Diversified
+    sector: Real Estate
+    exchange: STO
+  - ticker: DUNI.ST
+    name: Duni AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Textile Manufacturing
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: DUST.ST
+    name: Dustin Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Information Technology Services
+    sector: Technology
+    exchange: STO
+  - ticker: EAST.ST
+    name: Eastnine AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: EGTX.ST
+    name: Egetis Therapeutics AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Biotechnology
+    sector: Healthcare
+    exchange: STO
+  - ticker: ELAN-B.ST
+    name: Elanders AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Integrated Freight & Logistics
+    sector: Industrials
+    exchange: STO
+  - ticker: EMIL-B.ST
+    name: Fastighetsbolaget Emilshus AB s
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: ENEA.ST
+    name: Enea AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Software - Infrastructure
+    sector: Technology
+    exchange: STO
+  - ticker: ENITY.ST
+    name: Enity Holding AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Mortgage Finance
+    sector: Financial Services
+    exchange: STO
+  - ticker: EPEN.ST
+    name: Ependion AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Communication Equipment
+    sector: Technology
+    exchange: STO
+  - ticker: EWRK.ST
+    name: Ework Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Staffing & Employment Services
+    sector: Industrials
+    exchange: STO
+  - ticker: FAG.ST
+    name: Fagerhult Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Electrical Equipment & Parts
+    sector: Industrials
+    exchange: STO
+  - ticker: FG.ST
+    name: Fasadgruppen Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Engineering & Construction
+    sector: Industrials
+    exchange: STO
+  - ticker: FLAT-B.ST
+    name: Flat Capital AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Asset Management
+    sector: Financial Services
+    exchange: STO
+  - ticker: FLERIE.ST
+    name: Flerie AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Biotechnology
+    sector: Healthcare
+    exchange: STO
+  - ticker: FMM-B.ST
+    name: FM Mattsson AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Building Products & Equipment
+    sector: Industrials
+    exchange: STO
+  - ticker: G2M.ST
+    name: Gentoo Media Inc.
+    country: Malta
+    currency: SEK
+    asset_type: EQUITY
+    industry: Gambling
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: GPG.ST
+    name: Genova Property Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: GREEN.ST
+    name: Green Landscaping Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Specialty Business Services
+    sector: Industrials
+    exchange: STO
+  - ticker: HANZA.ST
+    name: HANZA AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Electronic Components
+    sector: Technology
+    exchange: STO
+  - ticker: HEBA-B.ST
+    name: Heba Fastighets AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: HNSA.ST
+    name: Hansa Biopharma AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Biotechnology
+    sector: Healthcare
+    exchange: STO
+  - ticker: HOFI.ST
+    name: Hoist Finance AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Credit Services
+    sector: Financial Services
+    exchange: STO
+  - ticker: HTRO.ST
+    name: Hexatronic Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Communication Equipment
+    sector: Technology
+    exchange: STO
+  - ticker: HUM.ST
+    name: Humana AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Medical Care Facilities
+    sector: Healthcare
+    exchange: STO
+  - ticker: HUMBLE.ST
+    name: Humble Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Packaged Foods
+    sector: Consumer Defensive
+    exchange: STO
+  - ticker: INSTAL.ST
+    name: Instalco AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Engineering & Construction
+    sector: Industrials
+    exchange: STO
+  - ticker: INTEA-B.ST
+    name: Intea Fastigheter AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: INTRUM.ST
+    name: Intrum AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Credit Services
+    sector: Financial Services
+    exchange: STO
+  - ticker: INWI.ST
+    name: Inwido AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Building Products & Equipment
+    sector: Industrials
+    exchange: STO
+  - ticker: ITAB.ST
+    name: ITAB Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Business Equipment & Supplies
+    sector: Industrials
+    exchange: STO
+  - ticker: JOMA.ST
+    name: John Mattson Fastighetsföretag
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate - Diversified
+    sector: Real Estate
+    exchange: STO
+  - ticker: KABE-B.ST
+    name: KABE Group AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Recreational Vehicles
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: KAR.ST
+    name: Karnov Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Specialty Business Services
+    sector: Industrials
+    exchange: STO
+  - ticker: KARNEL-B.ST
+    name: Karnell Group AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Conglomerates
+    sector: Industrials
+    exchange: STO
+  - ticker: KFAST-B.ST
+    name: K-Fast Holding AB B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Residential Construction
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: KLARA-B.ST
+    name: KlaraBo Sverige AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: KNOW.ST
+    name: Knowit AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Information Technology Services
+    sector: Technology
+    exchange: STO
+  - ticker: LIME.ST
+    name: Lime Technologies AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Software - Application
+    sector: Technology
+    exchange: STO
+  - ticker: LOGI-B.ST
+    name: Logistea AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: MCAP.ST
+    name: MedCap AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Medical Devices
+    sector: Healthcare
+    exchange: STO
+  - ticker: MEKO.ST
+    name: MEKO AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Auto Parts
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: MER.ST
+    name: Meren Energy Inc.
+    country: Canada
+    currency: SEK
+    asset_type: EQUITY
+    industry: Oil & Gas E&P
+    sector: Energy
+    exchange: STO
+  - ticker: MILDEF.ST
+    name: Mildef Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Aerospace & Defense
+    sector: Industrials
+    exchange: STO
+  - ticker: MMGR-B.ST
+    name: Momentum Group AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Industrial Distribution
+    sector: Industrials
+    exchange: STO
+  - ticker: MORROW.ST
+    name: Morrow Bank AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Banks - Regional
+    sector: Financial Services
+    exchange: STO
+  - ticker: MTG-B.ST
+    name: 'Modern Times Group MTG AB ser. '
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Electronic Gaming & Multimedia
+    sector: Communication Services
+    exchange: STO
+  - ticker: NCAB.ST
+    name: NCAB Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Electronic Components
+    sector: Technology
+    exchange: STO
+  - ticker: NELLY.ST
+    name: Nelly Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Apparel Retail
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: NEOBO.ST
+    name: Neobo Fastigheter AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: NETI-B.ST
+    name: Net Insight AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Communication Equipment
+    sector: Technology
+    exchange: STO
+  - ticker: NIVI-B.ST
+    name: Nivika Fastigheter AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: NMAN.ST
+    name: Nederman Holding AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Specialty Industrial Machinery
+    sector: Industrials
+    exchange: STO
+  - ticker: NOBI.ST
+    name: Nobia AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Furnishings, Fixtures & Appliances
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: NORION.ST
+    name: Norion Bank AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Banks - Regional
+    sector: Financial Services
+    exchange: STO
+  - ticker: NOTE.ST
+    name: NOTE AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Electronic Components
+    sector: Technology
+    exchange: STO
+  - ticker: NTECH.ST
+    name: Stockholm Nordtech Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Software - Infrastructure
+    sector: Technology
+    exchange: STO
+  - ticker: ORES.ST
+    name: INVESTMENT AB ORESUND
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Asset Management
+    sector: Financial Services
+    exchange: STO
+  - ticker: ORRON.ST
+    name: null
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Utilities - Renewable
+    sector: Utilities
+    exchange: STO
+  - ticker: OVZON.ST
+    name: Ovzon AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Telecom Services
+    sector: Communication Services
+    exchange: STO
+  - ticker: PACT.ST
+    name: Proact IT Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Information Technology Services
+    sector: Technology
+    exchange: STO
+  - ticker: PCELL.ST
+    name: PowerCell Sweden AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Electrical Equipment & Parts
+    sector: Industrials
+    exchange: STO
+  - ticker: PLAZ-B.ST
+    name: 'Platzer Fastigheter Holding AB '
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: PRISMA.ST
+    name: Prisma Properties AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate - Development
+    sector: Real Estate
+    exchange: STO
+  - ticker: RATO-B.ST
+    name: Ratos AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Engineering & Construction
+    sector: Industrials
+    exchange: STO
+  - ticker: RAY-B.ST
+    name: 'RaySearch Laboratories AB ser. '
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Health Information Services
+    sector: Healthcare
+    exchange: STO
+  - ticker: REJL-B.ST
+    name: Rejlers AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Consulting Services
+    sector: Industrials
+    exchange: STO
+  - ticker: RUSTA.ST
+    name: Rusta AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Department Stores
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: RVRC.ST
+    name: RVRC Holding AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Apparel Retail
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: SALIX.ST
+    name: Salix Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Industrial Distribution
+    sector: Industrials
+    exchange: STO
+  - ticker: SBB-B.ST
+    name: Samhällsbyggnadsbo. i Norden A
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: SCST.ST
+    name: Scandi Standard AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Packaged Foods
+    sector: Consumer Defensive
+    exchange: STO
+  - ticker: SDIP-B.ST
+    name: Sdiptech AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Conglomerates
+    sector: Industrials
+    exchange: STO
+  - ticker: SF.ST
+    name: Stillfront Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Electronic Gaming & Multimedia
+    sector: Communication Services
+    exchange: STO
+  - ticker: SFAST.ST
+    name: Stenhus Fastigheter i Norden AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: SILEX.ST
+    name: Silex Microsystems AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Semiconductor Equipment & Materials
+    sector: Technology
+    exchange: STO
+  - ticker: SLP-B.ST
+    name: Swedish Logistic Property AB se
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: SMCRT.ST
+    name: SmartCraft Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Software - Application
+    sector: Technology
+    exchange: STO
+  - ticker: STEF-B.ST
+    name: Stendörren Fastigheter AB ser.
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate - Diversified
+    sector: Real Estate
+    exchange: STO
+  - ticker: STORY-B.ST
+    name: Storytel AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Publishing
+    sector: Communication Services
+    exchange: STO
+  - ticker: SVEAF.ST
+    name: Sveafastigheter AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate Services
+    sector: Real Estate
+    exchange: STO
+  - ticker: SVED-B.ST
+    name: Svedbergs Group AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Building Products & Equipment
+    sector: Industrials
+    exchange: STO
+  - ticker: SYNSAM.ST
+    name: Synsam AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Medical Instruments & Supplies
+    sector: Healthcare
+    exchange: STO
+  - ticker: TANGEN-B.ST
+    name: null
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Specialty Business Services
+    sector: Industrials
+    exchange: STO
+  - ticker: TDVOX.ST
+    name: null
+    country: null
+    currency: null
+    asset_type: NONE
+    industry: null
+    sector: null
+    exchange: null
+  - ticker: TRAC-B.ST
+    name: Traction AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Asset Management
+    sector: Financial Services
+    exchange: STO
+  - ticker: TRIAN-B.ST
+    name: Fastighets AB Trianon ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Real Estate - Diversified
+    sector: Real Estate
+    exchange: STO
+  - ticker: VBG-B.ST
+    name: VBG GROUP AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Auto Parts
+    sector: Consumer Cyclical
+    exchange: STO
+  - ticker: VESTUM.ST
+    name: Vestum AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Engineering & Construction
+    sector: Industrials
+    exchange: STO
+  - ticker: VICO.ST
+    name: Vicore Pharma Holding AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Biotechnology
+    sector: Healthcare
+    exchange: STO
+  - ticker: VISC.ST
+    name: Gruvaktiebolaget Viscaria
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Other Industrial Metals & Mining
+    sector: Basic Materials
+    exchange: STO
+  - ticker: VIVA.ST
+    name: Viva Wine Group AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Beverages - Wineries & Distilleries
+    sector: Consumer Defensive
+    exchange: STO
+  - ticker: VNV.ST
+    name: VNV Global AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Asset Management
+    sector: Financial Services
+    exchange: STO
+  - ticker: VOLO.ST
+    name: Volati AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Conglomerates
+    sector: Industrials
+    exchange: STO
+  - ticker: VPLAY-B.ST
+    name: Viaplay Group AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Entertainment
+    sector: Communication Services
+    exchange: STO
+  - ticker: XANO-B.ST
+    name: XANO Industri AB ser. B
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Specialty Industrial Machinery
+    sector: Industrials
+    exchange: STO
+  - ticker: XVIVO.ST
+    name: Xvivo Perfusion AB
+    country: Sweden
+    currency: SEK
+    asset_type: EQUITY
+    industry: Medical Devices
+    sector: Healthcare
+    exchange: STO
