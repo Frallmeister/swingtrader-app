@@ -119,5 +119,3 @@ class UniverseConfigError(Exception):
 
 if __name__ == "__main__":
     out = resolve_active_tickers()
-
-
