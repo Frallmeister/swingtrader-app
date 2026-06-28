@@ -1,5 +1,9 @@
-"""
-MODULE DOCSTRING
+"""Resolve the active ticker universe from packaged YAML configuration.
+
+This module reads ``active_tickers.yml`` and the referenced available universe files,
+then returns the sorted set of tickers that should be ingested. It validates that
+included and excluded tickers exist in their configured universe and that referenced
+universe files do not overlap.
 """
 
 from importlib.resources import files
@@ -115,7 +119,3 @@ class UniverseConfigError(Exception):
     def __init__(self, message: str):
         self.message = message
         super().__init__(self.message)
-
-
-if __name__ == "__main__":
-    out = resolve_active_tickers()
