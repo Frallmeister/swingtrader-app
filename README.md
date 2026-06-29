@@ -55,6 +55,33 @@ uv run pytest
 
 Keep application code in `src/swingtrader` and tests in `tests`. Commit `uv.lock` for reproducible installs.
 
+## Historical Bronze Ingestion
+
+Historical daily market data ingestion is available as a library function. It resolves active
+tickers when no explicit ticker list is provided, downloads yfinance daily prices, and upserts
+the resulting rows into `bronze_market_daily_prices`.
+
+By default, local ingestion uses SQLite at `data/swingtrader.sqlite`. Set
+`SWINGTRADER_DATABASE_URL` to override this, for example when using PostgreSQL or a different
+SQLite file.
+
+```python
+from datetime import date
+
+from swingtrader.data.ingestion.market_data import ingest_historical_daily_prices
+
+result = ingest_historical_daily_prices(
+	start_date=date(2024, 1, 1),
+	end_date=date(2024, 2, 1),
+	limit=3,
+)
+
+print(result)
+```
+
+This is intentionally not exposed as a command yet. The runnable daily update job is tracked
+separately and will wrap this library surface later.
+
 ## Copyright
 
 Copyright © 2026 [Fredrik Hansson]. All rights reserved.
