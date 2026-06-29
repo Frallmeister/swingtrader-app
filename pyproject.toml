@@ -75,3 +75,6 @@ addopts = [
     "--strict-config",
     "--strict-markers",
 ]
+
+[tool.mypy]
+disable_error_code = ["import-untyped"]

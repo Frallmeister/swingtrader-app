@@ -5,8 +5,8 @@ from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
-import pandas as pd  # type: ignore[import-untyped]
-import yfinance as yf  # type: ignore[import-untyped]
+import pandas as pd
+import yfinance as yf
 
 PROVIDER = "yfinance"
 
