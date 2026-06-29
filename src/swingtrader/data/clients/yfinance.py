@@ -137,6 +137,7 @@ def normalize_daily_prices(
 
 
 def _normalize_tickers(tickers: Sequence[str]) -> tuple[str, ...]:
+    # dict.fromkeys preserves first-seen order while removing duplicates.
     normalized_tickers = tuple(
         dict.fromkeys(ticker.strip() for ticker in tickers if ticker.strip())
     )
