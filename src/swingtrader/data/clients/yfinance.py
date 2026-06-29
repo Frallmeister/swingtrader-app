@@ -165,6 +165,8 @@ def _to_ticker_first_prices(raw_prices: pd.DataFrame, tickers: tuple[str, ...]) 
             raise ValueError(msg)
         return pd.concat({tickers[0]: raw_prices}, axis=1)
 
+    # yfinance may return columns as either (ticker, field) or (field, ticker).
+    # Find the level containing requested tickers, then swap only field-first data.
     for ticker_level in (0, 1):
         ticker_mask = raw_prices.columns.get_level_values(ticker_level).isin(tickers)
         if ticker_mask.any():
