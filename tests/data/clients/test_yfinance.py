@@ -18,7 +18,8 @@ def test_normalize_daily_prices_converts_ticker_first_columns_to_bronze_rows() -
             [
                 ["AAK.ST", "VOLV-B.ST"],
                 ["Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits"],
-            ]
+            ],
+            names=["Ticker", "Price"],
         ),
     )
 
@@ -30,6 +31,7 @@ def test_normalize_daily_prices_converts_ticker_first_columns_to_bronze_rows() -
     )
 
     assert list(prices.columns) == yfinance_client.DAILY_PRICE_COLUMNS
+    assert prices.columns.name is None
     assert len(prices) == 4
 
     first_row = prices.iloc[0]
@@ -89,6 +91,25 @@ def test_normalize_daily_prices_converts_field_first_columns_to_bronze_rows() ->
     assert prices.loc[1, "ticker"] == "VOLV-B.ST"
     assert prices.loc[1, "open"] == 20.0
     assert prices.loc[1, "close"] == 20.5
+
+
+def test_normalize_daily_prices_converts_single_ticker_flat_columns() -> None:
+    raw_prices = pd.DataFrame(
+        data=[[10.0, 10.5]],
+        index=pd.to_datetime(["2026-06-26"]),
+        columns=["Open", "Close"],
+    )
+
+    prices = yfinance_client.normalize_daily_prices(
+        raw_prices,
+        tickers=["AAK.ST"],
+        fetched_at=datetime(2026, 6, 29, 9, 30, tzinfo=UTC),
+        request_id="test-request",
+    )
+
+    assert prices.loc[0, "ticker"] == "AAK.ST"
+    assert prices.loc[0, "open"] == 10.0
+    assert prices.loc[0, "close"] == 10.5
 
 
 def test_download_daily_prices_calls_yfinance_and_normalizes_response(

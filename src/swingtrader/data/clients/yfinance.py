@@ -36,6 +36,7 @@ YFINANCE_FIELD_MAP = {
     "dividends": "Dividends",
     "stock_splits": "Stock Splits",
 }
+YFINANCE_TO_BRONZE_COLUMNS = {value: key for key, value in YFINANCE_FIELD_MAP.items()}
 
 logger = logging.getLogger(__name__)
 
@@ -100,24 +101,27 @@ def normalize_daily_prices(
     if raw_prices.empty:
         return _empty_daily_prices()
 
-    rows = []
-    for ticker in normalized_tickers:
-        ticker_prices = _select_ticker_prices(raw_prices=raw_prices, ticker=ticker)
-        if ticker_prices is None or ticker_prices.empty:
-            continue
-        rows.append(
-            _normalize_ticker_prices(
-                ticker_prices=ticker_prices,
-                ticker=ticker,
-                fetched_at=normalized_fetched_at,
-                request_id=request_id,
-            )
-        )
-
-    if not rows:
+    ticker_first_prices = _to_ticker_first_prices(
+        raw_prices=raw_prices,
+        tickers=normalized_tickers,
+    )
+    if ticker_first_prices.empty:
         return _empty_daily_prices()
 
-    prices = pd.concat(rows, ignore_index=True)
+    prices = (
+        ticker_first_prices.stack(level=0)
+        .rename_axis(index=["trading_date", "ticker"], columns=None)
+        .reset_index()
+        .rename(columns=YFINANCE_TO_BRONZE_COLUMNS)
+    )
+    prices["trading_date"] = pd.to_datetime(prices["trading_date"]).dt.date
+    prices["provider"] = PROVIDER
+    prices["fetched_at"] = normalized_fetched_at
+    prices["request_id"] = request_id
+    for output_column in YFINANCE_FIELD_MAP:
+        if output_column not in prices:
+            prices[output_column] = pd.NA
+
     prices = prices.dropna(
         how="all",
         subset=[
@@ -131,9 +135,10 @@ def normalize_daily_prices(
             "stock_splits",
         ],
     )
-    return (
+    normalized_prices = (
         prices[DAILY_PRICE_COLUMNS].sort_values(["ticker", "trading_date"]).reset_index(drop=True)
     )
+    return normalized_prices
 
 
 def _normalize_tickers(tickers: Sequence[str]) -> tuple[str, ...]:
@@ -152,42 +157,23 @@ def _normalize_fetched_at(fetched_at: datetime) -> datetime:
     return fetched_at.astimezone(UTC)
 
 
-def _select_ticker_prices(raw_prices: pd.DataFrame, ticker: str) -> pd.DataFrame | None:
+def _to_ticker_first_prices(raw_prices: pd.DataFrame, tickers: tuple[str, ...]) -> pd.DataFrame:
+    """Return prices with MultiIndex columns ordered as ticker, then yfinance field."""
     if not isinstance(raw_prices.columns, pd.MultiIndex):
-        return raw_prices.copy()
+        if len(tickers) > 1:
+            msg = "Non-hierarchical yfinance data can only be normalized for one ticker."
+            raise ValueError(msg)
+        return pd.concat({tickers[0]: raw_prices}, axis=1)
 
-    if ticker in raw_prices.columns.get_level_values(0):
-        return raw_prices[ticker].copy()
-    if ticker in raw_prices.columns.get_level_values(1):
-        return raw_prices.xs(ticker, axis=1, level=1).copy()
-    return None
+    for ticker_level in (0, 1):
+        ticker_mask = raw_prices.columns.get_level_values(ticker_level).isin(tickers)
+        if ticker_mask.any():
+            ticker_prices = raw_prices.loc[:, ticker_mask].copy()
+            if ticker_level == 0:
+                return ticker_prices
+            return ticker_prices.swaplevel(0, 1, axis=1).sort_index(axis=1, level=0)
 
-
-def _normalize_ticker_prices(
-    ticker_prices: pd.DataFrame,
-    *,
-    ticker: str,
-    fetched_at: datetime,
-    request_id: str,
-) -> pd.DataFrame:
-    normalized = pd.DataFrame(
-        {
-            "provider": PROVIDER,
-            "ticker": ticker,
-            "trading_date": pd.to_datetime(ticker_prices.index).date,
-            "fetched_at": fetched_at,
-            "request_id": request_id,
-        }
-    )
-    for output_column, source_column in YFINANCE_FIELD_MAP.items():
-        normalized[output_column] = _get_optional_column(ticker_prices, source_column)
-    return normalized
-
-
-def _get_optional_column(ticker_prices: pd.DataFrame, source_column: str) -> pd.Series:
-    if source_column in ticker_prices:
-        return ticker_prices[source_column].reset_index(drop=True)
-    return pd.Series([pd.NA] * len(ticker_prices))
+    return raw_prices.iloc[:, 0:0].copy()
 
 
 def _empty_daily_prices() -> pd.DataFrame:
