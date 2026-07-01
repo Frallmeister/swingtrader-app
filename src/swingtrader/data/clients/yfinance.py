@@ -70,7 +70,7 @@ def download_daily_prices(
         actions=True,
         auto_adjust=False,
         progress=False,
-        threads=True,
+        threads=len(normalized_tickers) > 1,
     )
     prices = normalize_daily_prices(
         raw_prices,

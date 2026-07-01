@@ -150,7 +150,7 @@ def test_download_daily_prices_calls_yfinance_and_normalizes_response(
             "actions": True,
             "auto_adjust": False,
             "progress": False,
-            "threads": True,
+            "threads": False,
         }
     ]
     assert prices.loc[0, "ticker"] == "AAK.ST"

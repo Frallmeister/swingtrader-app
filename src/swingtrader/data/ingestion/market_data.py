@@ -61,7 +61,57 @@ def ingest_historical_daily_prices(
     request_id: str | None = None,
     raise_on_failure: bool = False,
 ) -> IngestionResult:
-    """Download historical daily prices and upsert them into bronze storage."""
+    """Download historical daily prices and upsert them into bronze storage.
+
+    Parameters
+    ----------
+    start_date
+        Inclusive start date passed to the market data provider.
+    end_date
+        Exclusive end date passed to the market data provider. Must be later than
+        ``start_date``.
+    tickers
+        Optional ticker symbols to ingest. When omitted, active tickers are resolved from the
+        packaged universe configuration.
+    limit
+        Optional maximum number of resolved tickers to ingest. This is intended for small
+        smoke runs and is applied after explicit or active tickers have been normalized.
+    database_url
+        Optional SQLAlchemy database URL. Mutually exclusive with ``engine``.
+    engine
+        Optional SQLAlchemy engine. Passing an engine is useful for tests and callers that
+        already manage database connections. Mutually exclusive with ``database_url``.
+    fetched_at
+        Timestamp recorded on all downloaded rows. When omitted, the current UTC time is used.
+    request_id
+        Provenance identifier recorded on all downloaded rows and returned in the result.
+        When omitted, a UUID is generated.
+    raise_on_failure
+        When ``False``, per-ticker failures are recorded in the result and ingestion
+        continues. When ``True``, ``MarketDataIngestionError`` is raised after all tickers
+        have been attempted if any ticker failed.
+
+    Returns
+    -------
+    IngestionResult
+        Summary of the ingestion run, including provider, request id, requested date range,
+        attempted tickers, row counts, and per-ticker failures.
+
+    Raises
+    ------
+    ValueError
+        Raised when the date range is invalid, both ``database_url`` and ``engine`` are
+        provided, ``limit`` is less than one, or no tickers resolve for ingestion.
+    MarketDataIngestionError
+        Raised when at least one ticker failed and ``raise_on_failure`` is ``True``. The
+        exception carries the partial ``IngestionResult`` on ``.result``.
+
+    Notes
+    -----
+    Tickers are ingested one at a time so a provider or write failure for one ticker does not
+    prevent successful tickers from being written. The database schema is initialized before
+    ingestion begins.
+    """
     if start_date >= end_date:
         raise ValueError("start_date must be before end_date.")
     if engine is not None and database_url is not None:

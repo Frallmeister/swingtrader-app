@@ -19,7 +19,35 @@ BRONZE_MARKET_DAILY_PRICE_UPDATE_COLUMNS = tuple(
 
 
 def upsert_daily_prices(prices: pd.DataFrame, engine: Engine) -> int:
-    """Insert or update bronze daily price rows by provider, ticker, and date."""
+    """Insert or update bronze daily price rows by provider, ticker, and date.
+
+    Parameters
+    ----------
+    prices
+        DataFrame containing the bronze daily price columns defined by
+        ``bronze_market_daily_prices``. Extra columns are ignored; missing required columns
+        raise ``ValueError``.
+    engine
+        SQLAlchemy engine for the destination database. SQLite and PostgreSQL are supported.
+
+    Returns
+    -------
+    int
+        Number of input rows submitted to the upsert statement. Empty DataFrames are treated
+        as a no-op and return ``0``.
+
+    Raises
+    ------
+    ValueError
+        Raised when required bronze columns are missing or when the engine dialect is not
+        supported for idempotent upserts.
+
+    Notes
+    -----
+    Rows are matched on ``provider``, ``ticker``, and ``trading_date``. On conflict, all
+    market value columns plus ``fetched_at`` and ``request_id`` are updated from the incoming
+    row.
+    """
     _validate_daily_price_columns(prices.columns)
     if prices.empty:
         return 0
@@ -39,6 +67,7 @@ def _validate_daily_price_columns(columns: Iterable[str]) -> None:
 
 
 def _to_database_rows(prices: pd.DataFrame) -> list[dict[str, object]]:
+    # pandas represent missing values as e.g. NaN and NaT. Databases expect None with SQLAlchemy.
     database_prices = prices.astype(object).where(pd.notna(prices), None)
     return list(database_prices.to_dict(orient="records"))
 
