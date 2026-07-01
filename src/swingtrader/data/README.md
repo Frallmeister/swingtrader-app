@@ -36,7 +36,11 @@ Operational commands belong in `jobs`. Jobs should be thin orchestration layers 
 
 ## Universe and Ticker Onboarding
 
-Universe configuration defines desired ticker membership. Available universe files, such as Swedish Large Cap, describe which tickers can be considered. The active ticker configuration describes which tickers the model is allowed to train on or trade.
+Universe configuration defines desired ticker membership. Available universe files, such as Swedish Large Cap, describe which tickers can be considered. These YAML files are curated, committed artifacts. They can be generated or refreshed with local/bootstrap utilities, but normal application runtime should consume the checked-in files rather than creating them.
+
+Ticker universe generation is a development workflow. Use `notebooks/workflows/data/00_create_ticker_universes.ipynb` or the helpers in `swingtrader.data.ingestion.universe` to fetch provider metadata and write universe YAML files to explicit output paths. File writing is safe by default and refuses to overwrite an existing file unless `overwrite=True` is passed.
+
+Ticker universe consumption is runtime application logic. The active ticker resolver reads `active_tickers.yml` and the referenced curated universe files from `swingtrader.configs.universes`. The active ticker configuration describes the production/trading universe: tickers the deployed app should keep updated and rank as possible trade candidates. Future training universe configuration may be broader than the active trading universe.
 
 Activating a ticker should be treated as a data onboarding event. Adding a ticker to the active configuration means the ticker is allowed, but it does not by itself mean that the ticker is ready for inference or eligible for training. The data layer should eventually provide workflows that compare the desired active universe with the data already present in the database and then backfill any missing tickers.
 
