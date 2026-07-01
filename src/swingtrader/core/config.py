@@ -1,4 +1,4 @@
-"""Application configuration helpers."""
+"""Configuration helpers for resolving application database settings."""
 
 import os
 from pathlib import Path

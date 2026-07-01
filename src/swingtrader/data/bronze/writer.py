@@ -1,4 +1,8 @@
-"""Writers for bronze market data tables."""
+"""Persist normalized market data into bronze tables.
+
+Writer functions accept bronze-shaped DataFrames and use database upserts so reruns update
+existing source rows instead of creating duplicates.
+"""
 
 from collections.abc import Iterable
 

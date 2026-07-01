@@ -1,4 +1,7 @@
-"""Database engine and schema helpers."""
+"""Database engine and schema initialization helpers.
+
+These helpers centralize SQLAlchemy engine creation and early application table setup.
+"""
 
 from pathlib import Path
 

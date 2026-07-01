@@ -1,4 +1,8 @@
-"""Historical market data ingestion orchestration."""
+"""Orchestrate historical market data ingestion into bronze storage.
+
+This module resolves requested tickers, delegates provider downloads to the yfinance client,
+and delegates idempotent persistence to the bronze writer.
+"""
 
 import logging
 from collections.abc import Sequence
