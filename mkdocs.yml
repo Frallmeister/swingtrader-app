@@ -1,0 +1,70 @@
+site_name: Swingtrader App
+site_description: Personal swing-trading decision support with a data-first architecture.
+repo_url: https://github.com/Frallmeister/swingtrader-app
+docs_dir: docs
+site_dir: site
+use_directory_urls: false
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - search.suggest
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - src
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_root_heading: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Development Workflow: getting-started/development.md
+      - First Ingestion: getting-started/first-ingestion.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Roadmap: architecture/roadmap.md
+      - Trading Objective: architecture/trading-objective.md
+      - Ticker Universes: architecture/ticker-universes.md
+  - Data:
+      - Overview: data/overview.md
+      - Ingestion: data/ingestion.md
+      - Bronze Storage: data/bronze.md
+      - Ticker Onboarding: data/ticker-onboarding.md
+      - Features: data/features.md
+  - Modeling:
+      - Overview: modeling/overview.md
+      - Target and Evaluation: modeling/target-and-evaluation.md
+  - Deployment:
+      - Render: deployment/render.md
+  - Operations:
+      - Daily Runbook: operations/daily-runbook.md
+      - Troubleshooting: operations/troubleshooting.md
+  - Reference:
+      - Glossary: reference/glossary.md
+      - API Reference: reference/api.md

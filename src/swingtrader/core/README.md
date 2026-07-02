@@ -2,6 +2,11 @@
 
 Shared infrastructure and contracts used across the project. This package should stay lightweight and contain only stable code that can be safely imported by the data, modeling, and web packages, such as configuration, database connection helpers, shared schemas, logging setup, and symbol metadata.
 
+See also:
+
+- [Architecture overview](../../../docs/architecture/overview.md)
+- [Operations troubleshooting](../../../docs/operations/troubleshooting.md)
+
 ## Logging
 
 Runnable entrypoints such as jobs, scripts, and notebooks should configure logging once before calling application code:
