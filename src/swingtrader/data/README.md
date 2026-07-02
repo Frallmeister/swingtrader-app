@@ -42,9 +42,9 @@ Ticker universe generation is a development workflow. Use `notebooks/workflows/d
 
 Ticker universe consumption is runtime application logic. The active ticker resolver reads `active_tickers.yml` and the referenced curated universe files from `swingtrader.configs.universes`. The active ticker configuration describes the production/trading universe: tickers the deployed app should keep updated and rank as possible trade candidates. Future training universe configuration may be broader than the active trading universe.
 
-Activating a ticker should be treated as a data onboarding event. Adding a ticker to the active configuration means the ticker is allowed, but it does not by itself mean that the ticker is ready for inference or eligible for training. The data layer should eventually provide workflows that compare the desired active universe with the data already present in the database and then backfill any missing tickers.
+Activating a ticker should be treated as a data onboarding event. Adding a ticker to the active configuration means the ticker is allowed, but it does not by itself mean that the ticker is ready for inference or eligible for training. The bronze onboarding sync workflow in `swingtrader.data.ingestion.onboarding` compares the desired active universe with `bronze_market_daily_prices`, reports active tickers as missing or onboarded, and can backfill missing tickers through the historical ingestion path.
 
-The intended onboarding workflow is:
+The broader intended onboarding workflow is:
 
 1. Validate that the ticker exists in an available universe.
 2. Download historical market data for the ticker.
@@ -53,6 +53,8 @@ The intended onboarding workflow is:
 5. Validate that required data and features are complete enough for inference and future training.
 
 This makes the active ticker configuration the desired state and the database the actual state. Daily update jobs can then focus on already-onboarded active tickers, while a separate sync or activation job can handle newly active tickers that require historical backfill.
+
+The current onboarding sync is bronze-only. A ticker is considered onboarded once any bronze daily price rows exist for it. Feature generation, inference readiness, training eligibility, historical completeness, and persisted onboarding status remain separate follow-up concerns.
 
 ## Bronze Data Principles
 
