@@ -1,6 +1,6 @@
 # First Ingestion
 
-This page shows the current library-level data workflow. A runnable daily update command is planned, but not implemented yet.
+This page shows the first useful local data workflows: the runnable daily market data job and the lower-level library functions it wraps.
 
 ## Database
 
@@ -12,7 +12,25 @@ Example PowerShell override:
 $env:SWINGTRADER_DATABASE_URL = "sqlite+pysqlite:///data/swingtrader.sqlite"
 ```
 
-## Historical Daily Prices
+## Daily Market Data Job
+
+The daily market data job is the preferred local entrypoint for updating bronze daily market prices for the active trading universe:
+
+```powershell
+uv run python -m swingtrader.data.jobs.update_market_data --limit 3
+```
+
+The job reads active tickers, derives per-ticker update plans from existing bronze rows, and calls the historical ingestion library for each ticker.
+
+For tickers with no bronze rows, the first run starts from `initial_start_date` in `src/swingtrader/configs/market_data.yml`. The current configured start date is `2000-01-01`.
+
+Use an explicit exclusive end date for deterministic local runs:
+
+```powershell
+uv run python -m swingtrader.data.jobs.update_market_data --limit 3 --end-date 2026-07-04
+```
+
+## Historical Daily Prices Library
 
 Historical daily market data ingestion resolves active tickers when no explicit ticker list is provided, downloads yfinance daily prices, and ingests the normalized records into the bronze layer by upserting rows into `bronze_market_daily_prices`.
 

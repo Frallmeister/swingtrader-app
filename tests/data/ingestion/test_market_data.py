@@ -7,7 +7,7 @@ from sqlalchemy.engine import Engine
 
 from swingtrader.data.bronze.schema import bronze_market_daily_prices
 from swingtrader.data.clients.yfinance import DAILY_PRICE_COLUMNS
-from swingtrader.data.ingestion import market_data
+from swingtrader.data.ingestion import market_data, universe_selection
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def test_ingest_historical_daily_prices_writes_explicit_tickers(
             request_id=kwargs["request_id"],
         )
 
-    monkeypatch.setattr(market_data, "resolve_active_tickers", fail_if_called)
+    monkeypatch.setattr(universe_selection, "resolve_active_tickers", fail_if_called)
     monkeypatch.setattr(
         market_data.yfinance_client,
         "download_daily_prices",
@@ -76,7 +76,9 @@ def test_ingest_historical_daily_prices_limits_active_tickers(
         calls.append(ticker)
         return pd.DataFrame(columns=DAILY_PRICE_COLUMNS)
 
-    monkeypatch.setattr(market_data, "resolve_active_tickers", lambda: ["AAK.ST", "BOL.ST"])
+    monkeypatch.setattr(
+        universe_selection, "resolve_active_tickers", lambda config_dir=None: ["AAK.ST", "BOL.ST"]
+    )
     monkeypatch.setattr(
         market_data.yfinance_client,
         "download_daily_prices",

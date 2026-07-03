@@ -12,10 +12,11 @@ from uuid import uuid4
 
 from sqlalchemy.engine import Engine
 
-from swingtrader.core.db import create_database_engine, initialize_database
+from swingtrader.core.db import resolve_database_engine
 from swingtrader.data.bronze.writer import upsert_daily_prices
 from swingtrader.data.clients import yfinance as yfinance_client
-from swingtrader.data.ingestion.universe_selection import resolve_active_tickers
+from swingtrader.data.ingestion.universe_selection import resolve_requested_tickers
+from swingtrader.data.ingestion.validation import validate_date_window
 
 logger = logging.getLogger(__name__)
 
@@ -116,16 +117,12 @@ def ingest_historical_daily_prices(
     prevent successful tickers from being written. The database schema is initialized before
     ingestion begins.
     """
-    if start_date >= end_date:
-        raise ValueError("start_date must be before end_date.")
-    if engine is not None and database_url is not None:
-        raise ValueError("Pass either engine or database_url, not both.")
+    validate_date_window(start_date=start_date, end_date=end_date)
 
-    resolved_tickers = _resolve_requested_tickers(tickers=tickers, limit=limit)
+    resolved_tickers = resolve_requested_tickers(tickers=tickers, limit=limit)
     resolved_fetched_at = fetched_at or datetime.now(UTC)
     resolved_request_id = request_id or str(uuid4())
-    resolved_engine = engine or create_database_engine(database_url)
-    initialize_database(resolved_engine)
+    resolved_engine = resolve_database_engine(database_url=database_url, engine=engine)
 
     logger.info(
         "Starting historical daily price ingestion provider=%s tickers=%s start_date=%s "
@@ -192,22 +189,3 @@ def ingest_historical_daily_prices(
     if result.failures and raise_on_failure:
         raise MarketDataIngestionError(result)
     return result
-
-
-def _resolve_requested_tickers(
-    *,
-    tickers: Sequence[str] | None,
-    limit: int | None,
-) -> tuple[str, ...]:
-    if limit is not None and limit < 1:
-        raise ValueError("limit must be greater than zero.")
-
-    requested_tickers = tickers if tickers is not None else resolve_active_tickers()
-    normalized_tickers = tuple(
-        dict.fromkeys(ticker.strip() for ticker in requested_tickers if ticker.strip())
-    )
-    if not normalized_tickers:
-        raise ValueError("At least one ticker is required.")
-    if limit is None:
-        return normalized_tickers
-    return normalized_tickers[:limit]

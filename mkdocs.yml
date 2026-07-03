@@ -49,6 +49,7 @@ nav:
   - Tutorials:
       - Run Local Checks: tutorials/run-local-checks.md
       - Update Dependencies: tutorials/update-dependencies.md
+      - Update Market Data: tutorials/update-market-data.md
       - Preview Documentation: tutorials/preview-documentation.md
   - Architecture:
       - Overview: architecture/overview.md

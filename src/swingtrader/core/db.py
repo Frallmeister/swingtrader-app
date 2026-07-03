@@ -52,6 +52,38 @@ def initialize_database(engine: Engine) -> None:
     metadata.create_all(engine)
 
 
+def resolve_database_engine(
+    *,
+    database_url: str | None = None,
+    engine: Engine | None = None,
+    initialize: bool = True,
+) -> Engine:
+    """Return an application database engine, optionally initializing known tables.
+
+    Parameters
+    ----------
+    database_url
+        Optional SQLAlchemy database URL. Mutually exclusive with ``engine``.
+    engine
+        Optional already-created SQLAlchemy engine. Useful for tests or callers that manage
+        engine lifecycle themselves. Mutually exclusive with ``database_url``.
+    initialize
+        Whether to create known application tables before returning the engine.
+
+    Returns
+    -------
+    Engine
+        Existing or newly created SQLAlchemy engine.
+    """
+    if engine is not None and database_url is not None:
+        raise ValueError("Pass either engine or database_url, not both.")
+
+    resolved_engine = engine or create_database_engine(database_url)
+    if initialize:
+        initialize_database(resolved_engine)
+    return resolved_engine
+
+
 def _ensure_sqlite_parent_directory(database_url: str) -> None:
     url = make_url(database_url)
     database_path = url.database

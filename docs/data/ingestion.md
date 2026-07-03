@@ -32,6 +32,22 @@ The onboarding sync checks whether active tickers exist in bronze storage. It cl
 
 Backfill only targets missing tickers. Historical completeness is intentionally out of scope and belongs to future readiness and eligibility rules.
 
-## Planned Daily Job
+## Daily Market Data Job
 
-A runnable daily update job is planned. It should wrap existing ingestion functions rather than reimplementing provider download or bronze upsert logic.
+The implemented daily update job runs with:
+
+```powershell
+uv run python -m swingtrader.data.jobs.update_market_data
+```
+
+It wraps existing ingestion functions rather than reimplementing provider download or bronze upsert logic.
+
+The job resolves active tickers as the deployed trading universe and reads bronze daily price state for each ticker. Planned updates are derived per ticker:
+
+- tickers with no bronze rows start from `initial_start_date` in `src/swingtrader/configs/market_data.yml`;
+- tickers with existing bronze rows start from their latest stored `trading_date`;
+- tickers whose start date is not before the exclusive end date are skipped.
+
+Starting from the latest stored date intentionally overlaps one stored row. The bronze writer uses idempotent upserts, so reruns update existing rows instead of duplicating them and can pick up provider corrections for the latest stored date.
+
+The job does not refresh features, run inference, or apply readiness filtering yet.
