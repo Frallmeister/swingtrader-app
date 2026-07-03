@@ -28,4 +28,5 @@ Provider details belong in `clients`. Retrieval decisions belong in `ingestion`.
 - Feature tables.
 - Macro data clients and ingestion.
 - Data quality and readiness checks.
+- Market data quality summaries, such as available history length per ticker.
 - Production data freshness monitoring.

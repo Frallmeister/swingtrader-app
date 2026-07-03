@@ -1,10 +1,12 @@
 # Daily Runbook
 
-The production-style daily workflow is planned. This page records the intended operating model so future job work has a clear target.
+This page describes the planned automated daily workflow that should eventually run as a scheduled server job. It is not intended to be a manual checklist for a user to perform every day.
 
-## Current Local Checks
+The page exists now so the future daily update job has a clear operating target.
 
-Today, daily update behavior is available only as library functions.
+## Current Developer Checks
+
+Today, the scheduled job does not exist yet. The commands below are developer checks for the implemented library functions, not the intended production workflow.
 
 Useful local checks:
 
@@ -12,7 +14,7 @@ Useful local checks:
 uv run pytest tests/data/ingestion/test_market_data.py tests/data/ingestion/test_onboarding.py
 ```
 
-## Planned Daily Update Flow
+## Planned Automated Daily Update Flow
 
 1. Configure logging.
 2. Resolve active tickers.

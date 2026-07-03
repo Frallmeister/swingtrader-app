@@ -17,7 +17,7 @@ For full local development, including notebooks and documentation, run:
 uv sync --all-extras --dev --group notebook --group docs
 ```
 
-This installs application extras, development tools, Jupyter tooling, and MkDocs tooling.
+This installs application extras, development tools, notebook tooling, and documentation tooling. Day-to-day documentation commands are listed in the [development workflow](development.md).
 
 ## Windows Hardlink Warning
 
@@ -47,16 +47,3 @@ uv run nbstripout --install
 
 Notebook code should be treated as exploratory or workflow-oriented. Stable reusable logic should move into `src/swingtrader`.
 
-## Documentation Tooling
-
-Serve the documentation locally with:
-
-```powershell
-uv run mkdocs serve
-```
-
-Build the static documentation site with:
-
-```powershell
-uv run mkdocs build --strict
-```

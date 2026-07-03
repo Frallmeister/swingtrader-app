@@ -18,11 +18,15 @@ docs/         Project documentation and planning material.
 
 Format check:
 
+This checks whether source and test files already match the repository's Ruff formatting rules without rewriting files.
+
 ```powershell
 uv run ruff format --check src tests
 ```
 
 Lint:
+
+This checks for code issues selected in `pyproject.toml`, including import ordering, common Python mistakes, and simplifications.
 
 ```powershell
 uv run ruff check src tests
@@ -36,17 +40,29 @@ uv run pytest
 
 Documentation build:
 
+This builds the static site into `site/`. With `--strict`, the command also acts as a validation check because warnings and documentation errors fail the build.
+
 ```powershell
-uv run mkdocs build --strict
+uv run --group docs mkdocs build --strict
+```
+
+The generated `site/` directory is ignored by Git and should not be committed.
+
+Serve the documentation locally:
+
+```powershell
+uv run --group docs mkdocs serve
 ```
 
 ## Dependency Changes
 
-When dependencies change, update `uv.lock` and commit it with the code change:
+When dependencies change, update `uv.lock` by running:
 
 ```powershell
 uv lock
 ```
+
+This rewrites the lock file so it matches the dependencies currently declared in `pyproject.toml`. Commit the updated `uv.lock` with the dependency change.
 
 ## Code Placement
 

@@ -46,6 +46,10 @@ nav:
       - Installation: getting-started/installation.md
       - Development Workflow: getting-started/development.md
       - First Ingestion: getting-started/first-ingestion.md
+  - Tutorials:
+      - Run Local Checks: tutorials/run-local-checks.md
+      - Update Dependencies: tutorials/update-dependencies.md
+      - Preview Documentation: tutorials/preview-documentation.md
   - Architecture:
       - Overview: architecture/overview.md
       - Roadmap: architecture/roadmap.md

@@ -34,6 +34,14 @@ On conflict, market values plus `fetched_at` and `request_id` are updated from t
 
 Local development currently defaults to SQLite. PostgreSQL support is planned for deployment through the existing SQLAlchemy abstraction and optional PostgreSQL dependency.
 
+Use the `SWINGTRADER_DATABASE_URL` environment variable to point the application at a non-default database. `create_database_engine()` resolves that setting when no explicit database URL is passed.
+
+## Future Bronze Tables
+
+The bronze layer should eventually store more than daily market prices. Planned additions include source-oriented macroeconomic and financial time-series tables once macro clients and ingestion workflows are implemented.
+
+Those future tables should follow the same principles: preserve provider identity, observation dates, fetch metadata, and enough provenance to rebuild downstream features without redownloading data unnecessarily.
+
 ## What Bronze Should Not Contain
 
 Bronze tables should not contain:

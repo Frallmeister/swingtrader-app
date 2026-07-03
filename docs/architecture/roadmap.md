@@ -37,6 +37,7 @@ This roadmap is a planning aid, not a replacement for GitHub issues. It describe
 - Render deployment with scheduled jobs.
 - PostgreSQL production storage.
 - Dashboard for latest ranked candidates.
+- Market data quality visibility in the web app.
 - Risk and position sizing support.
 - Backtesting and evaluation reports.
 - Macro and market-context features.
@@ -49,3 +50,4 @@ This roadmap is a planning aid, not a replacement for GitHub issues. It describe
 - Minimum history and label count for training eligibility.
 - Exact training universe representation.
 - How prediction output should be stored and displayed.
+- Which market data quality indicators should be visible in the web app.

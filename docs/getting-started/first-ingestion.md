@@ -4,7 +4,7 @@ This page shows the current library-level data workflow. A runnable daily update
 
 ## Database
 
-By default, local ingestion uses SQLite at `data/swingtrader.sqlite`. Override this with `SWINGTRADER_DATABASE_URL` when needed.
+By default, local ingestion uses SQLite at `data/swingtrader.sqlite`. Override this with the `SWINGTRADER_DATABASE_URL` environment variable when needed.
 
 Example PowerShell override:
 
@@ -14,7 +14,15 @@ $env:SWINGTRADER_DATABASE_URL = "sqlite+pysqlite:///data/swingtrader.sqlite"
 
 ## Historical Daily Prices
 
-Historical daily market data ingestion resolves active tickers when no explicit ticker list is provided, downloads yfinance daily prices, and upserts rows into `bronze_market_daily_prices`.
+Historical daily market data ingestion resolves active tickers when no explicit ticker list is provided, downloads yfinance daily prices, and ingests the normalized records into the bronze layer by upserting rows into `bronze_market_daily_prices`.
+
+The database engine is created through `create_database_engine()`. For PostgreSQL, set `SWINGTRADER_DATABASE_URL` to a SQLAlchemy PostgreSQL URL and use the same ingestion functions:
+
+```powershell
+$env:SWINGTRADER_DATABASE_URL = "postgresql+psycopg://user:password@host:5432/database"
+```
+
+Do not commit real credentials to the repository.
 
 ```python
 from datetime import date
