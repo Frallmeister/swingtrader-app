@@ -44,6 +44,11 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.15.18",
 ]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.20",
+    "mkdocstrings[python]>=0.30.0",
+]
 notebook = [
     "ipykernel>=7.3.0",
     "ipywidgets>=8.1.8",
