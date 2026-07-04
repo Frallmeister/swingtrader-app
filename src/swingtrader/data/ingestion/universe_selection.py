@@ -6,17 +6,39 @@ included and excluded tickers exist in their configured universe and that refere
 universe files do not overlap.
 """
 
+from collections.abc import Sequence
 from importlib.resources import files
 from importlib.resources.abc import Traversable
 from pathlib import Path
 
 import yaml
 
+from swingtrader.data.ingestion.validation import validate_limit
+
 ConfigDir = Path | Traversable
 ConfigFile = Path | Traversable
 
 
 def resolve_active_tickers(config_dir: ConfigDir | None = None) -> list[str]:
+    """Resolve the active trading universe from YAML configuration.
+
+    Parameters
+    ----------
+    config_dir
+        Optional directory containing ``active_tickers.yml`` and referenced universe files.
+        When omitted, packaged universe configuration is used.
+
+    Returns
+    -------
+    list[str]
+        Sorted active ticker symbols.
+
+    Raises
+    ------
+    UniverseConfigError
+        Raised when required files are missing, file kinds are invalid, referenced tickers do
+        not exist in available universes, or universe files overlap.
+    """
     if config_dir is None:
         config_dir = files("swingtrader.configs.universes")
     active_tickers_data = _parse_active_tickers(
@@ -51,6 +73,51 @@ def resolve_active_tickers(config_dir: ConfigDir | None = None) -> list[str]:
                 )
                 raise UniverseConfigError(msg)
     return sorted(active_tickers_output)
+
+
+def resolve_requested_tickers(
+    *,
+    tickers: Sequence[str] | None = None,
+    limit: int | None = None,
+    config_dir: ConfigDir | None = None,
+) -> tuple[str, ...]:
+    """Resolve explicit or active tickers into a normalized tuple.
+
+    Explicit tickers are stripped and deduplicated in input order. When no explicit tickers
+    are provided, the active ticker universe is resolved from configuration.
+
+    Parameters
+    ----------
+    tickers
+        Optional explicit ticker symbols. When omitted, active tickers are resolved from
+        configuration.
+    limit
+        Optional maximum number of normalized tickers to return.
+    config_dir
+        Optional active ticker configuration directory used when ``tickers`` is omitted.
+
+    Returns
+    -------
+    tuple[str, ...]
+        Normalized ticker symbols.
+
+    Raises
+    ------
+    ValueError
+        Raised when ``limit`` is invalid or no tickers resolve.
+    UniverseConfigError
+        Raised when active ticker configuration is invalid.
+    """
+    validate_limit(limit)
+    requested_tickers = tickers if tickers is not None else resolve_active_tickers(config_dir)
+    normalized_tickers = tuple(
+        dict.fromkeys(ticker.strip() for ticker in requested_tickers if ticker.strip())
+    )
+    if not normalized_tickers:
+        raise ValueError("At least one ticker is required.")
+    if limit is None:
+        return normalized_tickers
+    return normalized_tickers[:limit]
 
 
 def _get_config_file(config_dir: ConfigDir, list_name: str) -> ConfigFile:

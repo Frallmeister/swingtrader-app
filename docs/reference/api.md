@@ -18,6 +18,14 @@ This page documents selected implemented modules. Planned modules are intentiona
 
 ::: swingtrader.data.ingestion.market_data
 
+## Market Data Settings
+
+::: swingtrader.data.ingestion.market_data_settings
+
+## Daily Market Data Job
+
+::: swingtrader.data.jobs.update_market_data
+
 ## Bronze Onboarding
 
 ::: swingtrader.data.ingestion.onboarding
@@ -29,6 +37,10 @@ This page documents selected implemented modules. Planned modules are intentiona
 ## Bronze Writer
 
 ::: swingtrader.data.bronze.writer
+
+## Bronze Queries
+
+::: swingtrader.data.bronze.queries
 
 ## Yfinance Client
 

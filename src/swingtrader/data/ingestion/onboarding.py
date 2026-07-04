@@ -9,14 +9,14 @@ from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
 
-from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 
-from swingtrader.core.db import create_database_engine, initialize_database
-from swingtrader.data.bronze.schema import bronze_market_daily_prices
+from swingtrader.core.db import resolve_database_engine
+from swingtrader.data.bronze.queries import BronzeDailyPriceState, load_daily_price_state_by_ticker
 from swingtrader.data.clients import yfinance as yfinance_client
 from swingtrader.data.ingestion.market_data import IngestionResult, ingest_historical_daily_prices
-from swingtrader.data.ingestion.universe_selection import ConfigDir, resolve_active_tickers
+from swingtrader.data.ingestion.universe_selection import ConfigDir, resolve_requested_tickers
+from swingtrader.data.ingestion.validation import validate_date_window, validate_limit
 
 
 class BronzeOnboardingStatus(StrEnum):
@@ -97,14 +97,11 @@ def check_active_ticker_bronze_onboarding(
     the selected provider. It intentionally does not decide whether the ticker has enough
     history for inference or training.
     """
-    _validate_limit(limit)
-    if engine is not None and database_url is not None:
-        raise ValueError("Pass either engine or database_url, not both.")
+    validate_limit(limit)
 
-    active_tickers = _resolve_active_tickers(config_dir=config_dir, limit=limit)
-    resolved_engine = engine or create_database_engine(database_url)
-    initialize_database(resolved_engine)
-    presence_by_ticker = _load_bronze_presence_by_ticker(
+    active_tickers = resolve_requested_tickers(config_dir=config_dir, limit=limit)
+    resolved_engine = resolve_database_engine(database_url=database_url, engine=engine)
+    presence_by_ticker = load_daily_price_state_by_ticker(
         engine=resolved_engine,
         provider=provider,
         tickers=active_tickers,
@@ -136,14 +133,12 @@ def sync_active_ticker_bronze_onboarding(
     raise_on_failure: bool = False,
 ) -> OnboardingSyncResult:
     """Report active ticker bronze presence and optionally backfill missing tickers."""
-    _validate_date_window(start_date=start_date, end_date=end_date)
+    validate_date_window(start_date=start_date, end_date=end_date)
     if backfill and provider != yfinance_client.PROVIDER:
         msg = f"Backfill is only supported for provider={yfinance_client.PROVIDER!r}."
         raise ValueError(msg)
-    if engine is not None and database_url is not None:
-        raise ValueError("Pass either engine or database_url, not both.")
 
-    resolved_engine = engine or create_database_engine(database_url)
+    resolved_engine = resolve_database_engine(database_url=database_url, engine=engine)
     onboarding_before = check_active_ticker_bronze_onboarding(
         provider=provider,
         config_dir=config_dir,
@@ -177,58 +172,10 @@ def sync_active_ticker_bronze_onboarding(
     )
 
 
-def _validate_date_window(*, start_date: date, end_date: date) -> None:
-    if start_date >= end_date:
-        raise ValueError("start_date must be before end_date.")
-
-
-def _validate_limit(limit: int | None) -> None:
-    if limit is not None and limit < 1:
-        raise ValueError("limit must be greater than zero.")
-
-
-def _resolve_active_tickers(*, config_dir: ConfigDir | None, limit: int | None) -> tuple[str, ...]:
-    tickers = tuple(resolve_active_tickers(config_dir=config_dir))
-    if not tickers:
-        raise ValueError("At least one active ticker is required.")
-    if limit is None:
-        return tickers
-    return tickers[:limit]
-
-
-def _load_bronze_presence_by_ticker(
-    *,
-    engine: Engine,
-    provider: str,
-    tickers: tuple[str, ...],
-) -> dict[str, tuple[int, date, date]]:
-    statement = (
-        select(
-            bronze_market_daily_prices.c.ticker,
-            func.count().label("row_count"),
-            func.min(bronze_market_daily_prices.c.trading_date).label("first_trading_date"),
-            func.max(bronze_market_daily_prices.c.trading_date).label("last_trading_date"),
-        )
-        .where(bronze_market_daily_prices.c.provider == provider)
-        .where(bronze_market_daily_prices.c.ticker.in_(tickers))
-        .group_by(bronze_market_daily_prices.c.ticker)
-    )
-    with engine.connect() as connection:
-        rows = connection.execute(statement).mappings().all()
-    return {
-        str(row["ticker"]): (
-            int(row["row_count"]),
-            row["first_trading_date"],
-            row["last_trading_date"],
-        )
-        for row in rows
-    }
-
-
 def _build_ticker_onboarding_state(
     *,
     ticker: str,
-    stored_presence: tuple[int, date, date] | None,
+    stored_presence: BronzeDailyPriceState | None,
 ) -> TickerBronzeOnboardingState:
     if stored_presence is None:
         return TickerBronzeOnboardingState(
@@ -239,11 +186,10 @@ def _build_ticker_onboarding_state(
             last_trading_date=None,
         )
 
-    row_count, first_trading_date, last_trading_date = stored_presence
     return TickerBronzeOnboardingState(
         ticker=ticker,
         status=BronzeOnboardingStatus.ONBOARDED,
-        row_count=row_count,
-        first_trading_date=first_trading_date,
-        last_trading_date=last_trading_date,
+        row_count=stored_presence.row_count,
+        first_trading_date=stored_presence.first_trading_date,
+        last_trading_date=stored_presence.last_trading_date,
     )
