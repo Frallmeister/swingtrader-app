@@ -44,10 +44,12 @@ It wraps existing ingestion functions rather than reimplementing provider downlo
 
 The job resolves active tickers as the deployed trading universe and reads bronze daily price state for each ticker. Planned updates are derived per ticker:
 
-- tickers with no bronze rows start from `initial_start_date` in `src/swingtrader/configs/market_data.yml`;
 - tickers with existing bronze rows start from their latest stored `trading_date`;
+- tickers with no bronze rows are reported as not onboarded and omitted from daily update planning;
 - tickers whose start date is not before the exclusive end date are skipped.
 
 Starting from the latest stored date intentionally overlaps one stored row. The bronze writer uses idempotent upserts, so reruns update existing rows instead of duplicating them and can pick up provider corrections for the latest stored date.
+
+Use the bronze onboarding workflow to create the first rows for newly active tickers before the daily update job is expected to refresh them.
 
 The job does not refresh features, run inference, or apply readiness filtering yet.

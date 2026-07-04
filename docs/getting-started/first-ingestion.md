@@ -1,6 +1,6 @@
 # First Ingestion
 
-This page shows the first useful local data workflows: the runnable daily market data job and the lower-level library functions it wraps.
+This page shows the first useful local data workflows: bronze onboarding for first rows, the runnable daily market data job for ongoing updates, and the lower-level library functions they wrap.
 
 ## Database
 
@@ -12,6 +12,26 @@ Example PowerShell override:
 $env:SWINGTRADER_DATABASE_URL = "sqlite+pysqlite:///data/swingtrader.sqlite"
 ```
 
+## Bronze Onboarding Check
+
+The onboarding workflow compares active tickers with the bronze daily price table. A ticker is considered onboarded once any bronze daily price row exists for that provider. Use `backfill=True` to create first bronze rows for missing active tickers:
+
+```python
+from datetime import date
+
+from swingtrader.data.ingestion.onboarding import sync_active_ticker_bronze_onboarding
+
+result = sync_active_ticker_bronze_onboarding(
+    start_date=date(2024, 1, 1),
+    end_date=date(2024, 2, 1),
+    backfill=True,
+)
+
+print(result.backfill_tickers)
+```
+
+This workflow is bronze-only. It does not decide whether a ticker has enough data for inference or model training.
+
 ## Daily Market Data Job
 
 The daily market data job is the preferred local entrypoint for updating bronze daily market prices for the active trading universe:
@@ -22,7 +42,7 @@ uv run python -m swingtrader.data.jobs.update_market_data --limit 3
 
 The job reads active tickers, derives per-ticker update plans from existing bronze rows, and calls the historical ingestion library for each ticker.
 
-For tickers with no bronze rows, the first run starts from `initial_start_date` in `src/swingtrader/configs/market_data.yml`. The current configured start date is `2000-01-01`.
+Tickers with no bronze rows are reported as not onboarded and skipped by the daily update job. Run bronze onboarding first for newly active tickers.
 
 Use an explicit exclusive end date for deterministic local runs:
 
@@ -55,23 +75,3 @@ result = ingest_historical_daily_prices(
 
 print(result)
 ```
-
-## Bronze Onboarding Check
-
-The onboarding workflow compares active tickers with the bronze daily price table. A ticker is considered onboarded once any bronze daily price row exists for that provider.
-
-```python
-from datetime import date
-
-from swingtrader.data.ingestion.onboarding import sync_active_ticker_bronze_onboarding
-
-result = sync_active_ticker_bronze_onboarding(
-    start_date=date(2024, 1, 1),
-    end_date=date(2024, 2, 1),
-    backfill=True,
-)
-
-print(result.backfill_tickers)
-```
-
-This workflow is bronze-only. It does not decide whether a ticker has enough data for inference or model training.

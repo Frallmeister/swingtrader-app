@@ -26,7 +26,7 @@ Run without a limit to update all active tickers:
 uv run python -m swingtrader.data.jobs.update_market_data
 ```
 
-The job derives each ticker's update plan from bronze storage. Tickers with no bronze rows start from the configured initial start date in `src/swingtrader/configs/market_data.yml`.
+The job derives each ticker's update plan from bronze storage. Tickers with no bronze rows are reported as not onboarded and skipped; use the bronze onboarding workflow before expecting daily updates for newly active tickers.
 
 ## Failure Handling
 
@@ -36,10 +36,3 @@ By default, ticker-level failures are logged and successful tickers are still wr
 uv run python -m swingtrader.data.jobs.update_market_data --fail-on-ticker-failure
 ```
 
-## Optional Backfill
-
-Use `--backfill` to run the explicit bronze onboarding sync before recent update planning:
-
-```powershell
-uv run python -m swingtrader.data.jobs.update_market_data --backfill
-```

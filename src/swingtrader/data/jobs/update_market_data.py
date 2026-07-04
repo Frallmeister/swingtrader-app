@@ -24,12 +24,7 @@ from swingtrader.data.ingestion.market_data import (
 )
 from swingtrader.data.ingestion.market_data_settings import (
     ConfigFile,
-    MarketDataSettings,
     load_market_data_settings,
-)
-from swingtrader.data.ingestion.onboarding import (
-    OnboardingSyncResult,
-    sync_active_ticker_bronze_onboarding,
 )
 from swingtrader.data.ingestion.universe_selection import ConfigDir, resolve_requested_tickers
 from swingtrader.data.ingestion.validation import validate_limit
@@ -61,10 +56,10 @@ class DailyMarketDataUpdateResult:
     provider: str
     end_date: date
     active_tickers: tuple[str, ...]
+    not_onboarded_tickers: tuple[str, ...]
     skipped_tickers: tuple[str, ...]
     planned_updates: tuple[DailyMarketDataPlannedUpdate, ...]
     ingestion_results: tuple[IngestionResult, ...]
-    onboarding_result: OnboardingSyncResult | None
 
     @property
     def update_tickers(self) -> tuple[str, ...]:
@@ -91,13 +86,13 @@ def run_daily_market_data_update(
     engine: Engine | None = None,
     config_dir: ConfigDir | None = None,
     settings_path: ConfigFile | None = None,
-    backfill: bool = False,
 ) -> DailyMarketDataUpdateResult:
     """Run the daily market data update workflow.
 
     The job derives planned updates from stored bronze daily price state. Tickers without
-    stored rows start from the configured initial start date. Tickers with existing rows
-    overlap from their latest stored trading date and rely on idempotent bronze upserts.
+    stored rows are reported as not onboarded and omitted from daily update planning. Tickers
+    with existing rows overlap from their latest stored trading date and rely on idempotent
+    bronze upserts.
 
     Parameters
     ----------
@@ -115,15 +110,12 @@ def run_daily_market_data_update(
         universe configuration is used.
     settings_path
         Optional market data settings file. When omitted, packaged project settings are used.
-    backfill
-        Whether to run the explicit bronze onboarding sync for missing active tickers before
-        planning recent updates.
 
     Returns
     -------
     DailyMarketDataUpdateResult
         Aggregated job result including active tickers, skipped tickers, planned updates,
-        ingestion results, and optional onboarding result.
+        not-onboarded tickers, and ingestion results.
 
     Notes
     -----
@@ -138,43 +130,23 @@ def run_daily_market_data_update(
     active_tickers = resolve_requested_tickers(config_dir=config_dir, limit=limit)
 
     logger.info(
-        "Starting daily market data update provider=%s active_tickers=%s end_date=%s backfill=%s",
+        "Starting daily market data update provider=%s active_tickers=%s end_date=%s",
         settings.provider,
         len(active_tickers),
         resolved_end_date,
-        backfill,
     )
-
-    onboarding_result = None
-    if backfill:
-        onboarding_result = sync_active_ticker_bronze_onboarding(
-            start_date=settings.initial_start_date,
-            end_date=resolved_end_date,
-            provider=settings.provider,
-            config_dir=config_dir,
-            limit=limit,
-            engine=resolved_engine,
-            backfill=True,
-            raise_on_failure=False,
-        )
-        logger.info(
-            "Finished active ticker bronze onboarding sync provider=%s missing_before=%s "
-            "backfill_tickers=%s failures=%s",
-            onboarding_result.provider,
-            onboarding_result.onboarding_before.missing_count,
-            len(onboarding_result.backfill_tickers),
-            _count_onboarding_failures(onboarding_result),
-        )
 
     state_by_ticker = load_daily_price_state_by_ticker(
         engine=resolved_engine,
         provider=settings.provider,
         tickers=active_tickers,
     )
+    not_onboarded_tickers = tuple(
+        ticker for ticker in active_tickers if ticker not in state_by_ticker
+    )
     planned_updates = plan_daily_market_data_updates(
         active_tickers=active_tickers,
         state_by_ticker=state_by_ticker,
-        settings=settings,
         end_date=resolved_end_date,
     )
     ingestion_results = []
@@ -196,22 +168,28 @@ def run_daily_market_data_update(
             )
         )
     update_tickers = {update.ticker for update in planned_updates}
-    skipped_tickers = tuple(ticker for ticker in active_tickers if ticker not in update_tickers)
+    skipped_tickers = tuple(
+        ticker
+        for ticker in active_tickers
+        if ticker in state_by_ticker and ticker not in update_tickers
+    )
     result = DailyMarketDataUpdateResult(
         provider=settings.provider,
         end_date=resolved_end_date,
         active_tickers=active_tickers,
+        not_onboarded_tickers=not_onboarded_tickers,
         skipped_tickers=skipped_tickers,
         planned_updates=planned_updates,
         ingestion_results=tuple(ingestion_results),
-        onboarding_result=onboarding_result,
     )
     logger.info(
         "Finished daily market data update provider=%s active_tickers=%s update_tickers=%s "
-        "skipped_tickers=%s planned_updates=%s downloaded_rows=%s upserted_rows=%s failures=%s",
+        "not_onboarded_tickers=%s skipped_tickers=%s planned_updates=%s downloaded_rows=%s "
+        "upserted_rows=%s failures=%s",
         result.provider,
         len(result.active_tickers),
         len(result.update_tickers),
+        len(result.not_onboarded_tickers),
         len(result.skipped_tickers),
         len(result.planned_updates),
         result.downloaded_rows,
@@ -225,7 +203,6 @@ def plan_daily_market_data_updates(
     *,
     active_tickers: tuple[str, ...],
     state_by_ticker: dict[str, BronzeDailyPriceState],
-    settings: MarketDataSettings,
     end_date: date,
 ) -> tuple[DailyMarketDataPlannedUpdate, ...]:
     """Build per-ticker update plans from active tickers and bronze state.
@@ -236,9 +213,7 @@ def plan_daily_market_data_updates(
         Tickers in the active production/trading universe.
     state_by_ticker
         Stored bronze daily price state keyed by ticker. Tickers missing from the mapping are
-        treated as having no bronze history.
-    settings
-        Market data settings containing the initial start date for tickers with no bronze rows.
+        treated as not onboarded and omitted from daily update planning.
     end_date
         Exclusive end date for provider requests.
 
@@ -257,11 +232,9 @@ def plan_daily_market_data_updates(
     planned_updates: list[DailyMarketDataPlannedUpdate] = []
     for ticker in active_tickers:
         state = state_by_ticker.get(ticker)
-        start_date = (
-            state.last_trading_date
-            if state is not None and state.last_trading_date is not None
-            else settings.initial_start_date
-        )
+        if state is None:
+            continue
+        start_date = state.last_trading_date
         if start_date >= end_date:
             continue
         planned_updates.append(
@@ -296,7 +269,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         end_date=args.end_date,
         limit=args.limit,
         database_url=args.database_url,
-        backfill=args.backfill,
     )
     if args.fail_on_ticker_failure and result.failures:
         return 1
@@ -329,14 +301,6 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--backfill",
-        action="store_true",
-        help=(
-            "Run explicit bronze onboarding/backfill for missing active tickers before "
-            "recent updates."
-        ),
-    )
-    parser.add_argument(
         "--fail-on-ticker-failure",
         action="store_true",
         help="Exit with status 1 if any ticker fails while still writing successful tickers.",
@@ -354,12 +318,6 @@ def _parse_date(value: str) -> date:
     except ValueError as exc:
         msg = f"Invalid date {value!r}. Expected YYYY-MM-DD."
         raise argparse.ArgumentTypeError(msg) from exc
-
-
-def _count_onboarding_failures(result: OnboardingSyncResult) -> int:
-    if result.ingestion_result is None:
-        return 0
-    return len(result.ingestion_result.failures)
 
 
 if __name__ == "__main__":

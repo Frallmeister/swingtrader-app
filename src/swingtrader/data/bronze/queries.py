@@ -24,15 +24,15 @@ class BronzeDailyPriceState:
     row_count
         Number of bronze daily price rows stored for the provider and ticker.
     first_trading_date
-        Earliest stored trading date, or ``None`` when no rows are represented.
+        Earliest stored trading date.
     last_trading_date
-        Latest stored trading date, or ``None`` when no rows are represented.
+        Latest stored trading date.
     """
 
     ticker: str
     row_count: int
-    first_trading_date: date | None
-    last_trading_date: date | None
+    first_trading_date: date
+    last_trading_date: date
 
 
 def load_daily_price_state_by_ticker(

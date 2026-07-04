@@ -33,24 +33,16 @@ Use `--fail-on-ticker-failure` when a scheduler should treat any ticker-level fa
 3. Load market data settings from `src/swingtrader/configs/market_data.yml`.
 4. Read each active ticker's latest bronze daily price state.
 5. Build per-ticker update plans:
-	- tickers with no bronze rows start from the configured initial start date;
 	- tickers with existing rows start from their latest stored `trading_date`;
-	- tickers already current for the requested exclusive `end_date` are skipped.
+	- tickers with no bronze rows are reported as not onboarded and are not updated by this job;
+	- onboarded tickers already current for the requested exclusive `end_date` are skipped.
 6. Call the existing historical ingestion function for each planned ticker update.
 7. Upsert bronze rows idempotently.
-8. Log active ticker count, update ticker count, skipped ticker count, planned update count, row counts, and failures.
+8. Log active ticker count, update ticker count, not-onboarded ticker count, skipped ticker count, planned update count, row counts, and failures.
 
 The job uses bronze storage as the source of truth for progress. It does not maintain a separate checkpoint.
 
-## Optional Backfill
-
-Pass `--backfill` to run the explicit bronze onboarding sync for missing active tickers before the daily update planner runs:
-
-```powershell
-uv run python -m swingtrader.data.jobs.update_market_data --backfill
-```
-
-The normal daily planner can still initialize an empty bronze table from the configured initial start date. The backfill flag adds an explicit onboarding step and summary for missing active tickers.
+Use the bronze onboarding workflow for first loads and newly active tickers before expecting the daily update job to refresh them.
 
 ## Developer Checks
 

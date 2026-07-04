@@ -12,7 +12,6 @@ from swingtrader.data.bronze.writer import upsert_daily_prices
 from swingtrader.data.clients.yfinance import DAILY_PRICE_COLUMNS
 from swingtrader.data.ingestion import market_data
 from swingtrader.data.ingestion.market_data import IngestionResult, TickerIngestionFailure
-from swingtrader.data.ingestion.market_data_settings import MarketDataSettings
 from swingtrader.data.jobs import update_market_data
 
 
@@ -69,9 +68,7 @@ initial_start_date: 2000-01-01
     return path
 
 
-def test_plan_daily_market_data_updates_returns_one_update_per_ticker() -> None:
-    settings = MarketDataSettings(provider="yfinance", initial_start_date=date(2000, 1, 1))
-
+def test_plan_daily_market_data_updates_returns_one_update_per_onboarded_ticker() -> None:
     planned_updates = update_market_data.plan_daily_market_data_updates(
         active_tickers=("AAK.ST", "BOL.ST", "VOLV-B.ST"),
         state_by_ticker={
@@ -88,7 +85,6 @@ def test_plan_daily_market_data_updates_returns_one_update_per_ticker() -> None:
                 last_trading_date=date(2026, 6, 26),
             ),
         },
-        settings=settings,
         end_date=date(2026, 7, 4),
     )
 
@@ -103,15 +99,10 @@ def test_plan_daily_market_data_updates_returns_one_update_per_ticker() -> None:
             end_date=date(2026, 7, 4),
             ticker="BOL.ST",
         ),
-        update_market_data.DailyMarketDataPlannedUpdate(
-            start_date=date(2000, 1, 1),
-            end_date=date(2026, 7, 4),
-            ticker="VOLV-B.ST",
-        ),
     )
 
 
-def test_run_daily_market_data_update_initializes_empty_bronze(
+def test_run_daily_market_data_update_reports_empty_bronze_as_not_onboarded(
     sqlite_engine: Engine,
     universe_config_dir: Path,
     market_data_settings_path: Path,
@@ -120,16 +111,7 @@ def test_run_daily_market_data_update_initializes_empty_bronze(
     calls: list[tuple[str, date, date]] = []
 
     def fake_download_daily_prices(**kwargs: object) -> pd.DataFrame:
-        ticker = _single_ticker(kwargs)
-        start_date = _date_arg(kwargs, "start_date")
-        end_date = _date_arg(kwargs, "end_date")
-        calls.append((ticker, start_date, end_date))
-        return _daily_prices(
-            ticker=ticker,
-            trading_date=start_date,
-            fetched_at=kwargs["fetched_at"],
-            request_id=kwargs["request_id"],
-        )
+        raise AssertionError("daily update should not initialize missing tickers")
 
     monkeypatch.setattr(
         market_data.yfinance_client,
@@ -144,15 +126,50 @@ def test_run_daily_market_data_update_initializes_empty_bronze(
         settings_path=market_data_settings_path,
     )
 
-    assert calls == [
-        ("AAK.ST", date(2000, 1, 1), date(2000, 1, 3)),
-        ("BOL.ST", date(2000, 1, 1), date(2000, 1, 3)),
-        ("VOLV-B.ST", date(2000, 1, 1), date(2000, 1, 3)),
-    ]
-    assert result.downloaded_rows == 3
-    assert result.upserted_rows == 3
+    assert calls == []
+    assert result.not_onboarded_tickers == ("AAK.ST", "BOL.ST", "VOLV-B.ST")
+    assert result.skipped_tickers == ()
+    assert result.downloaded_rows == 0
+    assert result.upserted_rows == 0
     assert result.failures == ()
-    assert _stored_row_count(sqlite_engine) == 3
+    assert _stored_row_count(sqlite_engine) == 0
+
+
+def test_run_daily_market_data_update_skips_current_onboarded_tickers(
+    sqlite_engine: Engine,
+    universe_config_dir: Path,
+    market_data_settings_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    upsert_daily_prices(
+        prices=_daily_prices(
+            ticker="AAK.ST",
+            trading_date=date(2026, 7, 4),
+            fetched_at=datetime(2026, 7, 4, 9, 30, tzinfo=UTC),
+            request_id="existing-request",
+        ),
+        engine=sqlite_engine,
+    )
+
+    def fail_if_called(**kwargs: object) -> pd.DataFrame:
+        raise AssertionError("current onboarded tickers should be skipped")
+
+    monkeypatch.setattr(
+        market_data.yfinance_client,
+        "download_daily_prices",
+        fail_if_called,
+    )
+
+    result = update_market_data.run_daily_market_data_update(
+        end_date=date(2026, 7, 4),
+        engine=sqlite_engine,
+        config_dir=universe_config_dir,
+        settings_path=market_data_settings_path,
+    )
+
+    assert result.update_tickers == ()
+    assert result.skipped_tickers == ("AAK.ST",)
+    assert result.not_onboarded_tickers == ("BOL.ST", "VOLV-B.ST")
 
 
 def test_run_daily_market_data_update_uses_latest_ticker_dates(
@@ -199,11 +216,11 @@ def test_run_daily_market_data_update_uses_latest_ticker_dates(
 
     assert calls == [
         ("AAK.ST", date(2026, 6, 26), date(2026, 7, 4)),
-        ("BOL.ST", date(2000, 1, 1), date(2026, 7, 4)),
-        ("VOLV-B.ST", date(2000, 1, 1), date(2026, 7, 4)),
     ]
-    assert result.update_tickers == ("AAK.ST", "BOL.ST", "VOLV-B.ST")
-    assert _stored_row_count(sqlite_engine) == 3
+    assert result.update_tickers == ("AAK.ST",)
+    assert result.not_onboarded_tickers == ("BOL.ST", "VOLV-B.ST")
+    assert result.skipped_tickers == ()
+    assert _stored_row_count(sqlite_engine) == 1
 
 
 def test_run_daily_market_data_update_applies_limit(
@@ -212,6 +229,15 @@ def test_run_daily_market_data_update_applies_limit(
     market_data_settings_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    upsert_daily_prices(
+        prices=_daily_prices(
+            ticker="AAK.ST",
+            trading_date=date(2000, 1, 1),
+            fetched_at=datetime(2000, 1, 1, 9, 30, tzinfo=UTC),
+            request_id="existing-request",
+        ),
+        engine=sqlite_engine,
+    )
     calls: list[str] = []
 
     def fake_download_daily_prices(**kwargs: object) -> pd.DataFrame:
@@ -240,6 +266,7 @@ def test_run_daily_market_data_update_applies_limit(
 
     assert calls == ["AAK.ST"]
     assert result.active_tickers == ("AAK.ST",)
+    assert result.not_onboarded_tickers == ()
 
 
 def test_main_returns_nonzero_when_fail_on_ticker_failure(
@@ -264,6 +291,7 @@ def test_main_returns_nonzero_when_fail_on_ticker_failure(
         provider="yfinance",
         end_date=date(2026, 7, 4),
         active_tickers=("FAIL.ST",),
+        not_onboarded_tickers=(),
         skipped_tickers=(),
         planned_updates=(
             update_market_data.DailyMarketDataPlannedUpdate(
@@ -273,7 +301,6 @@ def test_main_returns_nonzero_when_fail_on_ticker_failure(
             ),
         ),
         ingestion_results=(ingestion_result,),
-        onboarding_result=None,
     )
 
     monkeypatch.setattr(
