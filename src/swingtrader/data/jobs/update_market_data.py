@@ -149,6 +149,14 @@ def run_daily_market_data_update(
         state_by_ticker=state_by_ticker,
         end_date=resolved_end_date,
     )
+    if active_tickers and not planned_updates and len(not_onboarded_tickers) == len(active_tickers):
+        logger.warning(
+            "Daily market data update has no planned updates because no active tickers are "
+            "onboarded provider=%s active_tickers=%s end_date=%s",
+            settings.provider,
+            len(active_tickers),
+            resolved_end_date,
+        )
     ingestion_results = []
     for update in planned_updates:
         logger.info(

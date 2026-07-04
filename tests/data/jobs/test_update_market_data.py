@@ -107,6 +107,7 @@ def test_run_daily_market_data_update_reports_empty_bronze_as_not_onboarded(
     universe_config_dir: Path,
     market_data_settings_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     calls: list[tuple[str, date, date]] = []
 
@@ -119,12 +120,13 @@ def test_run_daily_market_data_update_reports_empty_bronze_as_not_onboarded(
         fake_download_daily_prices,
     )
 
-    result = update_market_data.run_daily_market_data_update(
-        end_date=date(2000, 1, 3),
-        engine=sqlite_engine,
-        config_dir=universe_config_dir,
-        settings_path=market_data_settings_path,
-    )
+    with caplog.at_level("WARNING", logger=update_market_data.__name__):
+        result = update_market_data.run_daily_market_data_update(
+            end_date=date(2000, 1, 3),
+            engine=sqlite_engine,
+            config_dir=universe_config_dir,
+            settings_path=market_data_settings_path,
+        )
 
     assert calls == []
     assert result.not_onboarded_tickers == ("AAK.ST", "BOL.ST", "VOLV-B.ST")
@@ -133,6 +135,7 @@ def test_run_daily_market_data_update_reports_empty_bronze_as_not_onboarded(
     assert result.upserted_rows == 0
     assert result.failures == ()
     assert _stored_row_count(sqlite_engine) == 0
+    assert "no planned updates because no active tickers are onboarded" in caplog.text
 
 
 def test_run_daily_market_data_update_skips_current_onboarded_tickers(
