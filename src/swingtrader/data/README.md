@@ -8,6 +8,7 @@ See the main documentation for details:
 - [Ingestion](../../../docs/data/ingestion.md)
 - [Bronze storage](../../../docs/data/bronze.md)
 - [Ticker onboarding](../../../docs/data/ticker-onboarding.md)
+- [Ticker eligibility](../../../docs/data/eligibility.md)
 - [Ticker universes](../../../docs/architecture/ticker-universes.md)
 - [Features](../../../docs/data/features.md)
 

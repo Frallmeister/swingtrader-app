@@ -30,6 +30,10 @@ This page documents selected implemented modules. Planned modules are intentiona
 
 ::: swingtrader.data.ingestion.onboarding
 
+## Ticker Eligibility
+
+::: swingtrader.data.eligibility
+
 ## Universe Selection
 
 ::: swingtrader.data.ingestion.universe_selection

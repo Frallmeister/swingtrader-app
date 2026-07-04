@@ -61,6 +61,7 @@ nav:
       - Ingestion: data/ingestion.md
       - Bronze Storage: data/bronze.md
       - Ticker Onboarding: data/ticker-onboarding.md
+      - Ticker Eligibility: data/eligibility.md
       - Features: data/features.md
   - Modeling:
       - Overview: modeling/overview.md

@@ -2,7 +2,8 @@
 
 This module owns the bronze-data part of ticker onboarding. It treats the active
 ticker configuration as desired production/trading state and the bronze daily price
-table as actual stored-data state.
+table as actual stored-data state. Inference readiness and training eligibility are
+separate checks in ``swingtrader.data.eligibility``.
 """
 
 from dataclasses import dataclass

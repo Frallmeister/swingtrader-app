@@ -48,6 +48,8 @@ print(result.backfill_tickers)
 
 This workflow is bronze-only. It does not decide whether a ticker has enough data for inference or model training.
 
+After onboarding and daily updates have populated enough history, use the eligibility checks described in [Ticker Eligibility](../data/eligibility.md) to distinguish active tickers from inference-ready and training-eligible tickers.
+
 ## Daily Market Data Job
 
 The daily market data job is the preferred local entrypoint for updating bronze daily market prices for the active trading universe:
