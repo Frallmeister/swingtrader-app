@@ -47,12 +47,14 @@ uv run python -m swingtrader.data.jobs.onboard_market_data --end-date 2026-07-04
 
 The daily market data update job is separate: it refreshes active tickers that already have bronze rows and reports missing active tickers as not onboarded.
 
-## Future Readiness
+Ticker eligibility is also separate. See [Ticker Eligibility](eligibility.md) for the rules that decide whether onboarded tickers are ready for inference or eligible for training.
 
-Later work should add rules for:
+## Related Readiness
 
-- recent feature availability;
+The implemented eligibility checks currently apply bronze-backed rules for:
+
 - minimum history length;
-- enough label rows for training;
-- data quality warnings and hard exclusions;
+- data quality hard exclusions;
 - inference-ready versus training-eligible tickers.
+
+Future feature and label tables should add feature recency and label-count gates without changing the bronze onboarding meaning.

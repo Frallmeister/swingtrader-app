@@ -20,6 +20,8 @@ The active trading universe is the production candidate set: tickers the deploye
 
 Runtime code reads `active_tickers.yml` and the referenced available universe files through `resolve_active_tickers()`.
 
+Active status is not a promise that the ticker is ready for inference or eligible for training. Those actual-state checks are defined in [Ticker Eligibility](../data/eligibility.md).
+
 ## Future Training Universe
 
 The training universe may be broader than the active trading universe. It may include inactive tickers, all curated Swedish universes, and eventually non-Swedish markets such as US equities.

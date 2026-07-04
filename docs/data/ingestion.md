@@ -32,6 +32,8 @@ The onboarding sync checks whether active tickers exist in bronze storage. It cl
 
 Backfill only targets missing tickers. Historical completeness is intentionally out of scope and belongs to future readiness and eligibility rules.
 
+See [Ticker Eligibility](eligibility.md) for the implemented bronze-backed inference readiness and training eligibility rules.
+
 ## Market Data Onboarding Job
 
 Run the market data onboarding job during first setup or after adding new tickers to the active universe:
@@ -70,4 +72,4 @@ Starting from the latest stored date intentionally overlaps one stored row. The 
 
 Use the bronze onboarding workflow to create the first rows for newly active tickers before the daily update job is expected to refresh them.
 
-The job does not refresh features, run inference, or apply readiness filtering yet.
+The job does not refresh features or run inference. Inference readiness is evaluated separately from the daily bronze update flow.

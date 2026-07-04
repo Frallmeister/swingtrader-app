@@ -16,6 +16,8 @@ The onboarding job creates first bronze rows for active tickers that have no sto
 
 The daily update job below intentionally does not initialize missing tickers. It reports them as not onboarded and keeps already-onboarded active tickers current.
 
+Onboarding is not the same as inference readiness or training eligibility. Those checks are documented in [Ticker Eligibility](../data/eligibility.md).
+
 ## Local Command
 
 Run the daily market data update job locally with:
@@ -69,6 +71,6 @@ uv run pytest tests/data/ingestion/test_market_data.py tests/data/ingestion/test
 
 - Render scheduling.
 - Feature refresh for affected tickers.
-- Inference-readiness filtering.
+- Feature refresh for inference-ready tickers.
 - Production inference after feature generation and modeling exist.
 - Macro data ingestion jobs.

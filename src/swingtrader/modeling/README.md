@@ -6,4 +6,5 @@ See the main documentation for the current modeling plan:
 
 - [Modeling overview](../../../docs/modeling/overview.md)
 - [Target and evaluation](../../../docs/modeling/target-and-evaluation.md)
+- [Ticker eligibility](../../../docs/data/eligibility.md)
 - [Roadmap](../../../docs/architecture/roadmap.md)

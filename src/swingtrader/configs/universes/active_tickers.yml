@@ -1,7 +1,7 @@
 kind: active_tickers
 description: >
-  Declare which tickers the model is allowed to train on.
-  Market data will only be downloaded for included tickers.
+  Declare the active trading universe for deployed market data updates and
+  production candidate screening. Training eligibility is evaluated separately.
 universes:
   - list_name: se_large_cap
     include: all
