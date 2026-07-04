@@ -1,7 +1,9 @@
 """Load source-controlled settings for market data ingestion jobs.
 
 The settings file captures project-level market data defaults that should be reviewed and
-committed, such as the first historical date to request for tickers with no bronze rows.
+committed. In particular, ``initial_start_date`` belongs to initial-fill and onboarding
+workflows for active tickers with no bronze daily price rows. Daily update workflows derive
+their start dates from stored bronze state instead.
 """
 
 from dataclasses import dataclass
@@ -30,7 +32,8 @@ class MarketDataSettings:
     provider
         Market data provider identifier supported by the current ingestion path.
     initial_start_date
-        Inclusive start date used for tickers that do not yet have bronze daily price rows.
+        Inclusive start date used by initial-fill and onboarding workflows for tickers that
+        do not yet have bronze daily price rows. Daily update jobs do not use this value.
     """
 
     provider: str
@@ -43,6 +46,9 @@ class MarketDataSettingsError(Exception):
 
 def load_market_data_settings(path: ConfigFile | None = None) -> MarketDataSettings:
     """Load market data settings from YAML configuration.
+
+    The loaded settings describe provider support and onboarding defaults. They do not define
+    daily update start dates, which are derived from each ticker's latest stored bronze row.
 
     Parameters
     ----------

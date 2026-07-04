@@ -161,6 +161,31 @@ def check_inference_readiness(
     When ``tickers`` is omitted, the active trading universe is resolved from configuration.
     Passing explicit tickers lets future callers evaluate a broader universe without treating
     active status as a readiness rule.
+
+    Parameters
+    ----------
+    provider
+        Market data provider to evaluate in bronze state.
+    reference_date
+        Date used to decide whether the latest bronze row is stale. When omitted, today's UTC
+        date is used.
+    tickers
+        Optional explicit ticker symbols to evaluate. When omitted, active tickers are
+        resolved from configuration.
+    limit
+        Optional maximum number of normalized tickers to evaluate.
+    config_dir
+        Optional active ticker configuration directory used when ``tickers`` is omitted.
+    database_url
+        Optional SQLAlchemy database URL. Mutually exclusive with ``engine``.
+    engine
+        Optional SQLAlchemy engine. Passing an engine is useful for tests and callers that
+        already manage database connections. Mutually exclusive with ``database_url``.
+
+    Returns
+    -------
+    InferenceReadinessResult
+        Readiness result with one state per requested ticker.
     """
     resolved_reference_date = reference_date or datetime.now(UTC).date()
     resolved_tickers = resolve_requested_tickers(
@@ -210,6 +235,28 @@ def check_training_eligibility(
     This first version uses bronze history and quality gates only. Future feature and label
     tables should add feature-history and label-count gates before model training consumes
     these results.
+
+    Parameters
+    ----------
+    provider
+        Market data provider to evaluate in bronze state.
+    tickers
+        Optional explicit ticker symbols to evaluate. When omitted, active tickers are
+        resolved from configuration.
+    limit
+        Optional maximum number of normalized tickers to evaluate.
+    config_dir
+        Optional active ticker configuration directory used when ``tickers`` is omitted.
+    database_url
+        Optional SQLAlchemy database URL. Mutually exclusive with ``engine``.
+    engine
+        Optional SQLAlchemy engine. Passing an engine is useful for tests and callers that
+        already manage database connections. Mutually exclusive with ``database_url``.
+
+    Returns
+    -------
+    TrainingEligibilityResult
+        Eligibility result with one state per requested ticker.
     """
     resolved_tickers = resolve_requested_tickers(
         tickers=tickers,
@@ -252,7 +299,11 @@ def get_inference_ready_tickers(
     database_url: str | None = None,
     engine: Engine | None = None,
 ) -> tuple[str, ...]:
-    """Return only tickers currently ready for production inference."""
+    """Return only tickers currently ready for production inference.
+
+    This is a convenience wrapper around ``check_inference_readiness`` that preserves the same
+    ticker resolution and filtering semantics.
+    """
     return check_inference_readiness(
         provider=provider,
         reference_date=reference_date,
@@ -273,7 +324,11 @@ def get_training_eligible_tickers(
     database_url: str | None = None,
     engine: Engine | None = None,
 ) -> tuple[str, ...]:
-    """Return only tickers currently eligible for model training."""
+    """Return only tickers currently eligible for model training.
+
+    This is a convenience wrapper around ``check_training_eligibility`` that preserves the
+    same ticker resolution and filtering semantics.
+    """
     return check_training_eligibility(
         provider=provider,
         tickers=tickers,

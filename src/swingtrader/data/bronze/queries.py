@@ -119,6 +119,28 @@ def load_daily_price_quality_state_by_ticker(
     Tickers without stored rows are omitted from the returned mapping. Median turnover is
     computed from the latest ``turnover_lookback_rows`` rows in Python for database
     portability across SQLite and PostgreSQL.
+
+    Parameters
+    ----------
+    engine
+        SQLAlchemy engine for the target application database.
+    provider
+        Market data provider to filter by, such as ``"yfinance"``.
+    tickers
+        Requested ticker symbols.
+    turnover_lookback_rows
+        Number of latest stored rows per ticker to inspect for turnover quality.
+
+    Returns
+    -------
+    dict[str, BronzeDailyPriceQualityState]
+        Quality state keyed by ticker. Missing tickers are absent rather than represented by
+        zero-row objects.
+
+    Raises
+    ------
+    ValueError
+        Raised when ``turnover_lookback_rows`` is less than one.
     """
     if not tickers:
         return {}

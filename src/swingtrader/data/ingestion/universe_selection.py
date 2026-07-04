@@ -22,6 +22,10 @@ ConfigFile = Path | Traversable
 def resolve_active_tickers(config_dir: ConfigDir | None = None) -> list[str]:
     """Resolve the active trading universe from YAML configuration.
 
+    The active universe is the desired production/trading ticker set used by ingestion,
+    readiness checks, and daily jobs when callers do not pass explicit tickers. It is built
+    from ``active_tickers.yml`` plus the referenced universe files.
+
     Parameters
     ----------
     config_dir
@@ -31,13 +35,15 @@ def resolve_active_tickers(config_dir: ConfigDir | None = None) -> list[str]:
     Returns
     -------
     list[str]
-        Sorted active ticker symbols.
+        Active ticker symbols sorted alphabetically after configured includes and excludes are
+        applied.
 
     Raises
     ------
     UniverseConfigError
         Raised when required files are missing, file kinds are invalid, referenced tickers do
-        not exist in available universes, or universe files overlap.
+        not exist in available universes, excluded tickers were not included, ticker lists
+        contain duplicates, or referenced universe files overlap.
     """
     if config_dir is None:
         config_dir = files("swingtrader.configs.universes")

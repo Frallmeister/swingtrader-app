@@ -49,7 +49,38 @@ def download_daily_prices(
     fetched_at: datetime | None = None,
     request_id: str | None = None,
 ) -> pd.DataFrame:
-    """Download daily prices from yfinance and return bronze-shaped rows."""
+    """Download daily prices from yfinance and return bronze-shaped rows.
+
+    Parameters
+    ----------
+    tickers
+        Provider ticker symbols to request. Empty strings are ignored and duplicates are
+        removed while preserving first-seen order. At least one ticker must remain.
+    start_date
+        Inclusive first trading date to request from yfinance.
+    end_date
+        Exclusive end date to request from yfinance, matching yfinance's ``end`` argument
+        semantics.
+    fetched_at
+        Optional provenance timestamp recorded on every normalized output row. When omitted,
+        the current UTC time is used. The value must be timezone-aware.
+    request_id
+        Optional provenance identifier recorded on every normalized output row. When omitted,
+        a UUID is generated for the provider request.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Daily price rows shaped for the bronze daily price table, sorted by ticker and trading
+        date. Empty provider responses return an empty DataFrame with the expected bronze
+        columns rather than raising.
+
+    Raises
+    ------
+    ValueError
+        Raised when no ticker symbols remain after normalization or when ``fetched_at`` is
+        not timezone-aware.
+    """
     normalized_tickers = _normalize_tickers(tickers)
     resolved_fetched_at = _normalize_fetched_at(fetched_at or datetime.now(UTC))
     resolved_request_id = request_id or str(uuid4())
@@ -95,7 +126,39 @@ def normalize_daily_prices(
     fetched_at: datetime,
     request_id: str,
 ) -> pd.DataFrame:
-    """Normalize a yfinance daily price DataFrame into bronze-shaped rows."""
+    """Normalize a yfinance daily price DataFrame into bronze-shaped rows.
+
+    The normalizer accepts the common yfinance daily-price shapes: ticker-first MultiIndex
+    columns, field-first MultiIndex columns, and flat columns for a single ticker. It keeps
+    only requested tickers, converts the index into ``trading_date`` values, adds ``provider``,
+    ``fetched_at``, and ``request_id``, and returns columns in ``DAILY_PRICE_COLUMNS`` order.
+
+    Parameters
+    ----------
+    raw_prices
+        DataFrame returned by yfinance for daily historical prices.
+    tickers
+        Requested ticker symbols. Empty strings are ignored and duplicates are removed while
+        preserving first-seen order. At least one ticker must remain.
+    fetched_at
+        Timezone-aware provenance timestamp to record on every output row. It is normalized to
+        UTC before being stored.
+    request_id
+        Provenance identifier to record on every output row.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Bronze-shaped DataFrame with provider, ticker, trading date, OHLCV/action fields,
+        ``fetched_at``, and ``request_id``. Empty inputs, unmatched tickers, and rows where all
+        market fields are missing produce an empty DataFrame with the expected columns.
+
+    Raises
+    ------
+    ValueError
+        Raised when no ticker symbols remain after normalization, ``fetched_at`` is not
+        timezone-aware, or flat columns are supplied for multiple requested tickers.
+    """
     normalized_tickers = _normalize_tickers(tickers)
     normalized_fetched_at = _normalize_fetched_at(fetched_at)
     if raw_prices.empty:
