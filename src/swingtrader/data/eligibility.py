@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from enum import StrEnum
+from math import ceil
 
 from sqlalchemy.engine import Engine
 
@@ -24,11 +25,15 @@ from swingtrader.data.clients import yfinance as yfinance_client
 from swingtrader.data.ingestion.universe_selection import ConfigDir, resolve_requested_tickers
 
 INFERENCE_READINESS_MIN_DAILY_PRICE_ROWS = 252
-INFERENCE_READINESS_MAX_DAYS_SINCE_LATEST = 1
+INFERENCE_READINESS_MAX_DAYS_SINCE_LATEST = 4
 TRAINING_ELIGIBILITY_MIN_DAILY_PRICE_ROWS = 756
 QUALITY_MAX_NULL_OR_ZERO_VOLUME_RATIO = Decimal("0.05")
 QUALITY_TURNOVER_LOOKBACK_ROWS = 60
+# TODO: Convert foreign-market prices to SEK before applying this threshold to non-SEK tickers.
 QUALITY_MIN_MEDIAN_TURNOVER = Decimal("5000000")
+QUALITY_MIN_TURNOVER_OBSERVATION_ROWS = ceil(
+    QUALITY_TURNOVER_LOOKBACK_ROWS * (1 - float(QUALITY_MAX_NULL_OR_ZERO_VOLUME_RATIO))
+)
 
 
 class InferenceReadinessStatus(StrEnum):
@@ -53,6 +58,7 @@ class EligibilityFailureReason(StrEnum):
     STALE_DAILY_PRICES = "stale_daily_prices"
     MISSING_ADJUSTED_CLOSE = "missing_adjusted_close"
     SPARSE_VOLUME = "sparse_volume"
+    INSUFFICIENT_TURNOVER_OBSERVATIONS = "insufficient_turnover_observations"
     LOW_LIQUIDITY = "low_liquidity"
 
 
@@ -372,7 +378,9 @@ def _quality_failure_reasons(
         failure_reasons.append(EligibilityFailureReason.MISSING_ADJUSTED_CLOSE)
     if _null_or_zero_volume_ratio(quality_state) > QUALITY_MAX_NULL_OR_ZERO_VOLUME_RATIO:
         failure_reasons.append(EligibilityFailureReason.SPARSE_VOLUME)
-    if (
+    if quality_state.latest_turnover_row_count < QUALITY_MIN_TURNOVER_OBSERVATION_ROWS:
+        failure_reasons.append(EligibilityFailureReason.INSUFFICIENT_TURNOVER_OBSERVATIONS)
+    elif (
         quality_state.latest_median_turnover is None
         or quality_state.latest_median_turnover < QUALITY_MIN_MEDIAN_TURNOVER
     ):

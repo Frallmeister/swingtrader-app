@@ -19,21 +19,23 @@ The first implementation checks bronze daily price state only. Feature and label
 For inference readiness, a ticker must have:
 
 - at least 252 bronze daily price rows;
-- latest bronze `trading_date` no more than 1 calendar day before the reference date;
+- latest bronze `trading_date` no more than 4 calendar days before the reference date;
 - no missing `adjusted_close` values;
 - no more than 5% rows with null or zero `volume`;
-- median `close * volume` of at least SEK 5,000,000 over the latest 60 bronze rows.
+- valid `close * volume` observations for at least 95% of the latest 60 bronze rows;
+- median `close * volume` of at least SEK 5,000,000 over those latest valid turnover observations.
 
 For training eligibility, a ticker must have:
 
 - at least 756 bronze daily price rows;
 - no missing `adjusted_close` values;
 - no more than 5% rows with null or zero `volume`;
-- median `close * volume` of at least SEK 5,000,000 over the latest 60 bronze rows.
+- valid `close * volume` observations for at least 95% of the latest 60 bronze rows;
+- median `close * volume` of at least SEK 5,000,000 over those latest valid turnover observations.
 
-The 1-calendar-day inference recency rule is strict. It may mark tickers not ready during weekends or market holidays until market-calendar support exists.
+The 4-calendar-day inference recency rule is a pragmatic first threshold. The trading horizon may be as short as 5 days, so stale inputs can make rankings irrelevant; this threshold should be calibrated later against market calendars, realistic run schedules, and model sensitivity to data lag.
 
-The liquidity threshold assumes the current Swedish trading focus. Broader training universes may need market-specific liquidity rules later.
+The liquidity threshold assumes the current Swedish trading focus. Broader training universes may include foreign stocks, so foreign-market prices should be converted to SEK before applying this threshold or replaced with market-specific liquidity rules.
 
 ## Implemented Checks
 

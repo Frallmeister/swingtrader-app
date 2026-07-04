@@ -64,7 +64,7 @@ def test_check_inference_readiness_reports_bronze_blockers(sqlite_engine: Engine
                 _daily_prices(
                     ticker="STALE.ST",
                     row_count=252,
-                    last_trading_date=date(2026, 7, 2),
+                    last_trading_date=date(2026, 6, 29),
                 ),
                 _daily_prices(
                     ticker="NOADJ.ST",
@@ -84,6 +84,14 @@ def test_check_inference_readiness_reports_bronze_blockers(sqlite_engine: Engine
                     last_trading_date=date(2026, 7, 3),
                     volume=10_000,
                 ),
+                _daily_prices(
+                    ticker="ONEHIGH.ST",
+                    row_count=252,
+                    last_trading_date=date(2026, 7, 3),
+                    close=Decimal("1000.00"),
+                    volume=10_000_000,
+                    missing_close_indexes=set(range(193, 252)),
+                ),
             ],
             ignore_index=True,
         ),
@@ -98,6 +106,7 @@ def test_check_inference_readiness_reports_bronze_blockers(sqlite_engine: Engine
             "NOADJ.ST",
             "SPARSE.ST",
             "ILLIQUID.ST",
+            "ONEHIGH.ST",
         ),
         reference_date=date(2026, 7, 4),
         engine=sqlite_engine,
@@ -111,6 +120,7 @@ def test_check_inference_readiness_reports_bronze_blockers(sqlite_engine: Engine
         "NOADJ.ST",
         "SPARSE.ST",
         "ILLIQUID.ST",
+        "ONEHIGH.ST",
     )
     assert states["MISSING.ST"].failure_reasons == (
         EligibilityFailureReason.MISSING_BRONZE_DAILY_PRICES,
@@ -120,6 +130,9 @@ def test_check_inference_readiness_reports_bronze_blockers(sqlite_engine: Engine
     assert states["NOADJ.ST"].failure_reasons == (EligibilityFailureReason.MISSING_ADJUSTED_CLOSE,)
     assert states["SPARSE.ST"].failure_reasons == (EligibilityFailureReason.SPARSE_VOLUME,)
     assert states["ILLIQUID.ST"].failure_reasons == (EligibilityFailureReason.LOW_LIQUIDITY,)
+    assert states["ONEHIGH.ST"].failure_reasons == (
+        EligibilityFailureReason.INSUFFICIENT_TURNOVER_OBSERVATIONS,
+    )
 
 
 def test_check_training_eligibility_accepts_explicit_broader_tickers(
@@ -243,9 +256,11 @@ def _daily_prices(
     close: Decimal = Decimal("100.00"),
     adjusted_close: Decimal = Decimal("100.00"),
     volume: int = 100_000,
+    missing_close_indexes: set[int] | None = None,
     missing_adjusted_close_indexes: set[int] | None = None,
     zero_volume_indexes: set[int] | None = None,
 ) -> pd.DataFrame:
+    missing_close_indexes = missing_close_indexes or set()
     missing_adjusted_close_indexes = missing_adjusted_close_indexes or set()
     zero_volume_indexes = zero_volume_indexes or set()
     first_trading_date = last_trading_date - timedelta(days=row_count - 1)
@@ -258,7 +273,7 @@ def _daily_prices(
                 "open": close,
                 "high": close,
                 "low": close,
-                "close": close,
+                "close": None if index in missing_close_indexes else close,
                 "adjusted_close": (
                     None if index in missing_adjusted_close_indexes else adjusted_close
                 ),
