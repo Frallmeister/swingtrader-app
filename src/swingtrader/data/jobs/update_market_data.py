@@ -63,18 +63,26 @@ class DailyMarketDataUpdateResult:
 
     @property
     def update_tickers(self) -> tuple[str, ...]:
+        """Tickers that were selected for daily refresh attempts."""
         return tuple(update.ticker for update in self.planned_updates)
 
     @property
     def downloaded_rows(self) -> int:
+        """Total normalized daily price rows returned by daily update downloads."""
         return sum(result.downloaded_rows for result in self.ingestion_results)
 
     @property
     def upserted_rows(self) -> int:
+        """Total bronze daily price rows submitted to idempotent upserts."""
         return sum(result.upserted_rows for result in self.ingestion_results)
 
     @property
     def failures(self) -> tuple[TickerIngestionFailure, ...]:
+        """Per-ticker ingestion failures from attempted daily refreshes.
+
+        Tickers reported in ``not_onboarded_tickers`` are not attempted by this job and are
+        therefore not represented as failures here.
+        """
         return tuple(failure for result in self.ingestion_results for failure in result.failures)
 
 
@@ -119,8 +127,10 @@ def run_daily_market_data_update(
 
     Notes
     -----
-    This function does not configure logging and does not call ``sys.exit``. Use ``main`` for
-    the command-line entrypoint.
+    This workflow updates only already-onboarded active tickers. It does not use
+    ``MarketDataSettings.initial_start_date`` and does not create the first bronze rows for a
+    ticker; use the onboarding job for initial fills. This function does not configure logging
+    and does not call ``sys.exit``. Use ``main`` for the command-line entrypoint.
     """
     validate_limit(limit)
 

@@ -1,8 +1,13 @@
 """Run initial bronze market data onboarding for missing active tickers.
 
-This job creates the first bronze daily price rows for active tickers that do not yet
-have any stored market data. The daily update job remains responsible for keeping
-already-onboarded active tickers current.
+This job compares the active ticker universe with stored bronze daily price rows and
+backfills only active tickers that are missing from bronze storage. A ticker is considered
+onboarded after the run only when post-run bronze state shows at least one stored daily
+price row. Empty provider responses therefore count as attempted but still not onboarded,
+while provider or write exceptions count as failures.
+
+The daily market data update job remains responsible for keeping already-onboarded active
+tickers current.
 """
 
 import argparse
@@ -44,6 +49,7 @@ class OnboardMarketDataResult:
 
     @property
     def successful_tickers(self) -> tuple[str, ...]:
+        """Attempted tickers that are onboarded according to post-run bronze state."""
         if self.onboarding_after is None:
             return ()
         onboarded_after = set(
@@ -56,6 +62,7 @@ class OnboardMarketDataResult:
 
     @property
     def not_onboarded_tickers(self) -> tuple[str, ...]:
+        """Attempted tickers that still have no bronze daily price rows after the run."""
         if self.onboarding_after is None:
             return ()
         missing_after = set(
@@ -68,22 +75,26 @@ class OnboardMarketDataResult:
 
     @property
     def failed_tickers(self) -> tuple[str, ...]:
+        """Attempted tickers that raised provider or write errors during ingestion."""
         return tuple(failure.ticker for failure in self.failures)
 
     @property
     def downloaded_rows(self) -> int:
+        """Total normalized daily price rows returned by attempted provider downloads."""
         if self.ingestion_result is None:
             return 0
         return self.ingestion_result.downloaded_rows
 
     @property
     def upserted_rows(self) -> int:
+        """Total bronze daily price rows submitted to idempotent upserts."""
         if self.ingestion_result is None:
             return 0
         return self.ingestion_result.upserted_rows
 
     @property
     def failures(self) -> tuple[TickerIngestionFailure, ...]:
+        """Per-ticker ingestion failures recorded while attempting missing tickers."""
         if self.ingestion_result is None:
             return ()
         return self.ingestion_result.failures
@@ -104,6 +115,39 @@ def run_onboard_market_data(
     Tickers with existing bronze daily price rows are skipped. Missing active tickers are
     backfilled from ``start_date`` to the exclusive ``end_date`` through the existing
     historical ingestion path.
+
+    Parameters
+    ----------
+    start_date
+        Inclusive first date for initial-fill provider requests. When omitted,
+        ``market_data.yml`` ``initial_start_date`` is used.
+    end_date
+        Exclusive end date for provider requests. When omitted, tomorrow's UTC date is used.
+    limit
+        Optional maximum number of resolved active tickers to consider. Intended for smoke
+        runs and applied before onboarding state is checked.
+    database_url
+        Optional SQLAlchemy database URL. Mutually exclusive with ``engine``.
+    engine
+        Optional SQLAlchemy engine. Passing an engine is useful for tests and callers that
+        already manage database connections. Mutually exclusive with ``database_url``.
+    config_dir
+        Optional active ticker universe configuration directory. When omitted, packaged
+        universe configuration is used.
+    settings_path
+        Optional market data settings file. When omitted, packaged project settings are used.
+
+    Returns
+    -------
+    OnboardMarketDataResult
+        Job result including pre-run onboarding state, attempted initial fills, post-run
+        onboarding state when attempted, row counts, and per-ticker failures.
+
+    Notes
+    -----
+    A successful ticker means the ticker is onboarded after the run, not merely that its
+    provider call completed. Empty downloads have no failure entry but remain in
+    ``not_onboarded_tickers`` if no bronze rows are written.
     """
     settings = load_market_data_settings(settings_path)
     resolved_start_date = start_date or settings.initial_start_date
@@ -156,7 +200,21 @@ def run_onboard_market_data(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the market data onboarding command-line interface."""
+    """Run the market data onboarding command-line interface.
+
+    Parameters
+    ----------
+    argv
+        Optional argument sequence. When omitted, arguments are read from ``sys.argv`` by
+        ``argparse``.
+
+    Returns
+    -------
+    int
+        Process-style exit code. Returns ``1`` when ``--fail-on-ticker-failure`` is passed and
+        any attempted ticker failed or still is not onboarded after the run; otherwise returns
+        ``0``.
+    """
     args = _parse_args(argv)
     configure_logging()
     result = run_onboard_market_data(

@@ -21,7 +21,12 @@ from swingtrader.data.ingestion.validation import validate_date_window, validate
 
 
 class BronzeOnboardingStatus(StrEnum):
-    """Bronze daily price onboarding status for one active ticker."""
+    """Bronze daily price onboarding status for one active ticker.
+
+    ``MISSING`` means no bronze daily price rows exist for the ticker and provider.
+    ``ONBOARDED`` means at least one bronze daily price row exists. This status does not imply
+    inference readiness, training eligibility, or historical completeness.
+    """
 
     MISSING = "missing"
     ONBOARDED = "onboarded"
@@ -48,14 +53,17 @@ class BronzeOnboardingResult:
 
     @property
     def missing_count(self) -> int:
+        """Number of active tickers with no bronze daily price rows."""
         return self._count_status(BronzeOnboardingStatus.MISSING)
 
     @property
     def onboarded_count(self) -> int:
+        """Number of active tickers with at least one bronze daily price row."""
         return self._count_status(BronzeOnboardingStatus.ONBOARDED)
 
     @property
     def missing_tickers(self) -> tuple[str, ...]:
+        """Active tickers that have no bronze daily price rows."""
         return tuple(
             item.ticker for item in self.states if item.status == BronzeOnboardingStatus.MISSING
         )
@@ -81,6 +89,7 @@ class OnboardingSyncResult:
 
     @property
     def tickers(self) -> tuple[str, ...]:
+        """Active tickers considered by the onboarding sync."""
         return self.onboarding_before.tickers
 
 
@@ -97,6 +106,26 @@ def check_active_ticker_bronze_onboarding(
     This function only decides whether an active ticker has any bronze daily price rows for
     the selected provider. It intentionally does not decide whether the ticker has enough
     history for inference or training.
+
+    Parameters
+    ----------
+    provider
+        Market data provider to check in bronze daily price rows.
+    config_dir
+        Optional active ticker universe configuration directory. When omitted, packaged
+        universe configuration is used.
+    limit
+        Optional maximum number of resolved active tickers to check.
+    database_url
+        Optional SQLAlchemy database URL. Mutually exclusive with ``engine``.
+    engine
+        Optional SQLAlchemy engine. Passing an engine is useful for tests and callers that
+        already manage database connections. Mutually exclusive with ``database_url``.
+
+    Returns
+    -------
+    BronzeOnboardingResult
+        Per-active-ticker bronze presence state in active ticker order.
     """
     validate_limit(limit)
 
@@ -133,7 +162,45 @@ def sync_active_ticker_bronze_onboarding(
     backfill: bool = False,
     raise_on_failure: bool = False,
 ) -> OnboardingSyncResult:
-    """Report active ticker bronze presence and optionally backfill missing tickers."""
+    """Report active ticker bronze presence and optionally backfill missing tickers.
+
+    Parameters
+    ----------
+    start_date
+        Inclusive first date for optional backfill provider requests.
+    end_date
+        Exclusive end date for optional backfill provider requests.
+    provider
+        Market data provider to check. Backfill currently supports only yfinance.
+    config_dir
+        Optional active ticker universe configuration directory. When omitted, packaged
+        universe configuration is used.
+    limit
+        Optional maximum number of resolved active tickers to check and optionally backfill.
+    database_url
+        Optional SQLAlchemy database URL. Mutually exclusive with ``engine``.
+    engine
+        Optional SQLAlchemy engine. Passing an engine is useful for tests and callers that
+        already manage database connections. Mutually exclusive with ``database_url``.
+    backfill
+        When ``True``, run historical ingestion for active tickers that are missing from bronze
+        before the sync. When ``False``, only report current onboarding state.
+    raise_on_failure
+        Passed through to historical ingestion during backfill. When ``True``, raise after all
+        attempted tickers if any ticker failed.
+
+    Returns
+    -------
+    OnboardingSyncResult
+        Pre-run onboarding state, optional backfill tickers and ingestion result, and optional
+        post-run onboarding state.
+
+    Raises
+    ------
+    ValueError
+        Raised when the date window is invalid, ``limit`` is invalid, engine configuration is
+        invalid, or backfill is requested for an unsupported provider.
+    """
     validate_date_window(start_date=start_date, end_date=end_date)
     if backfill and provider != yfinance_client.PROVIDER:
         msg = f"Backfill is only supported for provider={yfinance_client.PROVIDER!r}."
