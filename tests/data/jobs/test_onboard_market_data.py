@@ -11,6 +11,11 @@ from swingtrader.data.bronze.writer import upsert_daily_prices
 from swingtrader.data.clients.yfinance import DAILY_PRICE_COLUMNS
 from swingtrader.data.ingestion import market_data
 from swingtrader.data.ingestion.market_data import IngestionResult, TickerIngestionFailure
+from swingtrader.data.ingestion.onboarding import (
+    BronzeOnboardingResult,
+    BronzeOnboardingStatus,
+    TickerBronzeOnboardingState,
+)
 from swingtrader.data.jobs import onboard_market_data
 
 
@@ -369,7 +374,47 @@ def test_run_onboard_market_data_reports_failed_tickers_without_discarding_succe
 
     assert result.attempted_tickers == ("AAK.ST", "BOL.ST", "VOLV-B.ST")
     assert result.successful_tickers == ("AAK.ST", "VOLV-B.ST")
+    assert result.not_onboarded_tickers == ("BOL.ST",)
     assert result.failed_tickers == ("BOL.ST",)
+    assert result.downloaded_rows == 2
+    assert result.upserted_rows == 2
+    assert _stored_row_count(sqlite_engine) == 2
+
+
+def test_run_onboard_market_data_does_not_count_empty_download_as_success(
+    sqlite_engine: Engine,
+    universe_config_dir: Path,
+    market_data_settings_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_download_daily_prices(**kwargs: object) -> pd.DataFrame:
+        ticker = _single_ticker(kwargs)
+        if ticker == "BOL.ST":
+            return pd.DataFrame(columns=DAILY_PRICE_COLUMNS)
+        return _daily_prices(
+            ticker=ticker,
+            trading_date=_date_arg(kwargs, "start_date"),
+            fetched_at=kwargs["fetched_at"],
+            request_id=kwargs["request_id"],
+        )
+
+    monkeypatch.setattr(
+        market_data.yfinance_client,
+        "download_daily_prices",
+        fake_download_daily_prices,
+    )
+
+    result = onboard_market_data.run_onboard_market_data(
+        end_date=date(2000, 1, 3),
+        engine=sqlite_engine,
+        config_dir=universe_config_dir,
+        settings_path=market_data_settings_path,
+    )
+
+    assert result.attempted_tickers == ("AAK.ST", "BOL.ST", "VOLV-B.ST")
+    assert result.successful_tickers == ("AAK.ST", "VOLV-B.ST")
+    assert result.not_onboarded_tickers == ("BOL.ST",)
+    assert result.failed_tickers == ()
     assert result.downloaded_rows == 2
     assert result.upserted_rows == 2
     assert _stored_row_count(sqlite_engine) == 2
@@ -403,6 +448,53 @@ def test_main_returns_nonzero_when_fail_on_ticker_failure(
         attempted_tickers=("FAIL.ST",),
         ingestion_result=ingestion_result,
         onboarding_after=None,
+    )
+
+    monkeypatch.setattr(
+        onboard_market_data,
+        "run_onboard_market_data",
+        lambda **_: onboard_result,
+    )
+
+    assert onboard_market_data.main(["--fail-on-ticker-failure"]) == 1
+    assert onboard_market_data.main([]) == 0
+
+
+def test_main_returns_nonzero_when_attempted_ticker_remains_not_onboarded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ingestion_result = IngestionResult(
+        provider="yfinance",
+        request_id="test-request",
+        start_date=date(2026, 7, 1),
+        end_date=date(2026, 7, 4),
+        tickers=("EMPTY.ST",),
+        downloaded_rows=0,
+        upserted_rows=0,
+        failures=(),
+    )
+    onboard_result = onboard_market_data.OnboardMarketDataResult(
+        provider="yfinance",
+        start_date=date(2026, 7, 1),
+        end_date=date(2026, 7, 4),
+        active_tickers=("EMPTY.ST",),
+        already_onboarded_tickers=(),
+        missing_tickers=("EMPTY.ST",),
+        attempted_tickers=("EMPTY.ST",),
+        ingestion_result=ingestion_result,
+        onboarding_after=BronzeOnboardingResult(
+            provider="yfinance",
+            tickers=("EMPTY.ST",),
+            states=(
+                TickerBronzeOnboardingState(
+                    ticker="EMPTY.ST",
+                    status=BronzeOnboardingStatus.MISSING,
+                    row_count=0,
+                    first_trading_date=None,
+                    last_trading_date=None,
+                ),
+            ),
+        ),
     )
 
     monkeypatch.setattr(

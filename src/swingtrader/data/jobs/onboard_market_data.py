@@ -44,8 +44,27 @@ class OnboardMarketDataResult:
 
     @property
     def successful_tickers(self) -> tuple[str, ...]:
-        failed_tickers = set(self.failed_tickers)
-        return tuple(ticker for ticker in self.attempted_tickers if ticker not in failed_tickers)
+        if self.onboarding_after is None:
+            return ()
+        onboarded_after = set(
+            _tickers_with_status(
+                self.onboarding_after,
+                BronzeOnboardingStatus.ONBOARDED,
+            )
+        )
+        return tuple(ticker for ticker in self.attempted_tickers if ticker in onboarded_after)
+
+    @property
+    def not_onboarded_tickers(self) -> tuple[str, ...]:
+        if self.onboarding_after is None:
+            return ()
+        missing_after = set(
+            _tickers_with_status(
+                self.onboarding_after,
+                BronzeOnboardingStatus.MISSING,
+            )
+        )
+        return tuple(ticker for ticker in self.attempted_tickers if ticker in missing_after)
 
     @property
     def failed_tickers(self) -> tuple[str, ...]:
@@ -120,13 +139,15 @@ def run_onboard_market_data(
     logger.info(
         "Finished market data onboarding provider=%s active_tickers=%s "
         "already_onboarded_tickers=%s missing_tickers=%s attempted_tickers=%s "
-        "successful_tickers=%s failed_tickers=%s downloaded_rows=%s upserted_rows=%s",
+        "successful_tickers=%s not_onboarded_tickers=%s failed_tickers=%s downloaded_rows=%s "
+        "upserted_rows=%s",
         result.provider,
         len(result.active_tickers),
         len(result.already_onboarded_tickers),
         len(result.missing_tickers),
         len(result.attempted_tickers),
         len(result.successful_tickers),
+        len(result.not_onboarded_tickers),
         len(result.failed_tickers),
         result.downloaded_rows,
         result.upserted_rows,
@@ -144,7 +165,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         limit=args.limit,
         database_url=args.database_url,
     )
-    if args.fail_on_ticker_failure and result.failures:
+    if args.fail_on_ticker_failure and (result.failures or result.not_onboarded_tickers):
         return 1
     return 0
 
@@ -214,7 +235,10 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--fail-on-ticker-failure",
         action="store_true",
-        help="Exit with status 1 if any ticker fails while still writing successful tickers.",
+        help=(
+            "Exit with status 1 if any attempted ticker fails or remains not onboarded while "
+            "still writing successful tickers."
+        ),
     )
     return parser.parse_args(argv)
 
