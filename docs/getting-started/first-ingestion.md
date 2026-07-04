@@ -12,9 +12,25 @@ Example PowerShell override:
 $env:SWINGTRADER_DATABASE_URL = "sqlite+pysqlite:///data/swingtrader.sqlite"
 ```
 
-## Bronze Onboarding Check
+## Market Data Onboarding Job
 
-The onboarding workflow compares active tickers with the bronze daily price table. A ticker is considered onboarded once any bronze daily price row exists for that provider. Use `backfill=True` to create first bronze rows for missing active tickers:
+Run the market data onboarding job first to create initial bronze daily price rows for active tickers that are missing data:
+
+```powershell
+uv run python -m swingtrader.data.jobs.onboard_market_data --limit 3
+```
+
+The job uses the configured `initial_start_date` from `market_data.yml` unless you pass `--start-date`. Use an explicit exclusive end date for deterministic local runs:
+
+```powershell
+uv run python -m swingtrader.data.jobs.onboard_market_data --limit 3 --end-date 2026-07-04
+```
+
+Already-onboarded tickers are skipped. This command is the operational entrypoint for first setup and for active tickers added later.
+
+## Bronze Onboarding API
+
+The lower-level onboarding workflow compares active tickers with the bronze daily price table. A ticker is considered onboarded once any bronze daily price row exists for that provider. Use `backfill=True` to create first bronze rows for missing active tickers from Python:
 
 ```python
 from datetime import date

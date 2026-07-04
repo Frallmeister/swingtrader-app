@@ -4,6 +4,18 @@ This page describes the daily market data workflow that should eventually run as
 
 The first implementation is a local runnable job for bronze daily market prices.
 
+## Onboarding Prerequisite
+
+Run the market data onboarding job during first setup and whenever new tickers are added to the active universe:
+
+```powershell
+uv run python -m swingtrader.data.jobs.onboard_market_data
+```
+
+The onboarding job creates first bronze rows for active tickers that have no stored daily prices. Already-onboarded tickers are skipped.
+
+The daily update job below intentionally does not initialize missing tickers. It reports them as not onboarded and keeps already-onboarded active tickers current.
+
 ## Local Command
 
 Run the daily market data update job locally with:
@@ -42,7 +54,7 @@ Use `--fail-on-ticker-failure` when a scheduler should treat any ticker-level fa
 
 The job uses bronze storage as the source of truth for progress. It does not maintain a separate checkpoint.
 
-Use the bronze onboarding workflow for first loads and newly active tickers before expecting the daily update job to refresh them.
+Use the market data onboarding job for first loads and newly active tickers before expecting the daily update job to refresh them.
 
 ## Developer Checks
 
