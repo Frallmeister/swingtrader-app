@@ -32,6 +32,24 @@ The onboarding sync checks whether active tickers exist in bronze storage. It cl
 
 Backfill only targets missing tickers. Historical completeness is intentionally out of scope and belongs to future readiness and eligibility rules.
 
+## Market Data Onboarding Job
+
+Run the market data onboarding job during first setup or after adding new tickers to the active universe:
+
+```powershell
+uv run python -m swingtrader.data.jobs.onboard_market_data
+```
+
+The job resolves active tickers, reads bronze daily price state, and downloads historical prices only for active tickers with no bronze rows. Already-onboarded tickers are skipped.
+
+Use a deterministic exclusive end date for local checks:
+
+```powershell
+uv run python -m swingtrader.data.jobs.onboard_market_data --end-date 2026-07-04
+```
+
+Use `--limit` for smoke runs and `--start-date` to override the configured `initial_start_date` from `market_data.yml`.
+
 ## Daily Market Data Job
 
 The implemented daily update job runs with:

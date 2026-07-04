@@ -29,6 +29,24 @@ result = sync_active_ticker_bronze_onboarding(
 )
 ```
 
+## CLI Job
+
+Use the market data onboarding job during first setup or when new tickers are added to the active universe:
+
+```powershell
+uv run python -m swingtrader.data.jobs.onboard_market_data
+```
+
+The job uses `initial_start_date` from `market_data.yml` by default and writes only missing active tickers to bronze storage. Already-onboarded tickers are skipped, so reruns are safe.
+
+For deterministic local runs, pass an exclusive end date:
+
+```powershell
+uv run python -m swingtrader.data.jobs.onboard_market_data --end-date 2026-07-04
+```
+
+The daily market data update job is separate: it refreshes active tickers that already have bronze rows and reports missing active tickers as not onboarded.
+
 ## Future Readiness
 
 Later work should add rules for:
