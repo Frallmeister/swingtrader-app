@@ -34,7 +34,48 @@ On conflict, market values plus `fetched_at` and `request_id` are updated from t
 
 Local development currently defaults to SQLite. PostgreSQL support is planned for deployment through the existing SQLAlchemy abstraction and optional PostgreSQL dependency.
 
-Use the `SWINGTRADER_DATABASE_URL` environment variable to point the application at a non-default database. `create_database_engine()` resolves that setting when no explicit database URL is passed.
+Use the `SWINGTRADER_DATABASE_URL` environment variable to point the application at a non-default database. `resolve_database_engine()` resolves that setting when no explicit database URL is passed and creates known application tables if they do not exist yet.
+
+## Loading Daily Prices In Notebooks
+
+After running bronze onboarding or the daily market data update job, use the pandas loader to inspect downloaded source rows in a notebook:
+
+```python
+from pathlib import Path
+
+from swingtrader.core.db import resolve_database_engine
+from swingtrader.data.bronze.loaders import load_bronze_daily_prices
+
+repo_root = next(path for path in [Path.cwd(), *Path.cwd().parents] if (path / "pyproject.toml").exists())
+database_url = f"sqlite+pysqlite:///{(repo_root / 'data' / 'swingtrader.sqlite').as_posix()}"
+engine = resolve_database_engine(database_url=database_url)
+
+prices = load_bronze_daily_prices(
+    engine=engine,
+    tickers=["AAK.ST", "ADDT-B.ST", "AFRY.ST"],
+    start_date="2026-06-01",
+    end_date="2026-06-30",
+)
+
+prices.head()
+```
+
+Use `columns` to limit the returned DataFrame. The loader always includes `provider`, `ticker`, and `trading_date` first, then appends the requested non-key columns:
+
+```python
+prices = load_bronze_daily_prices(
+    engine=engine,
+    tickers="AAK.ST",
+    start_date="2020-01-01",
+    columns="close",
+)
+```
+
+Both `tickers` and `columns` accept either a single string or a sequence of strings.
+
+This helper is for bronze EDA and source inspection. It does not create technical indicators, model-ready features, targets, or readiness decisions.
+
+The returned DataFrame uses notebook-friendly dtypes: `trading_date` is pandas datetime, `volume` is nullable integer, and OHLC/dividend/split columns are floats.
 
 ## Future Bronze Tables
 
