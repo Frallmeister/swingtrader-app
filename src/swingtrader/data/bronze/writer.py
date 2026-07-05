@@ -4,10 +4,11 @@ Writer functions accept bronze-shaped DataFrames and use database upserts so rer
 existing source rows instead of creating duplicates.
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from math import floor
 
 import pandas as pd
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 
 from swingtrader.data.bronze.schema import bronze_market_daily_prices
 
@@ -20,6 +21,8 @@ BRONZE_MARKET_DAILY_PRICE_UPDATE_COLUMNS = tuple(
     for column in BRONZE_MARKET_DAILY_PRICE_COLUMNS
     if column not in BRONZE_MARKET_DAILY_PRICE_PRIMARY_KEY
 )
+SQLITE_DEFAULT_MAX_VARIABLES = 999
+SQLITE_VARIABLE_SAFETY_FACTOR = 0.9
 
 
 def upsert_daily_prices(prices: pd.DataFrame, engine: Engine) -> int:
@@ -57,9 +60,18 @@ def upsert_daily_prices(prices: pd.DataFrame, engine: Engine) -> int:
         return 0
 
     rows = _to_database_rows(prices.loc[:, BRONZE_MARKET_DAILY_PRICE_COLUMNS])
-    statement = _build_upsert_statement(engine=engine, rows=rows)
     with engine.begin() as connection:
-        connection.execute(statement)
+        chunk_size = _upsert_chunk_size(
+            connection=connection,
+            row_count=len(rows),
+            column_count=len(BRONZE_MARKET_DAILY_PRICE_COLUMNS),
+        )
+        for chunk in _chunk_rows(rows=rows, chunk_size=chunk_size):
+            statement = _build_upsert_statement(
+                dialect_name=connection.dialect.name,
+                rows=chunk,
+            )
+            connection.execute(statement)
     return len(rows)
 
 
@@ -76,13 +88,51 @@ def _to_database_rows(prices: pd.DataFrame) -> list[dict[str, object]]:
     return list(database_prices.to_dict(orient="records"))
 
 
-def _build_upsert_statement(engine: Engine, rows: list[dict[str, object]]):
-    if engine.dialect.name == "sqlite":
+def _upsert_chunk_size(*, connection: Connection, row_count: int, column_count: int) -> int:
+    if connection.dialect.name == "sqlite":
+        return _calculate_sqlite_chunk_size(
+            max_variables=_sqlite_max_variable_number(connection),
+            column_count=column_count,
+        )
+    if connection.dialect.name == "postgresql":
+        return row_count
+
+    msg = f"Unsupported database dialect for bronze upsert: {connection.dialect.name}"
+    raise ValueError(msg)
+
+
+def _calculate_sqlite_chunk_size(*, max_variables: int, column_count: int) -> int:
+    return max(1, floor(SQLITE_VARIABLE_SAFETY_FACTOR * max_variables / column_count))
+
+
+def _sqlite_max_variable_number(connection: Connection) -> int:
+    rows = connection.exec_driver_sql("PRAGMA compile_options").all()
+    for row in rows:
+        option = str(row[0])
+        if option.startswith("MAX_VARIABLE_NUMBER="):
+            try:
+                return int(option.removeprefix("MAX_VARIABLE_NUMBER="))
+            except ValueError:
+                return SQLITE_DEFAULT_MAX_VARIABLES
+    return SQLITE_DEFAULT_MAX_VARIABLES
+
+
+def _chunk_rows(
+    *,
+    rows: list[dict[str, object]],
+    chunk_size: int,
+) -> Iterator[list[dict[str, object]]]:
+    for start in range(0, len(rows), chunk_size):
+        yield rows[start : start + chunk_size]
+
+
+def _build_upsert_statement(*, dialect_name: str, rows: list[dict[str, object]]):
+    if dialect_name == "sqlite":
         return _build_sqlite_upsert_statement(rows)
-    if engine.dialect.name == "postgresql":
+    if dialect_name == "postgresql":
         return _build_postgresql_upsert_statement(rows)
 
-    msg = f"Unsupported database dialect for bronze upsert: {engine.dialect.name}"
+    msg = f"Unsupported database dialect for bronze upsert: {dialect_name}"
     raise ValueError(msg)
 
 
