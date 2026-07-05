@@ -65,17 +65,13 @@ Use `columns` to limit the returned DataFrame. The loader always includes `provi
 ```python
 prices = load_bronze_daily_prices(
     engine=engine,
-    tickers=["AAK.ST"],
+    tickers="AAK.ST",
     start_date="2020-01-01",
-    columns=[
-        "close",
-        "adjusted_close",
-        "volume",
-        "dividends",
-        "stock_splits",
-    ],
+    columns="close",
 )
 ```
+
+Both `tickers` and `columns` accept either a single string or a sequence of strings.
 
 This helper is for bronze EDA and source inspection. It does not create technical indicators, model-ready features, targets, or readiness decisions.
 

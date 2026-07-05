@@ -29,10 +29,10 @@ def load_bronze_daily_prices(
     *,
     engine: Engine,
     provider: str = "yfinance",
-    tickers: Sequence[str] | None = None,
+    tickers: str | Sequence[str] | None = None,
     start_date: date | str | None = None,
     end_date: date | str | None = None,
-    columns: Sequence[str] | None = None,
+    columns: str | Sequence[str] | None = None,
 ) -> pd.DataFrame:
     """Load bronze daily market prices into a pandas DataFrame.
 
@@ -55,15 +55,15 @@ def load_bronze_daily_prices(
     provider
         Market data provider to filter by, such as ``"yfinance"``.
     tickers
-        Optional provider ticker symbols to include. An empty sequence returns an empty
-        DataFrame with the expected columns.
+        Optional provider ticker symbol or symbols to include. A single ticker may be passed
+        as a string. An empty sequence returns an empty DataFrame with the expected columns.
     start_date
         Optional inclusive lower bound for ``trading_date``. Strings must use ISO date format.
     end_date
         Optional inclusive upper bound for ``trading_date``. Strings must use ISO date format.
     columns
-        Optional subset of bronze daily price columns to return. Unknown columns raise
-        ``ValueError``.
+        Optional bronze daily price column or columns to return. A single column may be
+        passed as a string. Unknown columns raise ``ValueError``.
 
     Returns
     -------
@@ -77,7 +77,8 @@ def load_bronze_daily_prices(
         Raised for unknown column names, invalid date strings, or a missing bronze table.
     """
     selected_columns = _resolve_column_names(columns)
-    if tickers is not None and not tickers:
+    selected_tickers = _normalize_string_sequence(tickers)
+    if selected_tickers is not None and not selected_tickers:
         return pd.DataFrame(columns=selected_columns)
 
     _validate_table_exists(engine)
@@ -85,8 +86,8 @@ def load_bronze_daily_prices(
     table_columns = [bronze_market_daily_prices.c[column] for column in selected_columns]
     statement = select(*table_columns).where(bronze_market_daily_prices.c.provider == provider)
 
-    if tickers is not None:
-        statement = statement.where(bronze_market_daily_prices.c.ticker.in_(tuple(tickers)))
+    if selected_tickers is not None:
+        statement = statement.where(bronze_market_daily_prices.c.ticker.in_(selected_tickers))
     if start_date is not None:
         statement = statement.where(
             bronze_market_daily_prices.c.trading_date >= _parse_filter_date(start_date)
@@ -136,20 +137,29 @@ def _validate_table_exists(engine: Engine) -> None:
     raise ValueError(msg)
 
 
-def _resolve_column_names(columns: Sequence[str] | None) -> tuple[str, ...]:
-    if columns is None:
+def _resolve_column_names(columns: str | Sequence[str] | None) -> tuple[str, ...]:
+    selected_columns = _normalize_string_sequence(columns)
+    if selected_columns is None:
         return BRONZE_DAILY_PRICE_COLUMNS
 
-    unknown_columns = sorted(set(columns) - set(BRONZE_DAILY_PRICE_COLUMNS))
+    unknown_columns = sorted(set(selected_columns) - set(BRONZE_DAILY_PRICE_COLUMNS))
     if unknown_columns:
         msg = f"Unknown bronze daily price columns: {', '.join(unknown_columns)}"
         raise ValueError(msg)
 
     resolved_columns = [*BRONZE_DAILY_PRICE_KEY_COLUMNS]
-    for column in columns:
+    for column in selected_columns:
         if column not in BRONZE_DAILY_PRICE_KEY_COLUMNS and column not in resolved_columns:
             resolved_columns.append(column)
     return tuple(resolved_columns)
+
+
+def _normalize_string_sequence(value: str | Sequence[str] | None) -> tuple[str, ...] | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return (value,)
+    return tuple(value)
 
 
 def _parse_filter_date(value: date | str) -> date:

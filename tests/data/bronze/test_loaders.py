@@ -49,6 +49,24 @@ def test_load_bronze_daily_prices_filters_by_ticker(sqlite_engine: Engine) -> No
     ]
 
 
+def test_load_bronze_daily_prices_accepts_single_ticker_string(
+    sqlite_engine: Engine,
+) -> None:
+    _seed_daily_prices(sqlite_engine)
+
+    prices = load_bronze_daily_prices(
+        engine=sqlite_engine,
+        provider="yfinance",
+        tickers="BOL.ST",
+    )
+
+    assert list(prices["ticker"]) == ["BOL.ST", "BOL.ST"]
+    assert list(prices["trading_date"]) == [
+        pd.Timestamp("2026-06-25"),
+        pd.Timestamp("2026-06-26"),
+    ]
+
+
 def test_load_bronze_daily_prices_filters_by_start_date(sqlite_engine: Engine) -> None:
     _seed_daily_prices(sqlite_engine)
 
@@ -114,6 +132,23 @@ def test_load_bronze_daily_prices_selects_columns_with_keys(sqlite_engine: Engin
 
     assert list(prices.columns) == ["provider", "ticker", "trading_date", "close", "volume"]
     assert list(prices["ticker"]) == ["AAK.ST", "AAK.ST", "AAK.ST"]
+
+
+def test_load_bronze_daily_prices_accepts_single_column_string(
+    sqlite_engine: Engine,
+) -> None:
+    _seed_daily_prices(sqlite_engine)
+
+    prices = load_bronze_daily_prices(
+        engine=sqlite_engine,
+        provider="yfinance",
+        tickers="AAK.ST",
+        columns="close",
+    )
+
+    assert list(prices.columns) == ["provider", "ticker", "trading_date", "close"]
+    assert list(prices["ticker"]) == ["AAK.ST", "AAK.ST", "AAK.ST"]
+    assert pd.api.types.is_float_dtype(prices["close"])
 
 
 def test_load_bronze_daily_prices_returns_notebook_friendly_dtypes(
