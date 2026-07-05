@@ -42,6 +42,10 @@ This page documents selected implemented modules. Planned modules are intentiona
 
 ::: swingtrader.data.bronze.writer
 
+## Bronze Loaders
+
+::: swingtrader.data.bronze.loaders
+
 ## Bronze Queries
 
 ::: swingtrader.data.bronze.queries
