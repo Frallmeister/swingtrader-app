@@ -217,3 +217,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# sqlite
+*.sqlite
+/data
+
+# Temporary files
+temp_*.py
