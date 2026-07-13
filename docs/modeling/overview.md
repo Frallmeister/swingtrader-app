@@ -6,17 +6,21 @@ The modeling package will own dataset construction, training workflows, evaluati
 
 ## Inference Readiness
 
-An inference-ready ticker has the recent feature data required for the production model to make a prediction.
+The current implementation evaluates inference readiness from bronze daily-price state only.
 
-An active ticker is not automatically inference-ready. It must first have enough bronze data, generated features, and recent rows. The current bronze-backed rules are documented in [Ticker Eligibility](../data/eligibility.md).
+An active ticker is not automatically inference-ready. It must first have enough recent and clean bronze rows. The implemented bronze-backed rules are documented in [Ticker Eligibility](../data/eligibility.md).
+
+Once feature generation and production inference exist, inference readiness will also require model-ready feature availability, feature recency, and the input window required by the production model.
 
 ## Training Eligibility
 
-A training-eligible ticker has enough historical feature and label data to be included safely in train, validation, and test splits.
+A training-eligible ticker currently has enough historical and clean bronze daily-price data to be considered for future model training.
 
 Training eligibility and inference readiness are related but separate concepts.
 
 Training code should consume eligibility checks instead of blindly training on the active trading universe. The future training universe may be broader than active tickers.
+
+Once target, label, and feature pipelines exist, training eligibility will also require enough feature rows, labels, and usable observations for the intended train, validation, and test split design.
 
 ## Retraining Cadence
 

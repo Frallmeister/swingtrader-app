@@ -22,4 +22,4 @@ Feature code should transform bronze market and macro data into model-ready reco
 - Warmup periods should be represented explicitly.
 - Features should avoid point-in-time leakage.
 - Labels should be generated separately from input features.
-- Feature tables should support later train, validation, and test splits.
+- If feature persistence is introduced, it should support later train, validation, and test splits.
