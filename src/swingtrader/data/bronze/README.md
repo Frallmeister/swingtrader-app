@@ -25,7 +25,7 @@ Bronze records should remain source-oriented and reproducible. They should keep 
 
 ## Package boundaries
 
-Provider clients and download decisions belong in neighboring ingestion and client layers. Feature engineering, target and label generation, prediction outputs, model artifacts, and trading decisions do not belong in bronze storage. Those concerns should live in future feature, modeling, and application layers.
+Provider clients and download decisions belong in neighboring ingestion and client layers. Feature engineering, target and label generation, prediction outputs, model artifacts, and trading decisions do not belong in bronze storage. Those concerns belong in dedicated downstream packages rather than in bronze storage.
 
 ## Further documentation
 
