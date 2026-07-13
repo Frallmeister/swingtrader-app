@@ -112,6 +112,15 @@ def test_generate_v1_labels_leaves_missing_current_adjusted_close_outcome_missin
     assert labels.iloc[0]["target_significant_up_5d"] is pd.NA
 
 
+def test_generate_v1_labels_leaves_zero_current_adjusted_close_outcome_missing() -> None:
+    prices = _price_frame(adjusted_closes=[0, 101, 102, 103, 104, 110])
+
+    labels = generate_v1_labels(prices)
+
+    assert pd.isna(labels.iloc[0]["forward_return_5d"])
+    assert labels.iloc[0]["target_significant_up_5d"] is pd.NA
+
+
 def test_generate_v1_labels_leaves_missing_future_adjusted_close_outcome_missing() -> None:
     prices = _price_frame(adjusted_closes=[100, 101, 102, 103, 104, pd.NA])
 

@@ -74,11 +74,14 @@ def generate_v1_labels(prices: pd.DataFrame) -> pd.DataFrame:
         ["provider", "ticker"],
         sort=False,
     )["adjusted_close"]
+    current_adjusted_close = calculation_frame["adjusted_close"].mask(
+        calculation_frame["adjusted_close"].eq(0)
+    )
 
     for horizon in V1_FORWARD_RETURN_HORIZONS:
         forward_adjusted_close = grouped_adjusted_close.shift(-horizon)
         calculation_frame[f"forward_return_{horizon}d"] = (
-            forward_adjusted_close / calculation_frame["adjusted_close"] - 1
+            forward_adjusted_close / current_adjusted_close - 1
         )
 
     calculation_frame = calculation_frame.sort_values("__original_index", kind="mergesort")
