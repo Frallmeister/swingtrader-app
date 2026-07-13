@@ -16,15 +16,15 @@ This roadmap is a planning aid, not a replacement for GitHub issues. It describe
 - Documentation for real local commands and operations.
 - Bronze-backed inference-readiness and training-eligibility rules.
 - Bronze daily-price pandas loader.
+- Bounded foundation cleanup.
 - V1 model target and evaluation contract.
 
 ## Near Term
 
-1. Complete the bounded foundation cleanup.
-2. Implement forward-return and binary target label generation.
-3. Implement initial reusable OHLCV-derived features.
-4. Implement leakage-safe temporal train, validation, and test dataset construction.
-5. Train and evaluate the first baseline models.
+1. Implement forward-return and binary target label generation.
+2. Implement initial reusable OHLCV-derived features.
+3. Implement leakage-safe temporal train, validation, and test dataset construction.
+4. Train and evaluate the first baseline models.
 
 ## Medium Term
 
