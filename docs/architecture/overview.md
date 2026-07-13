@@ -20,7 +20,7 @@ flowchart LR
 - yfinance historical daily price client.
 - Historical ingestion into `bronze_market_daily_prices`.
 - Idempotent bronze upserts.
-- Bronze onboarding checks for newly active tickers.
+- Bronze onboarding sync and runnable onboarding job for newly active tickers.
 - Runnable daily market data update job for already-onboarded active tickers.
 - Bronze-backed inference-readiness and training-eligibility checks.
 - Pandas loading from bronze daily prices for notebook inspection and EDA.

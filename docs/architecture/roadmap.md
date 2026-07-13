@@ -10,7 +10,7 @@ This roadmap is a planning aid, not a replacement for GitHub issues. It describe
 - Bronze daily price schema and idempotent writer.
 - Historical ingestion library function.
 - Local/dev ticker universe generation utility.
-- Bronze onboarding sync for newly active tickers.
+- Bronze onboarding sync and runnable onboarding job for newly active tickers.
 - Runnable daily market data update job.
 - Documentation foundation with MkDocs.
 - Documentation for real local commands and operations.
@@ -21,13 +21,13 @@ This roadmap is a planning aid, not a replacement for GitHub issues. It describe
 
 1. Complete the bounded foundation cleanup.
 2. Define the V1 prediction target and evaluation contract.
-3. Implement initial reusable OHLCV-derived features.
-4. Implement leakage-safe temporal train, validation, and test dataset construction.
-5. Train and evaluate the first baseline models.
+3. Implement forward-return and binary direction label generation.
+4. Implement initial reusable OHLCV-derived features.
+5. Implement leakage-safe temporal train, validation, and test dataset construction.
+6. Train and evaluate the first baseline models.
 
 ## Medium Term
 
-- Forward-return label generation.
 - Baseline ranking model.
 - Local inference workflow.
 - Prediction/ranking output schema.
