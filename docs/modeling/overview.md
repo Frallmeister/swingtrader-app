@@ -1,8 +1,14 @@
 # Modeling Overview
 
-Modeling code is planned, not implemented yet. The V1 target and evaluation contract is documented in [Target and Evaluation](target-and-evaluation.md).
+Modeling code has started with reusable V1 label generation. The V1 target and evaluation contract is documented in [Target and Evaluation](target-and-evaluation.md).
 
 The modeling package will own dataset construction, training workflows, evaluation, model artifact management, and production inference.
+
+## Implemented Components
+
+The modeling datasets package implements V1 target labels from daily price DataFrames compatible with the bronze daily-price loader. The label generator preserves source observations, calculates 5-, 10-, and 15-session forward returns from adjusted close, and adds the nullable Boolean `target_significant_up_5d` target.
+
+Label generation remains in memory for now. Feature and label persistence, database schemas, temporal splitting, model training, and evaluation reports are planned follow-up work.
 
 ## Inference Readiness
 
@@ -20,7 +26,7 @@ Training eligibility and inference readiness are related but separate concepts.
 
 Training code should consume eligibility checks instead of blindly training on the active trading universe. The future training universe may be broader than active tickers.
 
-Once label and feature pipelines exist, training eligibility will also require enough feature rows, labels, and usable observations for the intended train, validation, and test split design.
+Once feature pipelines and temporal datasets exist, training eligibility will also require enough feature rows, labels, and usable observations for the intended train, validation, and test split design.
 
 ## Retraining Cadence
 
@@ -28,8 +34,8 @@ The expected retraining cadence is local/manual a few times per year, not contin
 
 ## Planned Components
 
-- feature and label readers;
-- V1 label-generation workflow;
+- reusable OHLCV-derived features;
+- feature readers;
 - train, validation, and test split builder;
 - baseline ranking model;
 - evaluation reports;
