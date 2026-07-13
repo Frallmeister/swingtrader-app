@@ -38,6 +38,10 @@ This page documents selected implemented modules. Planned modules are intentiona
 
 ::: swingtrader.data.eligibility
 
+## Modeling Dataset Labels
+
+::: swingtrader.modeling.datasets.labels
+
 ## Universe Selection
 
 ::: swingtrader.data.ingestion.universe_selection

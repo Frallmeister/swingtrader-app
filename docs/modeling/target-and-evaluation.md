@@ -2,7 +2,7 @@
 
 This page defines the V1 model target and evaluation contract.
 
-The contract is documentation and design guidance only. Label generation, feature engineering, temporal dataset construction, model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
+The label-generation code for this contract is implemented in the modeling datasets package. Feature engineering, temporal dataset construction, model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
 
 ## V1 Model Objective
 
@@ -27,7 +27,7 @@ The horizon is measured in observed trading sessions for the ticker, not calenda
 
 Adjusted close is used so that historical corporate actions do not create artificial research-label returns.
 
-Future label-generation implementation should also calculate these diagnostic continuous outcomes:
+The implemented V1 label generator also calculates these diagnostic continuous outcomes:
 
 ```text
 forward_return_10d
@@ -245,7 +245,6 @@ These limitations should be retained when interpreting initial model results.
 
 This contract does not implement or define production behavior for:
 
-- label-generation code;
 - feature engineering;
 - temporal dataset construction;
 - dataset splitting;
@@ -262,4 +261,4 @@ This contract does not implement or define production behavior for:
 - production inference;
 - a web interface.
 
-Label generation should be handled by a separate follow-up implementation issue.
+Database persistence, temporal dataset construction, and executable training/evaluation workflows should be handled by separate follow-up implementation issues.
