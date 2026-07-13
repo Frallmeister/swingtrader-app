@@ -186,6 +186,12 @@ Calibration reporting should make it visible whether a predicted probability can
 
 The model should also be evaluated as a ranking model.
 
+Ranking metrics should be calculated cross-sectionally within each evaluation date among the eligible stocks scored on that date, then summarized across dates.
+
+Prediction deciles should be formed separately for each date where enough candidates are available. Spearman correlation should likewise be calculated per date and summarized across dates rather than calculated only from all observations pooled together.
+
+Top-ranked evaluation must state the selection rule, such as a fixed `top_k` or top prediction decile, and report the number of selected candidates per date. Comparisons with random selection must use the same dates and the same number of selected candidates.
+
 Ranking evaluation should include at least:
 
 - mean `forward_return_5d` by prediction decile;
