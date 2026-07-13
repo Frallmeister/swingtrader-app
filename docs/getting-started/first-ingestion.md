@@ -72,7 +72,7 @@ uv run python -m swingtrader.data.jobs.update_market_data --limit 3 --end-date 2
 
 Historical daily market data ingestion resolves active tickers when no explicit ticker list is provided, downloads yfinance daily prices, and ingests the normalized records into the bronze layer by upserting rows into `bronze_market_daily_prices`.
 
-The database engine is created through `create_database_engine()`. For PostgreSQL, set `SWINGTRADER_DATABASE_URL` to a SQLAlchemy PostgreSQL URL and use the same ingestion functions:
+The ingestion functions use `swingtrader.data.db.resolve_database_engine()` to get a ready-to-use data database and initialize known data tables. Generic engine creation remains in `swingtrader.core.db.create_database_engine()`. For PostgreSQL, set `SWINGTRADER_DATABASE_URL` to a SQLAlchemy PostgreSQL URL and use the same ingestion functions:
 
 ```powershell
 $env:SWINGTRADER_DATABASE_URL = "postgresql+psycopg://user:password@host:5432/database"

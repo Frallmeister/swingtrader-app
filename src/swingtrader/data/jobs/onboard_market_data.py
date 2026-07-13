@@ -18,8 +18,8 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.engine import Engine
 
-from swingtrader.core.db import resolve_database_engine
 from swingtrader.core.logging_config import configure_logging
+from swingtrader.data.db import resolve_database_engine
 from swingtrader.data.ingestion.market_data import IngestionResult, TickerIngestionFailure
 from swingtrader.data.ingestion.market_data_settings import ConfigFile, load_market_data_settings
 from swingtrader.data.ingestion.onboarding import (

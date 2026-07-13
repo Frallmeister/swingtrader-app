@@ -131,8 +131,9 @@ def _validate_table_exists(engine: Engine) -> None:
 
     msg = (
         f"Missing bronze table: {BRONZE_MARKET_DAILY_PRICES_TABLE}. "
-        "Initialize the application database with resolve_database_engine() or "
-        "initialize_database(engine), or run a market data onboarding/update job first."
+        "Initialize the data database with swingtrader.data.db.resolve_database_engine() or "
+        "swingtrader.data.db.initialize_database(engine), or run a market data "
+        "onboarding/update job first."
     )
     raise ValueError(msg)
 

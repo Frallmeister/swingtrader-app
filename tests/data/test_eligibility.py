@@ -6,9 +6,9 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
-from swingtrader.data.bronze.schema import metadata
 from swingtrader.data.bronze.writer import upsert_daily_prices
 from swingtrader.data.clients.yfinance import DAILY_PRICE_COLUMNS
+from swingtrader.data.db import initialize_database
 from swingtrader.data.eligibility import (
     EligibilityFailureReason,
     InferenceReadinessStatus,
@@ -23,7 +23,7 @@ from swingtrader.data.eligibility import (
 @pytest.fixture
 def sqlite_engine() -> Engine:
     engine = create_engine("sqlite+pysqlite:///:memory:")
-    metadata.create_all(engine)
+    initialize_database(engine)
     return engine
 
 
