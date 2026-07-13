@@ -1,6 +1,6 @@
 # Modeling Overview
 
-Modeling is planned, not implemented yet.
+Modeling code is planned, not implemented yet. The V1 target and evaluation contract is documented in [Target and Evaluation](target-and-evaluation.md).
 
 The modeling package will own dataset construction, training workflows, evaluation, model artifact management, and production inference.
 
@@ -20,7 +20,7 @@ Training eligibility and inference readiness are related but separate concepts.
 
 Training code should consume eligibility checks instead of blindly training on the active trading universe. The future training universe may be broader than active tickers.
 
-Once target, label, and feature pipelines exist, training eligibility will also require enough feature rows, labels, and usable observations for the intended train, validation, and test split design.
+Once label and feature pipelines exist, training eligibility will also require enough feature rows, labels, and usable observations for the intended train, validation, and test split design.
 
 ## Retraining Cadence
 
@@ -29,6 +29,7 @@ The expected retraining cadence is local/manual a few times per year, not contin
 ## Planned Components
 
 - feature and label readers;
+- V1 label-generation workflow;
 - train, validation, and test split builder;
 - baseline ranking model;
 - evaluation reports;

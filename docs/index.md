@@ -5,7 +5,7 @@ Swingtrader is a personal trading decision-support application built around a da
 !!! note "Current status"
     The current implementation covers the local data foundation: active ticker universe resolution, yfinance daily price download and normalization, bronze market-price storage with idempotent upserts, runnable onboarding and daily-update jobs, bronze-backed inference-readiness and training-eligibility checks, pandas loading from bronze daily prices, local SQLite support, configurable SQLAlchemy database URLs, and MkDocs documentation.
 
-    The next development phase is to define the V1 prediction target and evaluation contract, then build initial OHLCV-derived features, leakage-safe temporal dataset construction, and baseline models.
+    The V1 prediction target and evaluation contract is documented. The next development phase is to implement label generation, initial OHLCV-derived features, leakage-safe temporal dataset construction, and baseline models.
 
     Production inference, prediction persistence, a dashboard, deployed scheduling, and macro-data ingestion remain planned future work.
 
