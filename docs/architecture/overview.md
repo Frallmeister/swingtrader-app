@@ -28,9 +28,9 @@ flowchart LR
 
 ## Planned
 
-- Feature generation, with persistence still an open design decision.
+- Feature and label generation, with persistence still an open design decision.
 - Train, validation, and test dataset construction.
-- Model target, evaluation, and ranking output.
+- Evaluation implementation and ranking output.
 - Production inference and prediction persistence.
 - Render deployment and scheduled jobs.
 - Web dashboard for ranked candidates and risk-support workflows.
