@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 
+import numpy as np
 import pandas as pd
 
 V1_FORWARD_RETURN_HORIZONS = (5, 10, 15)
@@ -65,8 +66,9 @@ def generate_v1_labels(prices: pd.DataFrame) -> pd.DataFrame:
             "adjusted_close": pd.to_numeric(labeled_prices["adjusted_close"], errors="coerce"),
         }
     )
-    calculation_frame["adjusted_close"] = calculation_frame["adjusted_close"].mask(
-        calculation_frame["adjusted_close"].le(0)
+    adjusted_close = calculation_frame["adjusted_close"]
+    calculation_frame["adjusted_close"] = adjusted_close.mask(
+        adjusted_close.le(0) | ~np.isfinite(adjusted_close)
     )
     calculation_frame = calculation_frame.sort_values(
         ["provider", "ticker", "trading_date", "__original_index"],
