@@ -19,5 +19,5 @@ clients/    Provider-specific API clients and HTTP wrappers.
 ingestion/  Retrieval and normalization workflows.
 bronze/     Source-oriented schemas and writers.
 features/   Planned model-ready transformations.
-jobs/       Planned runnable entrypoints.
+jobs/       Thin runnable entrypoints for local data workflows.
 ```

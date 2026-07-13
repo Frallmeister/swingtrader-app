@@ -31,6 +31,6 @@ This is planned work. Modeling code should not assume that active tickers are al
 ## Desired And Actual State
 
 - Desired state: ticker configuration.
-- Actual state: data currently available in bronze and future feature tables.
+- Actual state: data currently available in bronze and future feature outputs.
 
 Activating a ticker means it is allowed. It does not automatically mean the ticker is ready for inference or training.
