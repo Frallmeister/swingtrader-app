@@ -14,9 +14,9 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.engine import Engine
 
-from swingtrader.core.db import resolve_database_engine
 from swingtrader.core.logging_config import configure_logging
 from swingtrader.data.bronze.queries import BronzeDailyPriceState, load_daily_price_state_by_ticker
+from swingtrader.data.db import resolve_database_engine
 from swingtrader.data.ingestion.market_data import (
     IngestionResult,
     TickerIngestionFailure,

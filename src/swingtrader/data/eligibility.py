@@ -14,7 +14,6 @@ from math import ceil
 
 from sqlalchemy.engine import Engine
 
-from swingtrader.core.db import resolve_database_engine
 from swingtrader.data.bronze.queries import (
     BronzeDailyPriceQualityState,
     BronzeDailyPriceState,
@@ -22,6 +21,7 @@ from swingtrader.data.bronze.queries import (
     load_daily_price_state_by_ticker,
 )
 from swingtrader.data.clients import yfinance as yfinance_client
+from swingtrader.data.db import resolve_database_engine
 from swingtrader.data.ingestion.universe_selection import ConfigDir, resolve_requested_tickers
 
 INFERENCE_READINESS_MIN_DAILY_PRICE_ROWS = 252

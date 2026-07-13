@@ -6,7 +6,7 @@ Application code lives under `src/swingtrader` and tests live under `tests`.
 
 ```text
 src/swingtrader/
-  core/       Shared configuration, database, logging, schemas, and contracts.
+  core/       Shared configuration, database engine utilities, logging, and contracts.
   data/       Clients, ingestion workflows, bronze storage, features, and jobs.
   modeling/   Future dataset, training, inference, and model registry code.
   web/        Future dashboard and user-facing application code.
@@ -69,6 +69,7 @@ This rewrites the lock file so it matches the dependencies currently declared in
 - Provider-specific API behavior belongs in `data.clients`.
 - Retrieval orchestration belongs in `data.ingestion`.
 - Source-oriented database schemas and writes belong in `data.bronze`.
+- Ready-to-use data database initialization belongs in `data.db`; generic engine creation belongs in `core.db`.
 - Model-ready transformations will belong in `data.features`.
 - Thin runnable entrypoints will belong in `data.jobs`.
 - Shared infrastructure belongs in `core`.

@@ -6,6 +6,10 @@ This page documents selected implemented modules. Planned modules are intentiona
 
 ::: swingtrader.core.db
 
+## Data Database
+
+::: swingtrader.data.db
+
 ## Core Configuration
 
 ::: swingtrader.core.config

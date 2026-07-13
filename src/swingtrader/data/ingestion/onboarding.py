@@ -12,9 +12,9 @@ from enum import StrEnum
 
 from sqlalchemy.engine import Engine
 
-from swingtrader.core.db import resolve_database_engine
 from swingtrader.data.bronze.queries import BronzeDailyPriceState, load_daily_price_state_by_ticker
 from swingtrader.data.clients import yfinance as yfinance_client
+from swingtrader.data.db import resolve_database_engine
 from swingtrader.data.ingestion.market_data import IngestionResult, ingest_historical_daily_prices
 from swingtrader.data.ingestion.universe_selection import ConfigDir, resolve_requested_tickers
 from swingtrader.data.ingestion.validation import validate_date_window, validate_limit

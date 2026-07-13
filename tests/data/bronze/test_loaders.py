@@ -6,14 +6,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 from swingtrader.data.bronze.loaders import load_bronze_daily_prices
-from swingtrader.data.bronze.schema import metadata
 from swingtrader.data.bronze.writer import BRONZE_MARKET_DAILY_PRICE_COLUMNS, upsert_daily_prices
+from swingtrader.data.db import initialize_database
 
 
 @pytest.fixture
 def sqlite_engine() -> Engine:
     engine = create_engine("sqlite+pysqlite:///:memory:")
-    metadata.create_all(engine)
+    initialize_database(engine)
     return engine
 
 

@@ -5,9 +5,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 from swingtrader.data.bronze.queries import load_daily_price_state_by_ticker
-from swingtrader.data.bronze.schema import metadata
 from swingtrader.data.bronze.writer import upsert_daily_prices
 from swingtrader.data.clients.yfinance import DAILY_PRICE_COLUMNS
+from swingtrader.data.db import initialize_database
 
 
 def test_load_daily_price_state_by_ticker_returns_coverage_by_ticker() -> None:
@@ -58,7 +58,7 @@ def test_load_daily_price_state_by_ticker_returns_empty_for_no_tickers() -> None
 
 def _sqlite_engine() -> Engine:
     engine = create_engine("sqlite+pysqlite:///:memory:")
-    metadata.create_all(engine)
+    initialize_database(engine)
     return engine
 
 

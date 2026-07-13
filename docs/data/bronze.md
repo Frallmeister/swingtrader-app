@@ -34,7 +34,7 @@ On conflict, market values plus `fetched_at` and `request_id` are updated from t
 
 Local development currently defaults to SQLite. PostgreSQL support is planned for deployment through the existing SQLAlchemy abstraction and optional PostgreSQL dependency.
 
-Use the `SWINGTRADER_DATABASE_URL` environment variable to point the application at a non-default database. `resolve_database_engine()` resolves that setting when no explicit database URL is passed and creates known application tables if they do not exist yet.
+Use the `SWINGTRADER_DATABASE_URL` environment variable to point the application at a non-default database. `swingtrader.data.db.resolve_database_engine()` resolves that setting when no explicit database URL is passed and creates known data tables if they do not exist yet.
 
 ## Loading Daily Prices In Notebooks
 
@@ -43,7 +43,7 @@ After running bronze onboarding or the daily market data update job, use the pan
 ```python
 from pathlib import Path
 
-from swingtrader.core.db import resolve_database_engine
+from swingtrader.data.db import resolve_database_engine
 from swingtrader.data.bronze.loaders import load_bronze_daily_prices
 
 repo_root = next(path for path in [Path.cwd(), *Path.cwd().parents] if (path / "pyproject.toml").exists())

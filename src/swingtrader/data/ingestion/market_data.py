@@ -12,9 +12,9 @@ from uuid import uuid4
 
 from sqlalchemy.engine import Engine
 
-from swingtrader.core.db import resolve_database_engine
 from swingtrader.data.bronze.writer import upsert_daily_prices
 from swingtrader.data.clients import yfinance as yfinance_client
+from swingtrader.data.db import resolve_database_engine
 from swingtrader.data.ingestion.universe_selection import resolve_requested_tickers
 from swingtrader.data.ingestion.validation import validate_date_window
 

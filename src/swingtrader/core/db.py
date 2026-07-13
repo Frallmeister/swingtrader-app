@@ -1,6 +1,7 @@
-"""Database engine and schema initialization helpers.
+"""Database engine helpers.
 
-These helpers centralize SQLAlchemy engine creation and early application table setup.
+These helpers centralize SQLAlchemy engine creation and generic engine resolution.
+Domain-specific schema initialization lives outside ``core``.
 """
 
 from pathlib import Path
@@ -9,7 +10,6 @@ from sqlalchemy import create_engine, make_url
 from sqlalchemy.engine import Engine
 
 from swingtrader.core.config import get_database_url
-from swingtrader.data.bronze.schema import metadata
 
 
 def create_database_engine(database_url: str | None = None) -> Engine:
@@ -36,29 +36,12 @@ def create_database_engine(database_url: str | None = None) -> Engine:
     return create_engine(resolved_database_url)
 
 
-def initialize_database(engine: Engine) -> None:
-    """Create known application tables if they do not already exist.
-
-    Parameters
-    ----------
-    engine
-        SQLAlchemy engine for the target database.
-
-    Notes
-    -----
-    This uses the current application metadata directly. It is intended for local and early
-    application setup; a future migration layer can replace it when schema management grows.
-    """
-    metadata.create_all(engine)
-
-
 def resolve_database_engine(
     *,
     database_url: str | None = None,
     engine: Engine | None = None,
-    initialize: bool = True,
 ) -> Engine:
-    """Return an application database engine, optionally initializing known tables.
+    """Return a SQLAlchemy engine from either an existing engine or database URL.
 
     Parameters
     ----------
@@ -67,8 +50,6 @@ def resolve_database_engine(
     engine
         Optional already-created SQLAlchemy engine. Useful for tests or callers that manage
         engine lifecycle themselves. Mutually exclusive with ``database_url``.
-    initialize
-        Whether to create known application tables before returning the engine.
 
     Returns
     -------
@@ -78,10 +59,7 @@ def resolve_database_engine(
     if engine is not None and database_url is not None:
         raise ValueError("Pass either engine or database_url, not both.")
 
-    resolved_engine = engine or create_database_engine(database_url)
-    if initialize:
-        initialize_database(resolved_engine)
-    return resolved_engine
+    return engine or create_database_engine(database_url)
 
 
 def _ensure_sqlite_parent_directory(database_url: str) -> None:

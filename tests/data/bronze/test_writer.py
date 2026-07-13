@@ -7,17 +7,18 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
 from swingtrader.data.bronze import writer as bronze_writer
-from swingtrader.data.bronze.schema import bronze_market_daily_prices, metadata
+from swingtrader.data.bronze.schema import bronze_market_daily_prices
 from swingtrader.data.bronze.writer import (
     BRONZE_MARKET_DAILY_PRICE_COLUMNS,
     upsert_daily_prices,
 )
+from swingtrader.data.db import initialize_database
 
 
 @pytest.fixture
 def sqlite_engine() -> Engine:
     engine = create_engine("sqlite+pysqlite:///:memory:")
-    metadata.create_all(engine)
+    initialize_database(engine)
     return engine
 
 
