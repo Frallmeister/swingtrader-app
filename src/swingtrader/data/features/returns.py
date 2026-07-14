@@ -1,6 +1,4 @@
-"""
-Create features relating to historical returns.
-"""
+"""Feature transformations for historical adjusted-close returns."""
 
 import pandas as pd
 
@@ -12,6 +10,13 @@ def add_return_features(
     prices: pd.DataFrame,
     horizons: tuple[int, ...] = (1, 5, 10, 20),
 ) -> pd.DataFrame:
+    """Add trailing percentage-return columns for each requested horizon.
+
+    The input must contain provider, ticker, and trading_date identifiers either
+    as columns or named index levels, plus an adjusted_close column. Returns are
+    calculated independently within each provider/ticker group and the input row
+    order is preserved.
+    """
     _validate_horizons(horizons)
 
     validate_feature_input(
@@ -41,9 +46,7 @@ def _validate_horizons(horizons: tuple[int, ...]) -> None:
         raise ValueError("Return horizons must be unique.")
 
     if any(
-        isinstance(horizon, bool)
-        or not isinstance(horizon, int)
-        or horizon <= 0
+        isinstance(horizon, bool) or not isinstance(horizon, int) or horizon <= 0
         for horizon in horizons
     ):
         raise ValueError("Return horizons must be positive integers.")

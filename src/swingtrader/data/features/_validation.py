@@ -1,6 +1,4 @@
-"""
-Shared validation for feature input dataframes.
-"""
+"""Shared dataframe validation for feature transformations."""
 
 from collections.abc import Collection
 
@@ -14,6 +12,12 @@ def validate_feature_input(
     *,
     required_columns: Collection[str] = (),
 ) -> None:
+    """Validate that feature input data has identifiers and required columns.
+
+    Identifier fields must be provided consistently as columns or as named index
+    levels. Additional feature-specific columns can be required by passing
+    required_columns.
+    """
     columns = set(data.columns)
     index_names = set(data.index.names)
 

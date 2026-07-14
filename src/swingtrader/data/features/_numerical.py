@@ -1,12 +1,11 @@
-"""
-Helper functions for numerical calculations in features.
-"""
+"""Numerical helpers for feature calculations."""
 
 import numpy as np
 import pandas as pd
 
 
 def safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
+    """Divide two series and replace nonfinite or zero-denominator results with NA."""
     if not isinstance(numerator, pd.Series) or not isinstance(denominator, pd.Series):
         raise TypeError("Both numerator and denominator must be pandas Series objects.")
 

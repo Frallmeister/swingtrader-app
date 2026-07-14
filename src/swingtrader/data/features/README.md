@@ -4,7 +4,7 @@
 
 The features area is reserved for reusable transformations that convert point-in-time input data into model-ready explanatory variables. Feature code should make historical market data useful for modeling without changing the meaning of the source observations or mixing in target, model, or presentation concerns.
 
-Feature generation is not implemented yet. The current directory is a placeholder for future package modules and should not be treated as an existing feature pipeline.
+Feature generation currently includes in-memory return features. The current directory should not yet be treated as a persistent feature pipeline.
 
 ## Design principles
 
@@ -16,7 +16,7 @@ Likely future feature categories include returns and momentum, trend, volatility
 
 ## Current status
 
-Initial feature experiments may calculate features in memory for EDA and baseline modeling. Persistent feature tables, feature versioning, and feature-store-like infrastructure are future design decisions. They are not required by the current package contract and are not implemented.
+Initial feature work calculates features in memory for EDA and baseline modeling. Persistent feature tables, feature versioning, and feature-store-like infrastructure are future design decisions. They are not required by the current package contract and are not implemented.
 
 ## Package boundaries
 
