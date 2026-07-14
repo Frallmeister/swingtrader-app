@@ -14,11 +14,12 @@ The project currently implements the data foundation:
 * initial market data onboarding for active tickers with no bronze rows
 * daily market data updates for already-onboarded tickers
 * inference-readiness and training-eligibility checks based on bronze data quality
+* in-memory adjusted-close return feature generation
 * local SQLite support and configurable SQLAlchemy database URLs
 * MkDocs-based project documentation
 * pytest/ruff-based local quality checks
 
-Feature generation, target generation, model training, inference, prediction storage, dashboarding, deployment, and macro/market-context features are planned.
+Broader feature engineering, target persistence, model training, inference, prediction storage, dashboarding, deployment, and macro/market-context features are planned.
 
 ## Documentation
 
@@ -137,7 +138,7 @@ The current eligibility checks are based on bronze daily price state and data qu
 src/swingtrader/
   configs/        Source-controlled project configuration.
   core/           Shared infrastructure and utilities.
-  data/           Provider clients, ingestion, bronze storage, jobs, and eligibility checks.
+  data/           Provider clients, ingestion, bronze storage, jobs, eligibility checks, and features.
   modeling/       Planned model training, inference, and evaluation code.
   web/            Planned web application.
 

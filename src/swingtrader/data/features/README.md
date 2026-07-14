@@ -10,6 +10,8 @@ Feature generation currently includes in-memory return features. The current dir
 
 Feature code should operate only on data available at or before each observation timestamp. It must preserve ticker and trading-date alignment, avoid lookahead leakage, and avoid cross-ticker contamination unless a future feature explicitly defines a safe market-level aggregate.
 
+Current feature inputs must provide `provider`, `ticker`, and `trading_date` consistently as columns or named index levels. Observations are expected to be strictly ordered by `trading_date` within each provider/ticker group.
+
 Rolling-window features should handle warm-up periods explicitly instead of silently filling incomplete history. Outputs should be predictable, testable, and suitable for both exploratory analysis and later training workflows. Reusable feature logic belongs in package modules with tests, not only in notebooks.
 
 Likely future feature categories include returns and momentum, trend, volatility and range, volume, technical indicators, and candlestick geometry. Those categories are directional examples, not implemented functions or committed formulas.

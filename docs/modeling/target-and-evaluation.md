@@ -2,7 +2,7 @@
 
 This page defines the V1 model target and evaluation contract.
 
-The label-generation code for this contract is implemented in the modeling datasets package. Feature engineering, temporal dataset construction, model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
+The label-generation code for this contract is implemented in the modeling datasets package, and initial in-memory return features are available in the data package. Broader feature engineering, temporal dataset construction, model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
 
 ## V1 Model Objective
 

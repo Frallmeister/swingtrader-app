@@ -19,10 +19,11 @@ This roadmap is a planning aid, not a replacement for GitHub issues. It describe
 - Bounded foundation cleanup.
 - V1 model target and evaluation contract.
 - V1 forward-return and binary target label generation.
+- Initial adjusted-close return feature generation.
 
 ## Near Term
 
-1. Implement initial reusable OHLCV-derived features.
+1. Expand reusable OHLCV-derived features beyond adjusted-close returns.
 2. Implement leakage-safe temporal train, validation, and test dataset construction.
 3. Train and evaluate the first baseline models.
 
