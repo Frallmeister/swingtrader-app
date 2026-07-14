@@ -3,7 +3,7 @@
 import pandas as pd
 
 from swingtrader.data.features._numerical import safe_divide
-from swingtrader.data.features._validation import validate_feature_input
+from swingtrader.data.features._validation import validate_feature_input, validate_temporal_order
 
 
 def add_return_features(
@@ -23,8 +23,15 @@ def add_return_features(
         prices,
         required_columns={"adjusted_close"},
     )
+    validate_temporal_order(prices)
 
     data = prices.copy()
+
+    if data.empty:
+        for horizon in horizons:
+            data[f"return_{horizon}d"] = pd.Series(index=data.index, dtype="float64")
+        return data
+
     by_ticker = data.groupby(["provider", "ticker"], sort=False)
 
     for horizon in horizons:

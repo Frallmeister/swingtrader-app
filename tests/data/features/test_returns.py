@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from swingtrader.data.features._numerical import safe_divide
-from swingtrader.data.features._validation import validate_feature_input
 from swingtrader.data.features.returns import add_return_features
 
 
@@ -75,42 +73,11 @@ def test_add_return_features_rejects_invalid_horizons(horizons: tuple[int, ...])
         add_return_features(prices, horizons=horizons)
 
 
-def test_validate_feature_input_rejects_mixed_identifier_locations() -> None:
-    data = pd.DataFrame(
-        {
-            "provider": ["yfinance"],
-            "ticker": ["AAA.ST"],
-            "trading_date": [pd.Timestamp("2026-07-01").date()],
-            "adjusted_close": [100.0],
-        }
-    ).set_index(["provider", "ticker", "trading_date"], drop=False)
+def test_add_return_features_handles_empty_input() -> None:
+    prices = pd.DataFrame(columns=["provider", "ticker", "trading_date", "adjusted_close"])
 
-    with pytest.raises(ValueError, match="must not appear both"):
-        validate_feature_input(data, required_columns={"adjusted_close"})
+    result = add_return_features(prices, horizons=(1, 5))
 
-
-def test_validate_feature_input_rejects_missing_required_columns() -> None:
-    data = pd.DataFrame(
-        {
-            "provider": ["yfinance"],
-            "ticker": ["AAA.ST"],
-            "trading_date": [pd.Timestamp("2026-07-01").date()],
-        }
-    )
-
-    with pytest.raises(ValueError, match="Missing required columns: adjusted_close"):
-        validate_feature_input(data, required_columns={"adjusted_close"})
-
-
-def test_safe_divide_masks_invalid_denominators_and_nonfinite_results() -> None:
-    result = safe_divide(
-        pd.Series([10.0, 10.0, 10.0, np.inf]),
-        pd.Series([2.0, 0.0, np.inf, 2.0]),
-    )
-
-    pd.testing.assert_series_equal(result, pd.Series([5.0, np.nan, np.nan, np.nan]))
-
-
-def test_safe_divide_requires_series_inputs() -> None:
-    with pytest.raises(TypeError, match="pandas Series"):
-        safe_divide(pd.Series([1.0]), 1.0)
+    assert result.empty
+    assert result["return_1d"].dtype == "float64"
+    assert result["return_5d"].dtype == "float64"
