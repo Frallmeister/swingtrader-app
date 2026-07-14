@@ -57,6 +57,7 @@ notebook = [
     "matplotlib>=3.11.0",
     "nbstripout>=0.9.1",
     "numpy>=2.5.0",
+    "seaborn>=0.13.2",
     "tqdm>=4.68.3",
 ]
 

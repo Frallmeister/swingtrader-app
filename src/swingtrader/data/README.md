@@ -1,6 +1,6 @@
 # Data
 
-Data acquisition, storage, and feature preparation live here. The package owns provider clients, ingestion workflows, source-oriented bronze storage, and planned feature generation used by modeling and web code.
+Data acquisition, storage, and feature preparation live here. The package owns provider clients, ingestion workflows, source-oriented bronze storage, ticker eligibility checks, and reusable feature transformations used by modeling and web code.
 
 See the main documentation for details:
 
@@ -18,6 +18,6 @@ The intended local package boundaries remain:
 clients/    Provider-specific API clients and HTTP wrappers.
 ingestion/  Retrieval and normalization workflows.
 bronze/     Source-oriented schemas and writers.
-features/   Planned model-ready transformations.
+features/   Model-ready in-memory transformations.
 jobs/       Thin runnable entrypoints for local data workflows.
 ```

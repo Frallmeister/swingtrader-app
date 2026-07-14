@@ -3,9 +3,9 @@
 Swingtrader is a personal trading decision-support application built around a data-first workflow. The project is intended to download market data for a curated active trading universe, store source-oriented records in bronze tables, build model-ready features, train ranking models, and eventually present ranked trade candidates in a small web application.
 
 !!! note "Current status"
-    The current implementation covers the local data foundation: active ticker universe resolution, yfinance daily price download and normalization, bronze market-price storage with idempotent upserts, runnable onboarding and daily-update jobs, bronze-backed inference-readiness and training-eligibility checks, pandas loading from bronze daily prices, local SQLite support, configurable SQLAlchemy database URLs, and MkDocs documentation.
+    The current implementation covers the local data foundation: active ticker universe resolution, yfinance daily price download and normalization, bronze market-price storage with idempotent upserts, runnable onboarding and daily-update jobs, bronze-backed inference-readiness and training-eligibility checks, pandas loading from bronze daily prices, in-memory adjusted-close return features, local SQLite support, configurable SQLAlchemy database URLs, and MkDocs documentation.
 
-    The V1 prediction target and evaluation contract is documented. The next development phase is to implement label generation, initial OHLCV-derived features, leakage-safe temporal dataset construction, and baseline models.
+    The V1 prediction target and evaluation contract is documented and the in-memory label generator is implemented. The next development phase is to expand OHLCV-derived features, implement leakage-safe temporal dataset construction, and train baseline models.
 
     Production inference, prediction persistence, a dashboard, deployed scheduling, and macro-data ingestion remain planned future work.
 
@@ -15,7 +15,7 @@ The long-term goal is not automatic order placement. The application should supp
 
 - [Getting started](getting-started/installation.md): install dependencies, run tests, and perform the first local data workflow.
 - [Architecture](architecture/overview.md): understand package boundaries, data flow, and roadmap.
-- [Data](data/overview.md): understand clients, ingestion, bronze storage, ticker onboarding, and planned features.
+- [Data](data/overview.md): understand clients, ingestion, bronze storage, ticker onboarding, eligibility checks, and features.
 - [Modeling](modeling/overview.md): understand current bronze-backed readiness and planned modeling readiness, target, and evaluation concepts.
 - [Operations](operations/daily-runbook.md): run the implemented local daily workflow and understand future scheduling.
 - [Reference](reference/glossary.md): shared vocabulary and API reference.

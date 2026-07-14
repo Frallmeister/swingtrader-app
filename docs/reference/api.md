@@ -38,6 +38,10 @@ This page documents selected implemented modules. Planned modules are intentiona
 
 ::: swingtrader.data.eligibility
 
+## Return Features
+
+::: swingtrader.data.features.returns
+
 ## Modeling Dataset Labels
 
 ::: swingtrader.modeling.datasets.labels
