@@ -14,12 +14,12 @@ The project currently implements the data foundation:
 * initial market data onboarding for active tickers with no bronze rows
 * daily market data updates for already-onboarded tickers
 * inference-readiness and training-eligibility checks based on bronze data quality
-* in-memory adjusted-close return feature generation
+* in-memory adjusted-close return and trend feature generation
 * local SQLite support and configurable SQLAlchemy database URLs
 * MkDocs-based project documentation
 * pytest/ruff-based local quality checks
 
-Broader feature engineering, target persistence, model training, inference, prediction storage, dashboarding, deployment, and macro/market-context features are planned.
+Feature persistence, target persistence, model training, inference, prediction storage, dashboarding, deployment, and macro/market-context features are planned.
 
 ## Documentation
 
@@ -131,6 +131,20 @@ print(training_result.not_eligible_tickers)
 ```
 
 The current eligibility checks are based on bronze daily price state and data quality. Future feature and label checks should extend this layer rather than changing bronze onboarding semantics.
+
+### Feature Generation
+
+Feature helpers currently run in memory on ordered pandas dataframes. Inputs must include `provider`, `ticker`, and `trading_date` identifiers either as columns or named index levels, plus the source price columns required by the feature family.
+
+```python
+from swingtrader.data.features.returns import add_return_features
+from swingtrader.data.features.trends import add_trend_features
+
+features = add_return_features(prices, horizons=(1, 5, 10, 20))
+features = add_trend_features(features)
+```
+
+Return features add trailing adjusted-close returns. Trend features add moving-average ratios, PPO, PPO signal, and PPO histogram columns grouped by provider and ticker, leaving warm-up rows missing until the relevant windows are available.
 
 ## Project Layout
 
