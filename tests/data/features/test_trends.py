@@ -119,7 +119,7 @@ def test_trend_helpers_reject_invalid_inputs() -> None:
     with pytest.raises(ValueError, match="fast length"):
         add_trend_features(prices, fast_slow_lengths=(3, 2), ppo_lengths=(2, 3, 2))
 
-    with pytest.raises(ValueError, match="greater than zero"):
+    with pytest.raises(ValueError, match="positive integer"):
         sma(data=prices, length=0, source="adjusted_close")
 
     with pytest.raises(ValueError, match="Source column"):
