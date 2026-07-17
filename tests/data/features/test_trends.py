@@ -125,11 +125,24 @@ def test_trend_helpers_reject_invalid_inputs() -> None:
     with pytest.raises(ValueError, match="Source column"):
         ema(data=prices, length=2, source="missing")
 
+    with pytest.raises(ValueError, match="fast length"):
+        ppo(prices, fast=3, slow=2)
+
     with pytest.raises(ValueError, match="column named 'ppo'"):
         ppo_signal(prices)
 
     with pytest.raises(ValueError, match="columns 'ppo' and 'ppo_signal'"):
         ppo_histogram(prices)
+
+
+@pytest.mark.parametrize("length", [0, -1, True, 2.5, "2"])
+def test_moving_averages_reject_invalid_lengths(length: object) -> None:
+    with pytest.raises(ValueError, match="positive integer"):
+        sma(
+            data=_prices(),
+            length=length,  # type: ignore[arg-type]
+            source="adjusted_close",
+        )
 
 
 def _prices() -> pd.DataFrame:

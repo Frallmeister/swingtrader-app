@@ -162,8 +162,8 @@ def _moving_average(
     run_validation: bool,
 ) -> pd.Series:
     """Calculate a grouped moving average while preserving input row alignment."""
-    if length <= 0:
-        raise ValueError(f"Length must be greater than zero; got {length!r}")
+    if isinstance(length, bool) or not isinstance(length, int) or length <= 0:
+        raise ValueError(f"Length must be a positive integer greater than zero; got {length!r}")
 
     if source not in data.columns:
         raise ValueError(f"Source column {source!r} does not exist.")
