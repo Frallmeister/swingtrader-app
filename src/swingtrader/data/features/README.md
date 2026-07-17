@@ -4,7 +4,7 @@
 
 The features area is reserved for reusable transformations that convert point-in-time input data into model-ready explanatory variables. Feature code should make historical market data useful for modeling without changing the meaning of the source observations or mixing in target, model, or presentation concerns.
 
-Feature generation currently includes in-memory return features. The current directory should not yet be treated as a persistent feature pipeline.
+Feature generation currently includes in-memory return and trend features. The current directory should not yet be treated as a persistent feature pipeline.
 
 ## Design principles
 
@@ -14,7 +14,7 @@ Current feature inputs must provide `provider`, `ticker`, and `trading_date` con
 
 Rolling-window features should handle warm-up periods explicitly instead of silently filling incomplete history. Outputs should be predictable, testable, and suitable for both exploratory analysis and later training workflows. Reusable feature logic belongs in package modules with tests, not only in notebooks.
 
-Likely future feature categories include returns and momentum, trend, volatility and range, volume, technical indicators, and candlestick geometry. Those categories are directional examples, not implemented functions or committed formulas.
+Likely future feature categories include volatility and range, volume, additional technical indicators, and candlestick geometry. Those categories are directional examples, not implemented functions or committed formulas.
 
 ## Current status
 

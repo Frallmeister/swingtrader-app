@@ -42,6 +42,10 @@ This page documents selected implemented modules. Planned modules are intentiona
 
 ::: swingtrader.data.features.returns
 
+## Trend Features
+
+::: swingtrader.data.features.trends
+
 ## Modeling Dataset Labels
 
 ::: swingtrader.modeling.datasets.labels
