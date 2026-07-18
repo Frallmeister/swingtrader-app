@@ -48,6 +48,11 @@ def load_bronze_daily_prices(
     ``trading_date`` is returned as pandas datetime, ``volume`` as nullable integer, and
     daily price/dividend/split columns as float for notebook-friendly analysis.
 
+    Identifiers are returned as ordinary columns because this is a source/serialization
+    boundary. To obtain the canonical market-price representation required by the feature
+    layer, convert explicitly with
+    ``prices.set_index(["provider", "ticker", "trading_date"]).sort_index()``.
+
     Parameters
     ----------
     engine
@@ -68,8 +73,9 @@ def load_bronze_daily_prices(
     Returns
     -------
     pandas.DataFrame
-        Matching bronze daily price rows ordered by ``ticker`` and ``trading_date`` with
-        notebook-friendly dtypes applied where relevant columns are present.
+        Matching bronze daily price rows ordered by ``provider``, ``ticker``, and
+        ``trading_date`` with notebook-friendly dtypes applied where relevant columns
+        are present.
 
     Raises
     ------
@@ -98,6 +104,7 @@ def load_bronze_daily_prices(
         )
 
     statement = statement.order_by(
+        bronze_market_daily_prices.c.provider,
         bronze_market_daily_prices.c.ticker,
         bronze_market_daily_prices.c.trading_date,
     )

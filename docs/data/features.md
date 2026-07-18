@@ -6,7 +6,21 @@ Feature generation currently supports in-memory historical return and trend feat
 
 Feature code should transform bronze market and macro data into model-ready records. It should be deterministic and rerunnable.
 
-Current feature transformations operate on pandas dataframes and preserve the input row alignment. Source observations must include `provider`, `ticker`, and `trading_date` identifiers either all as columns or all as named index levels, plus the input columns required by each feature family. Identifier fields must not be split between columns and index levels.
+Current feature transformations operate on pandas dataframes and preserve the input row alignment. Market-price data used by the feature layer must have a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`, in that exact order. The identifiers must not also appear as ordinary columns, and feature functions never reset, set, or sort the index for the caller. Each feature family additionally requires the value columns it consumes, such as `adjusted_close`.
+
+A valid call looks like:
+
+```python
+prices = prices.set_index(["provider", "ticker", "trading_date"]).sort_index()
+
+features = add_trend_features(prices)
+```
+
+External consumers that need identifiers as columns, for example database writes, CSV export, APIs, or plotting, convert explicitly at their own boundary:
+
+```python
+records = features.reset_index()
+```
 
 Feature functions follow two contracts:
 
@@ -40,11 +54,11 @@ The public numerical trend indicators are:
 - `ppo`, which has three natural outputs and returns a dataframe with `ppo`, `ppo_signal`, and `ppo_histogram` columns;
 - `ppo_percentile`, which has one natural output and returns a series.
 
-Each indicator accepts either one ordered series for a single ticker or a series that carries `provider` and `ticker` index levels for many tickers. When those index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original row order is preserved.
+Each indicator accepts either one ordered series for a single ticker or a multi-ticker series that carries the canonical `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker series does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved. A partial or wrongly ordered MultiIndex, such as `["ticker", "trading_date"]`, is rejected.
 
 The default fast/slow moving-average lengths are 20 and 50 rows. The default PPO lengths are 12, 26, and 9 rows, and `add_trend_features` requires 100 prior valid PPO observations before `ppo_percentile` is populated by default. Calculations are grouped by `provider` and `ticker`, and warm-up rows remain missing until each rolling, exponential, or expanding-history calculation has enough observations. Intermediate moving-average values such as `sma_fast`, `sma_slow`, `ema_fast`, and `ema_slow` are local calculations and are not persisted as feature columns.
 
-SMA, EMA, PPO, and PPO percentile validate their local parameters and reject visibly unordered temporal indexes, checking chronological order within each provider/ticker group when those index levels are present. They do not perform dataframe-level feature validation and do not sort input values. PPO signal and histogram are part of the cohesive `ppo` output rather than separate public functions.
+SMA, EMA, PPO, and PPO percentile validate their local parameters. A standalone single-ticker series is rejected only when its datetime or period index is visibly unordered. A multi-ticker series must satisfy the canonical market-price index contract, and the calculation stays within each provider/ticker group. They do not perform dataframe-level column validation and do not sort input values. PPO signal and histogram are part of the cohesive `ppo` output rather than separate public functions.
 
 ## Future Feature Ideas
 
@@ -56,7 +70,7 @@ SMA, EMA, PPO, and PPO percentile validate their local parameters and reject vis
 ## Design Constraints
 
 - Feature code reads from bronze data, not directly from yfinance.
-- Feature inputs must be point-in-time ordered by `trading_date` within each provider/ticker group.
+- Feature inputs must use a unique, sorted `provider`/`ticker`/`trading_date` MultiIndex.
 - Warmup periods should be represented explicitly.
 - Features should avoid point-in-time leakage.
 - Labels should be generated separately from input features.

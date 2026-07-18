@@ -1,70 +1,79 @@
 import pandas as pd
 import pytest
 
-from swingtrader.data.features._validation import validate_feature_input, validate_temporal_order
+from swingtrader.data.features._validation import (
+    validate_market_price_index,
+    validate_required_columns,
+)
 
 
-def test_validate_feature_input_accepts_identifiers_as_columns() -> None:
-    validate_feature_input(_prices(), required_columns={"adjusted_close"})
+def test_validate_market_price_index_accepts_canonical_multiindex() -> None:
+    validate_market_price_index(_prices())
 
 
-def test_validate_feature_input_accepts_identifiers_as_index_levels() -> None:
-    validate_feature_input(
-        _prices().set_index(["provider", "ticker", "trading_date"]),
-        required_columns={"adjusted_close"},
-    )
+def test_validate_market_price_index_accepts_canonical_series() -> None:
+    validate_market_price_index(_prices()["adjusted_close"])
 
 
-def test_validate_feature_input_rejects_duplicate_identifier_locations() -> None:
-    data = _prices().set_index("provider", drop=False)
+def test_validate_market_price_index_rejects_identifiers_as_columns() -> None:
+    data = _prices().reset_index()
 
-    with pytest.raises(ValueError, match="both as columns and index levels: provider"):
-        validate_feature_input(data, required_columns={"adjusted_close"})
-
-
-def test_validate_feature_input_rejects_split_identifier_locations() -> None:
-    data = _prices().set_index("trading_date")
-
-    with pytest.raises(ValueError, match="must all be columns or all be named index levels"):
-        validate_feature_input(data, required_columns={"adjusted_close"})
+    with pytest.raises(ValueError, match="MultiIndex with levels"):
+        validate_market_price_index(data)
 
 
-def test_validate_feature_input_rejects_missing_required_columns() -> None:
+def test_validate_market_price_index_rejects_wrong_level_order() -> None:
+    data = _prices().reorder_levels(["ticker", "provider", "trading_date"])
+
+    with pytest.raises(ValueError, match="in that exact order"):
+        validate_market_price_index(data)
+
+
+def test_validate_market_price_index_rejects_missing_level() -> None:
+    data = _prices().droplevel("provider")
+
+    with pytest.raises(ValueError, match="MultiIndex with levels"):
+        validate_market_price_index(data)
+
+
+def test_validate_market_price_index_rejects_duplicate_index_entries() -> None:
+    data = pd.concat([_prices().iloc[:1], _prices().iloc[:1]])
+
+    with pytest.raises(ValueError, match="unique index"):
+        validate_market_price_index(data)
+
+
+def test_validate_market_price_index_rejects_unsorted_index() -> None:
+    data = _prices().iloc[[1, 0, 2, 3]]
+
+    with pytest.raises(
+        ValueError, match="must be sorted by 'provider', 'ticker', and 'trading_date'"
+    ):
+        validate_market_price_index(data)
+
+
+def test_validate_market_price_index_accepts_index_after_sorting() -> None:
+    data = _prices().iloc[[1, 0, 2, 3]]
+
+    validate_market_price_index(data.sort_index())
+
+
+def test_validate_market_price_index_rejects_identifier_columns_that_duplicate_levels() -> None:
+    data = _prices().assign(ticker="AAA.ST")
+
+    with pytest.raises(ValueError, match="must not also appear as columns: ticker"):
+        validate_market_price_index(data)
+
+
+def test_validate_required_columns_accepts_present_columns() -> None:
+    validate_required_columns(_prices(), required_columns={"adjusted_close"})
+
+
+def test_validate_required_columns_rejects_missing_columns() -> None:
     data = _prices().drop(columns="adjusted_close")
 
     with pytest.raises(ValueError, match="Missing required columns: adjusted_close"):
-        validate_feature_input(data, required_columns={"adjusted_close"})
-
-
-def test_validate_temporal_order_accepts_ordered_dates_per_ticker() -> None:
-    validate_temporal_order(_prices())
-
-
-def test_validate_temporal_order_accepts_identifiers_as_index_levels() -> None:
-    validate_temporal_order(_prices().set_index(["provider", "ticker", "trading_date"]))
-
-
-@pytest.mark.parametrize(
-    "trading_dates",
-    [
-        ["2026-07-01", "2026-07-01"],
-        ["2026-07-02", "2026-07-01"],
-    ],
-)
-def test_validate_temporal_order_rejects_non_increasing_dates(
-    trading_dates: list[str],
-) -> None:
-    data = pd.DataFrame(
-        {
-            "provider": ["yfinance", "yfinance"],
-            "ticker": ["AAA.ST", "AAA.ST"],
-            "trading_date": pd.to_datetime(trading_dates).date,
-            "adjusted_close": [100.0, 101.0],
-        }
-    )
-
-    with pytest.raises(ValueError, match="strictly ordered by trading_date"):
-        validate_temporal_order(data)
+        validate_required_columns(data, required_columns={"adjusted_close"})
 
 
 def _prices() -> pd.DataFrame:
@@ -74,7 +83,7 @@ def _prices() -> pd.DataFrame:
             "ticker": ["AAA.ST", "AAA.ST", "BBB.ST", "BBB.ST"],
             "trading_date": pd.to_datetime(
                 ["2026-07-01", "2026-07-02", "2026-07-01", "2026-07-02"]
-            ).date,
+            ),
             "adjusted_close": [100.0, 101.0, 200.0, 202.0],
         }
-    )
+    ).set_index(["provider", "ticker", "trading_date"])

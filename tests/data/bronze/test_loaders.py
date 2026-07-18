@@ -8,6 +8,7 @@ from sqlalchemy.engine import Engine
 from swingtrader.data.bronze.loaders import load_bronze_daily_prices
 from swingtrader.data.bronze.schema import metadata as bronze_metadata
 from swingtrader.data.bronze.writer import BRONZE_MARKET_DAILY_PRICE_COLUMNS, upsert_daily_prices
+from swingtrader.data.features._validation import validate_market_price_index
 
 
 @pytest.fixture
@@ -31,6 +32,21 @@ def test_load_bronze_daily_prices_loads_all_rows_for_provider(sqlite_engine: Eng
         ("BOL.ST", pd.Timestamp("2026-06-26")),
     ]
     assert set(prices["provider"]) == {"yfinance"}
+
+
+def test_load_bronze_daily_prices_supports_canonical_feature_index(sqlite_engine: Engine) -> None:
+    _seed_daily_prices(sqlite_engine)
+
+    prices = load_bronze_daily_prices(engine=sqlite_engine, provider="yfinance")
+    indexed = prices.set_index(["provider", "ticker", "trading_date"]).sort_index()
+
+    validate_market_price_index(indexed)
+    # The loader already returns rows in canonical order, so indexing without an
+    # explicit sort produces the same canonical representation.
+    pd.testing.assert_frame_equal(
+        indexed,
+        prices.set_index(["provider", "ticker", "trading_date"]),
+    )
 
 
 def test_load_bronze_daily_prices_filters_by_ticker(sqlite_engine: Engine) -> None:
