@@ -91,7 +91,7 @@ def moving_average_features(
         validate_temporal_order(data)
 
     features = pd.DataFrame(index=data.index)
-    source_by_ticker = _grouped_source(data, source)
+    source_by_ticker = _grouped_series(data, data.loc[:, source])
     sma_fast = source_by_ticker.transform(lambda values: sma(values, length=fast))
     sma_slow = source_by_ticker.transform(lambda values: sma(values, length=slow))
     ema_fast = source_by_ticker.transform(lambda values: ema(values, length=fast))
@@ -127,7 +127,7 @@ def ppo_features(
         validate_temporal_order(data)
 
     features = pd.DataFrame(index=data.index)
-    source_by_ticker = _grouped_source(data, source)
+    source_by_ticker = _grouped_series(data, data.loc[:, source])
     features["ppo"] = source_by_ticker.transform(
         lambda values: ppo(values, fast=fast, slow=slow, use_percent=False)
     )
@@ -157,12 +157,9 @@ def ppo_percentile_features(
         validate_feature_input(data, required_columns=[source])
         validate_temporal_order(data)
 
-    if isinstance(min_history, bool) or not isinstance(min_history, int) or min_history < 1:
-        raise ValueError(
-            f"min_history must be a positive integer greater than 0; got {min_history!r}"
-        )
+    _validate_min_history(min_history)
 
-    grouped_ppo = _grouped_source(data, source)
+    grouped_ppo = _grouped_series(data, data.loc[:, source])
     percentile = grouped_ppo.transform(
         lambda values: ppo_percentile(
             values,
@@ -178,6 +175,7 @@ def ppo_percentile(
     min_history: int = 1,
 ) -> pd.Series:
     """Calculate point-in-time percentile ranks for one PPO sequence."""
+    _validate_min_history(min_history)
     return _expanding_percentile(values, min_history=min_history)
 
 
@@ -229,8 +227,14 @@ def sma(
     *,
     length: int,
 ) -> pd.Series:
-    """Calculate a simple moving average for one numerical sequence."""
+    """Calculate a simple moving average for one numerical sequence.
+
+    ``values`` must contain observations in chronological order. The returned
+    series preserves the input index, with the first ``length - 1`` observations
+    left missing until the rolling window is full.
+    """
     _validate_length(length)
+    _validate_temporal_index(values)
     return values.rolling(window=length, min_periods=length).mean()
 
 
@@ -239,8 +243,14 @@ def ema(
     *,
     length: int,
 ) -> pd.Series:
-    """Calculate an exponential moving average for one numerical sequence."""
+    """Calculate an exponential moving average for one numerical sequence.
+
+    ``values`` must contain observations in chronological order. The returned
+    series preserves the input index. EMA uses pandas ``ewm`` with
+    ``span=length``, ``adjust=False``, and ``min_periods=length``.
+    """
     _validate_length(length)
+    _validate_temporal_index(values)
     return values.ewm(span=length, adjust=False, min_periods=length).mean()
 
 
@@ -249,8 +259,24 @@ def _validate_length(length: int) -> None:
         raise ValueError(f"Length must be a positive integer; got {length!r}")
 
 
-def _grouped_source(data: pd.DataFrame, source: str) -> pd.core.groupby.SeriesGroupBy:
-    return _grouped_series(data, data.loc[:, source])
+def _validate_min_history(min_history: int) -> None:
+    if isinstance(min_history, bool) or not isinstance(min_history, int) or min_history < 1:
+        raise ValueError(
+            f"min_history must be a positive integer greater than 0; got {min_history!r}"
+        )
+
+
+def _validate_temporal_index(values: pd.Series) -> None:
+    index = values.index
+    if isinstance(index, pd.DatetimeIndex | pd.PeriodIndex):
+        is_ordered = index.is_monotonic_increasing
+    elif isinstance(index, pd.MultiIndex) and "trading_date" in index.names:
+        is_ordered = index.get_level_values("trading_date").is_monotonic_increasing
+    else:
+        return
+
+    if not is_ordered:
+        raise ValueError("values must be chronologically ordered before calculating this indicator")
 
 
 def _grouped_series(data: pd.DataFrame, values: pd.Series) -> pd.core.groupby.SeriesGroupBy:

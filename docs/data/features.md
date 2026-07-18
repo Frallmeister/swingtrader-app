@@ -44,7 +44,7 @@ The dataframe-returning trend generators are:
 
 The default fast/slow moving-average lengths are 20 and 50 rows. The default PPO lengths are 12, 26, and 9 rows, and `ppo_percentile_features` requires 100 prior valid PPO observations by default when used through `add_trend_features`. Calculations are grouped by `provider` and `ticker`, and warm-up rows remain missing until each rolling, exponential, or expanding-history calculation has enough observations.
 
-The lower-level numerical helpers `sma`, `ema`, `ppo`, `ppo_signal`, `ppo_histogram`, and `ppo_percentile` operate on one series and return one index-aligned series. They do not perform dataframe-level feature validation or choose model feature-column names.
+The lower-level numerical helpers `sma`, `ema`, `ppo`, `ppo_signal`, `ppo_histogram`, and `ppo_percentile` operate on one series and return one index-aligned series. They do not perform dataframe-level feature validation or choose model feature-column names. SMA and EMA validate their local `length` parameter and reject visibly unordered temporal indexes, but they do not sort input values.
 
 ## Future Feature Ideas
 

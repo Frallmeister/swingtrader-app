@@ -276,6 +276,84 @@ def test_sma_and_ema_calculate_one_sequence() -> None:
     )
 
 
+def test_sma_and_ema_allow_ordered_datetime_index() -> None:
+    values = pd.Series(
+        [10.0, 12.0, 14.0],
+        index=pd.to_datetime(["2026-07-01", "2026-07-02", "2026-07-03"]),
+        name="adjusted_close",
+    )
+
+    simple = sma(values, length=2)
+    exponential = ema(values, length=2)
+
+    pd.testing.assert_index_equal(simple.index, values.index)
+    pd.testing.assert_index_equal(exponential.index, values.index)
+    pd.testing.assert_series_equal(
+        simple,
+        pd.Series([np.nan, 11.0, 13.0], index=values.index, name="adjusted_close"),
+    )
+
+
+def test_sma_and_ema_reject_unordered_datetime_index() -> None:
+    values = pd.Series(
+        [10.0, 14.0, 12.0],
+        index=pd.to_datetime(["2026-07-01", "2026-07-03", "2026-07-02"]),
+        name="adjusted_close",
+    )
+
+    with pytest.raises(ValueError, match="chronologically ordered"):
+        sma(values, length=2)
+
+    with pytest.raises(ValueError, match="chronologically ordered"):
+        ema(values, length=2)
+
+
+def test_sma_and_ema_allow_ordered_period_index() -> None:
+    values = pd.Series(
+        [10.0, 12.0, 14.0],
+        index=pd.period_range("2026-07-01", periods=3, freq="D"),
+        name="adjusted_close",
+    )
+
+    simple = sma(values, length=2)
+    exponential = ema(values, length=2)
+
+    pd.testing.assert_index_equal(simple.index, values.index)
+    pd.testing.assert_index_equal(exponential.index, values.index)
+
+
+def test_sma_and_ema_reject_unordered_trading_date_multiindex() -> None:
+    index = pd.MultiIndex.from_arrays(
+        [
+            ["yfinance", "yfinance", "yfinance"],
+            ["AAA.ST", "AAA.ST", "AAA.ST"],
+            pd.to_datetime(["2026-07-01", "2026-07-03", "2026-07-02"]),
+        ],
+        names=["provider", "ticker", "trading_date"],
+    )
+    values = pd.Series([10.0, 14.0, 12.0], index=index, name="adjusted_close")
+
+    with pytest.raises(ValueError, match="chronologically ordered"):
+        sma(values, length=2)
+
+    with pytest.raises(ValueError, match="chronologically ordered"):
+        ema(values, length=2)
+
+
+def test_sma_and_ema_allow_non_temporal_index_and_preserve_row_order() -> None:
+    values = pd.Series([10.0, 14.0, 12.0], index=pd.Index([2, 0, 1]), name="adjusted_close")
+
+    simple = sma(values, length=2)
+    exponential = ema(values, length=2)
+
+    pd.testing.assert_index_equal(simple.index, values.index)
+    pd.testing.assert_index_equal(exponential.index, values.index)
+    pd.testing.assert_series_equal(
+        simple,
+        pd.Series([np.nan, 12.0, 13.0], index=values.index, name="adjusted_close"),
+    )
+
+
 def test_ppo_returns_percent_by_default_or_ratio_when_requested() -> None:
     prices = _prices()["adjusted_close"].iloc[:4]
 
@@ -317,6 +395,15 @@ def test_ppo_percentile_calculates_grouped_point_in_time_rank() -> None:
     pd.testing.assert_series_equal(percentile, expected, check_exact=False)
 
 
+@pytest.mark.parametrize("min_history", [True, 0, -1, 1.5])
+def test_ppo_percentile_rejects_invalid_min_history(min_history: object) -> None:
+    with pytest.raises(ValueError, match="positive integer"):
+        ppo_percentile(
+            pd.Series([1.0, 2.0], name="ppo"),
+            min_history=min_history,  # type: ignore[arg-type]
+        )
+
+
 def test_trend_helpers_reject_invalid_inputs() -> None:
     prices = _prices()
 
@@ -343,10 +430,18 @@ def test_trend_helpers_reject_invalid_inputs() -> None:
 
 
 @pytest.mark.parametrize("length", [0, -1, True, 2.5, "2"])
-def test_moving_averages_reject_invalid_lengths(length: object) -> None:
+def test_sma_and_ema_reject_invalid_lengths(length: object) -> None:
+    values = _prices()["adjusted_close"]
+
     with pytest.raises(ValueError, match="positive integer"):
         sma(
-            _prices()["adjusted_close"],
+            values,
+            length=length,  # type: ignore[arg-type]
+        )
+
+    with pytest.raises(ValueError, match="positive integer"):
+        ema(
+            values,
             length=length,  # type: ignore[arg-type]
         )
 
