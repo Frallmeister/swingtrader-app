@@ -128,7 +128,10 @@ def test_ppo_percentile_calculates_grouped_point_in_time_rank() -> None:
 
     percentile = ppo_percentile(data, min_history=1)
 
-    expected = pd.Series([np.nan, 1.0, 0.5, 2.0 / 3.0, np.nan, 0.0, np.nan, 1.0], name="ppo")
+    expected = pd.Series(
+        [np.nan, 1.0, 0.5, 2.0 / 3.0, np.nan, 0.0, np.nan, 1.0],
+        name="ppo",
+    )
     pd.testing.assert_series_equal(percentile, expected, check_exact=False)
 
 

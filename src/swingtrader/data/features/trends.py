@@ -70,7 +70,7 @@ def add_trend_features(
 
 
 def ppo_percentile(
-    data,
+    data: pd.DataFrame,
     *,
     min_history: int = 1,
     run_validation: bool = True,
@@ -93,7 +93,7 @@ def ppo_percentile(
 
     grouped_ppo = data.groupby(["provider", "ticker"], sort=False)["ppo"]
     return grouped_ppo.transform(
-        lambda values: expanding_percentile(
+        lambda values: _expanding_percentile(
             values,
             min_history=min_history,
         )
@@ -241,7 +241,7 @@ def _moving_average(
         raise ValueError(f"Method must be either 'sma' or 'ema', got {method!r}")
 
 
-def expanding_percentile(
+def _expanding_percentile(
     values: pd.Series,
     *,
     min_history: int = 1,
