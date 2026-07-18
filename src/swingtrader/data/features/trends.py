@@ -5,11 +5,15 @@ daily price observations. Calculations are isolated by provider/ticker groups
 and leave warm-up periods as missing values until each rolling or exponential
 window has enough prior observations.
 
-Numerical indicators operate on one ordered series and return either one series
-or, for naturally multi-output indicators, one dataframe. The family
-orchestrator returns a copy of the input dataframe with final model feature
-columns appended.
+Numerical indicators accept either one ordered series for a single ticker or a
+series carrying provider/ticker index levels for many tickers. In the latter
+case the calculation is applied independently within each provider/ticker group
+and the input row order is preserved. Indicators return either one series or,
+for naturally multi-output indicators, one dataframe. The family orchestrator
+returns a copy of the input dataframe with final model feature columns appended.
 """
+
+from collections.abc import Callable
 
 import pandas as pd
 
@@ -48,10 +52,10 @@ def add_trend_features(
     data = data.copy()
     adjusted_close_by_ticker = _grouped_series(data, data.loc[:, "adjusted_close"])
 
-    sma_fast = adjusted_close_by_ticker.transform(lambda values: sma(values, length=fast))
-    sma_slow = adjusted_close_by_ticker.transform(lambda values: sma(values, length=slow))
-    ema_fast = adjusted_close_by_ticker.transform(lambda values: ema(values, length=fast))
-    ema_slow = adjusted_close_by_ticker.transform(lambda values: ema(values, length=slow))
+    sma_fast = adjusted_close_by_ticker.transform(lambda values: _sma(values, length=fast))
+    sma_slow = adjusted_close_by_ticker.transform(lambda values: _sma(values, length=slow))
+    ema_fast = adjusted_close_by_ticker.transform(lambda values: _ema(values, length=fast))
+    ema_slow = adjusted_close_by_ticker.transform(lambda values: _ema(values, length=slow))
 
     data["sma_fast_to_sma_slow"] = safe_divide(sma_fast, sma_slow).sub(1)
     data["ema_fast_to_ema_slow"] = safe_divide(ema_fast, ema_slow).sub(1)
@@ -62,7 +66,7 @@ def add_trend_features(
 
     ppo_by_ticker = _grouped_series(data, data.loc[:, "ppo"])
     data["ppo_percentile"] = ppo_by_ticker.transform(
-        lambda values: ppo_percentile(values, min_history=ppo_percentile_min_history)
+        lambda values: _expanding_percentile(values, min_history=ppo_percentile_min_history)
     )
     return data
 
@@ -72,15 +76,16 @@ def sma(
     *,
     length: int,
 ) -> pd.Series:
-    """Calculate a simple moving average for one numerical sequence.
+    """Calculate a simple moving average for one or many tickers.
 
-    ``values`` must contain observations in chronological order. The returned
-    series preserves the input index, with the first ``length - 1`` observations
-    left missing until the rolling window is full.
+    ``values`` must contain observations in chronological order. When ``values``
+    carries provider/ticker index levels the average is calculated independently
+    within each group. The returned series preserves the input index, with the
+    first ``length - 1`` observations of each series left missing until the
+    rolling window is full.
     """
     _validate_length(length)
-    _validate_temporal_index(values)
-    return values.rolling(window=length, min_periods=length).mean()
+    return _apply_by_ticker(values, lambda group: _sma(group, length=length))
 
 
 def ema(
@@ -88,15 +93,16 @@ def ema(
     *,
     length: int,
 ) -> pd.Series:
-    """Calculate an exponential moving average for one numerical sequence.
+    """Calculate an exponential moving average for one or many tickers.
 
-    ``values`` must contain observations in chronological order. The returned
-    series preserves the input index. EMA uses pandas ``ewm`` with
-    ``span=length``, ``adjust=False``, and ``min_periods=length``.
+    ``values`` must contain observations in chronological order. When ``values``
+    carries provider/ticker index levels the average is calculated independently
+    within each group. The returned series preserves the input index. EMA uses
+    pandas ``ewm`` with ``span=length``, ``adjust=False``, and
+    ``min_periods=length``.
     """
     _validate_length(length)
-    _validate_temporal_index(values)
-    return values.ewm(span=length, adjust=False, min_periods=length).mean()
+    return _apply_by_ticker(values, lambda group: _ema(group, length=length))
 
 
 def ppo(
@@ -105,20 +111,64 @@ def ppo(
     lengths: tuple[int, int, int] = (12, 26, 9),
     use_percent: bool = True,
 ) -> pd.DataFrame:
-    """Calculate PPO, signal-line, and histogram values for one sequence.
+    """Calculate PPO, signal-line, and histogram values for one or many tickers.
 
-    PPO is returned in percentage points by default. Pass ``use_percent=False``
-    to return the raw ratio. The signal and histogram use the same scaling as PPO.
+    When ``values`` carries provider/ticker index levels the indicator is
+    calculated independently within each group. PPO is returned in percentage
+    points by default. Pass ``use_percent=False`` to return the raw ratio. The
+    signal and histogram use the same scaling as PPO.
     """
     fast_length, slow_length, signal_length = _validate_ppo_lengths(lengths)
-    _validate_temporal_index(values)
+    return _apply_by_ticker(
+        values,
+        lambda group: _ppo(
+            group,
+            fast_length=fast_length,
+            slow_length=slow_length,
+            signal_length=signal_length,
+            use_percent=use_percent,
+        ),
+    )
 
-    ema_fast = ema(values, length=fast_length)
-    ema_slow = ema(values, length=slow_length)
+
+def ppo_percentile(
+    values: pd.Series,
+    *,
+    min_history: int = 1,
+) -> pd.Series:
+    """Calculate point-in-time percentile ranks for one or many tickers.
+
+    When ``values`` carries provider/ticker index levels the ranks are
+    calculated independently within each group.
+    """
+    _validate_min_history(min_history)
+    return _apply_by_ticker(
+        values, lambda group: _expanding_percentile(group, min_history=min_history)
+    )
+
+
+def _sma(values: pd.Series, *, length: int) -> pd.Series:
+    return values.rolling(window=length, min_periods=length).mean()
+
+
+def _ema(values: pd.Series, *, length: int) -> pd.Series:
+    return values.ewm(span=length, adjust=False, min_periods=length).mean()
+
+
+def _ppo(
+    values: pd.Series,
+    *,
+    fast_length: int,
+    slow_length: int,
+    signal_length: int,
+    use_percent: bool,
+) -> pd.DataFrame:
+    ema_fast = _ema(values, length=fast_length)
+    ema_slow = _ema(values, length=slow_length)
     ppo_values = safe_divide(ema_fast - ema_slow, ema_slow)
     if use_percent:
         ppo_values = 100 * ppo_values
-    signal_values = ema(ppo_values, length=signal_length)
+    signal_values = _ema(ppo_values, length=signal_length)
     histogram_values = ppo_values - signal_values
 
     return pd.DataFrame(
@@ -129,17 +179,6 @@ def ppo(
         },
         index=values.index,
     )
-
-
-def ppo_percentile(
-    values: pd.Series,
-    *,
-    min_history: int = 1,
-) -> pd.Series:
-    """Calculate point-in-time percentile ranks for one PPO sequence."""
-    _validate_min_history(min_history)
-    _validate_temporal_index(values)
-    return _expanding_percentile(values, min_history=min_history)
 
 
 def _validate_length(length: int) -> None:
@@ -181,6 +220,34 @@ def _validate_temporal_index(values: pd.Series) -> None:
 
     if not is_ordered:
         raise ValueError("values must be chronologically ordered before calculating this indicator")
+
+
+def _apply_by_ticker(
+    values: pd.Series,
+    func: Callable[[pd.Series], pd.Series | pd.DataFrame],
+) -> pd.Series | pd.DataFrame:
+    """Apply ``func`` per provider/ticker group when identifiers are in the index.
+
+    When ``values`` carries provider and ticker index levels the calculation is
+    isolated within each group, order is validated per group, and the original
+    row order is restored. Otherwise ``func`` is applied to the whole series
+    after a single temporal-order check.
+    """
+    index = values.index
+    if isinstance(index, pd.MultiIndex) and {"provider", "ticker"}.issubset(set(index.names)):
+        results = []
+        for _, group in values.groupby(
+            [index.get_level_values("provider"), index.get_level_values("ticker")],
+            sort=False,
+        ):
+            _validate_temporal_index(group)
+            results.append(func(group))
+        if not results:
+            return func(values)
+        return pd.concat(results).reindex(index)
+
+    _validate_temporal_index(values)
+    return func(values)
 
 
 def _grouped_series(data: pd.DataFrame, values: pd.Series) -> pd.core.groupby.SeriesGroupBy:

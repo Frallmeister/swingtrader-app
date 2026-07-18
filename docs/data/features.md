@@ -40,9 +40,11 @@ The public numerical trend indicators are:
 - `ppo`, which has three natural outputs and returns a dataframe with `ppo`, `ppo_signal`, and `ppo_histogram` columns;
 - `ppo_percentile`, which has one natural output and returns a series.
 
+Each indicator accepts either one ordered series for a single ticker or a series that carries `provider` and `ticker` index levels for many tickers. When those index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original row order is preserved.
+
 The default fast/slow moving-average lengths are 20 and 50 rows. The default PPO lengths are 12, 26, and 9 rows, and `add_trend_features` requires 100 prior valid PPO observations before `ppo_percentile` is populated by default. Calculations are grouped by `provider` and `ticker`, and warm-up rows remain missing until each rolling, exponential, or expanding-history calculation has enough observations. Intermediate moving-average values such as `sma_fast`, `sma_slow`, `ema_fast`, and `ema_slow` are local calculations and are not persisted as feature columns.
 
-SMA, EMA, PPO, and PPO percentile validate their local parameters and reject visibly unordered temporal indexes, but they do not perform dataframe-level feature validation and do not sort input values. PPO signal and histogram are part of the cohesive `ppo` output rather than separate public functions.
+SMA, EMA, PPO, and PPO percentile validate their local parameters and reject visibly unordered temporal indexes, checking chronological order within each provider/ticker group when those index levels are present. They do not perform dataframe-level feature validation and do not sort input values. PPO signal and histogram are part of the cohesive `ppo` output rather than separate public functions.
 
 ## Future Feature Ideas
 
