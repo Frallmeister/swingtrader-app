@@ -107,10 +107,7 @@ def test_add_trend_features_calls_ppo_once_per_group(monkeypatch: pytest.MonkeyP
     calls = 0
 
     def fake_ppo(
-        values: pd.Series,
-        *,
-        lengths: tuple[int, int, int] = (12, 26, 9),
-        use_percent: bool = True
+        values: pd.Series, *, lengths: tuple[int, int, int] = (12, 26, 9), use_percent: bool = True
     ) -> pd.DataFrame:
         nonlocal calls
         calls += 1
