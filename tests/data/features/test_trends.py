@@ -385,6 +385,149 @@ def test_sma_and_ema_reject_invalid_lengths(length: object) -> None:
         )
 
 
+def test_sma_groups_by_ticker_index_levels_without_cross_ticker_bleed() -> None:
+    close = _multi_ticker_close()
+
+    result = sma(close, length=2)
+
+    pd.testing.assert_index_equal(result.index, close.index)
+    pd.testing.assert_series_equal(
+        result.loc[("yfinance", "AAA.ST")].reset_index(drop=True),
+        pd.Series([np.nan, 11.0, 13.0, 15.0], name="adjusted_close"),
+    )
+    # The first BBB.ST value is a warm-up NaN; if AAA.ST's tail bled across the
+    # boundary this would instead be mean(16, 100) == 58.0.
+    pd.testing.assert_series_equal(
+        result.loc[("yfinance", "BBB.ST")].reset_index(drop=True),
+        pd.Series([np.nan, 100.0, 100.0, 100.0], name="adjusted_close"),
+    )
+
+
+def test_ema_groups_by_ticker_index_levels_without_cross_ticker_bleed() -> None:
+    close = _multi_ticker_close()
+
+    result = ema(close, length=2)
+
+    pd.testing.assert_index_equal(result.index, close.index)
+    # A constant price feeds an EMA of exactly that price after warm-up; any
+    # cross-ticker state from AAA.ST would perturb these BBB.ST values.
+    pd.testing.assert_series_equal(
+        result.loc[("yfinance", "BBB.ST")].reset_index(drop=True),
+        pd.Series([np.nan, 100.0, 100.0, 100.0], name="adjusted_close"),
+    )
+
+
+def test_ppo_groups_by_ticker_index_levels() -> None:
+    close = _multi_ticker_close()
+
+    result = ppo(close, lengths=(1, 2, 1))
+
+    assert list(result.columns) == ["ppo", "ppo_signal", "ppo_histogram"]
+    pd.testing.assert_index_equal(result.index, close.index)
+    # A constant price yields a PPO of zero after warm-up, isolated from AAA.ST.
+    bbb_ppo = result.loc[("yfinance", "BBB.ST"), "ppo"]
+    assert (bbb_ppo.dropna() == 0.0).all()
+    assert bbb_ppo.isna().sum() == 1
+
+
+def test_ppo_percentile_groups_by_ticker_index_levels() -> None:
+    index = pd.MultiIndex.from_arrays(
+        [
+            ["yfinance"] * 6,
+            ["AAA.ST", "AAA.ST", "AAA.ST", "BBB.ST", "BBB.ST", "BBB.ST"],
+            pd.to_datetime(
+                ["2026-07-01", "2026-07-02", "2026-07-03"] * 2,
+            ),
+        ],
+        names=["provider", "ticker", "trading_date"],
+    )
+    values = pd.Series([1.0, 3.0, 2.0, 10.0, 5.0, 7.0], index=index, name="ppo")
+
+    result = ppo_percentile(values, min_history=1)
+
+    pd.testing.assert_index_equal(result.index, values.index)
+    pd.testing.assert_series_equal(
+        result.loc[("yfinance", "AAA.ST")].reset_index(drop=True),
+        pd.Series([np.nan, 1.0, 0.5], name="ppo"),
+    )
+    pd.testing.assert_series_equal(
+        result.loc[("yfinance", "BBB.ST")].reset_index(drop=True),
+        pd.Series([np.nan, 0.0, 0.5], name="ppo"),
+    )
+
+
+def test_primitives_preserve_interleaved_multi_ticker_row_order() -> None:
+    index = pd.MultiIndex.from_arrays(
+        [
+            ["yfinance"] * 6,
+            ["AAA.ST", "BBB.ST", "AAA.ST", "BBB.ST", "AAA.ST", "BBB.ST"],
+            pd.to_datetime(
+                [
+                    "2026-07-01",
+                    "2026-07-01",
+                    "2026-07-02",
+                    "2026-07-02",
+                    "2026-07-03",
+                    "2026-07-03",
+                ]
+            ),
+        ],
+        names=["provider", "ticker", "trading_date"],
+    )
+    values = pd.Series([10.0, 100.0, 12.0, 100.0, 14.0, 100.0], index=index, name="adjusted_close")
+
+    result = sma(values, length=2)
+
+    pd.testing.assert_index_equal(result.index, values.index)
+    pd.testing.assert_series_equal(
+        result,
+        pd.Series(
+            [np.nan, np.nan, 11.0, 100.0, 13.0, 100.0],
+            index=index,
+            name="adjusted_close",
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "indicator",
+    [
+        lambda values: sma(values, length=2),
+        lambda values: ema(values, length=2),
+        lambda values: ppo(values, lengths=(1, 2, 1)),
+        lambda values: ppo_percentile(values, min_history=1),
+    ],
+)
+def test_primitives_reject_unordered_dates_within_one_ticker(
+    indicator: object,
+) -> None:
+    index = pd.MultiIndex.from_arrays(
+        [
+            ["yfinance"] * 6,
+            ["AAA.ST", "AAA.ST", "AAA.ST", "BBB.ST", "BBB.ST", "BBB.ST"],
+            pd.to_datetime(
+                [
+                    "2026-07-01",
+                    "2026-07-02",
+                    "2026-07-03",
+                    "2026-07-01",
+                    "2026-07-03",
+                    "2026-07-02",
+                ]
+            ),
+        ],
+        names=["provider", "ticker", "trading_date"],
+    )
+    values = pd.Series([10.0, 11.0, 12.0, 100.0, 101.0, 102.0], index=index, name="adjusted_close")
+
+    with pytest.raises(ValueError, match="chronologically ordered"):
+        indicator(values)  # type: ignore[operator]
+
+
+def _multi_ticker_close() -> pd.Series:
+    return _prices().set_index(["provider", "ticker", "trading_date"])["adjusted_close"]
+
+
 def _prices() -> pd.DataFrame:
     return pd.DataFrame(
         {
