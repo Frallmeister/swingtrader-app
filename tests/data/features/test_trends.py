@@ -106,7 +106,12 @@ def test_add_trend_features_calls_ppo_once_per_group(monkeypatch: pytest.MonkeyP
     prices = _prices()
     calls = 0
 
-    def fake_ppo(values: pd.Series, *, lengths: tuple[int, int, int] = (12, 26, 9)) -> pd.DataFrame:
+    def fake_ppo(
+        values: pd.Series,
+        *,
+        lengths: tuple[int, int, int] = (12, 26, 9),
+        use_percent: bool = True
+    ) -> pd.DataFrame:
         nonlocal calls
         calls += 1
         assert lengths == (2, 3, 2)
@@ -242,7 +247,7 @@ def test_sma_and_ema_allow_non_temporal_index_and_preserve_row_order() -> None:
 def test_ppo_returns_dataframe_with_expected_columns_and_values() -> None:
     prices = _prices()["adjusted_close"].iloc[:4]
 
-    result = ppo(prices, lengths=(2, 3, 2))
+    result = ppo(prices, lengths=(2, 3, 2), use_percent=False)
 
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["ppo", "ppo_signal", "ppo_histogram"]

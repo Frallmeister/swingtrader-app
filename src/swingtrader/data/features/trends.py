@@ -103,6 +103,7 @@ def ppo(
     values: pd.Series,
     *,
     lengths: tuple[int, int, int] = (12, 26, 9),
+    use_percent: bool = True,
 ) -> pd.DataFrame:
     """Calculate PPO, signal-line, and histogram values for one sequence.
 
@@ -116,6 +117,8 @@ def ppo(
     ema_fast = ema(values, length=fast_length)
     ema_slow = ema(values, length=slow_length)
     ppo_values = safe_divide(ema_fast - ema_slow, ema_slow)
+    if use_percent:
+        ppo_values = 100 * ppo_values
     signal_values = ema(ppo_values, length=signal_length)
     histogram_values = ppo_values - signal_values
 
@@ -208,7 +211,8 @@ def _grouped_ppo(
 ) -> pd.DataFrame:
     columns = ["ppo", "ppo_signal", "ppo_histogram"]
     blocks = [
-        ppo(group_values, lengths=lengths) for _, group_values in _grouped_series(data, values)
+        ppo(group_values, lengths=lengths, use_percent=False)
+        for _, group_values in _grouped_series(data, values)
     ]
     if not blocks:
         return pd.DataFrame(index=data.index, columns=columns, dtype="float64")
