@@ -8,17 +8,25 @@ Feature code should transform bronze market and macro data into model-ready reco
 
 Current feature transformations operate on pandas dataframes and preserve the input row alignment. Source observations must include `provider`, `ticker`, and `trading_date` identifiers either all as columns or all as named index levels, plus the input columns required by each feature family. Identifier fields must not be split between columns and index levels.
 
+Feature functions follow three contracts:
+
+- numerical helpers operate on one `pd.Series` and return one index-aligned `pd.Series`;
+- feature generators accept a source `pd.DataFrame` and return a `pd.DataFrame` containing only newly calculated model feature columns;
+- feature-family orchestrators such as `add_return_features` and `add_trend_features` return a copy of the input dataframe with feature columns added.
+
 ## Return Features
 
-The implemented return feature helper is `swingtrader.data.features.returns.add_return_features`. It adds trailing percentage-return columns named `return_{horizon}d`, where each horizon is a positive integer number of trading rows.
+The return feature generator is `swingtrader.data.features.returns.return_features`. It returns only trailing percentage-return columns named `return_{horizon}d`, where each horizon is a positive integer number of trading rows.
+
+The orchestrator `swingtrader.data.features.returns.add_return_features` validates the input once, copies it, calls `return_features` without repeated validation, and appends the returned feature columns.
 
 For example, `horizons=(1, 5, 10)` produces `return_1d`, `return_5d`, and `return_10d` from `adjusted_close` values. Calculations are grouped by `provider` and `ticker`, so one ticker's history cannot leak into another ticker's features. Within each provider/ticker group, input rows must be strictly ordered by `trading_date`; warm-up rows without enough history remain missing.
 
 ## Trend Features
 
-The implemented trend feature helper is `swingtrader.data.features.trends.add_trend_features`. It adds moving-average and oscillator columns from `adjusted_close` values while preserving input row alignment.
+The trend feature generators return dataframes containing only new feature columns from `adjusted_close` or previously generated PPO values. The orchestrator `swingtrader.data.features.trends.add_trend_features` validates the source prices once, copies them, calls the generators without repeated validation, and appends the generated columns while preserving input row alignment.
 
-With the default settings, the helper adds:
+With the default settings, the orchestrator adds:
 
 - `sma_fast_to_sma_slow`, the fast SMA divided by the slow SMA minus one;
 - `ema_fast_to_ema_slow`, the fast EMA divided by the slow EMA minus one;
@@ -28,7 +36,15 @@ With the default settings, the helper adds:
 - `ppo_histogram`, the difference between `ppo` and `ppo_signal`;
 - `ppo_percentile`, the point-in-time percentile rank of `ppo` within prior valid PPO observations for the same provider/ticker group.
 
-The default fast/slow moving-average lengths are 20 and 50 rows. The default PPO lengths are 12, 26, and 9 rows, and `ppo_percentile` requires 100 prior valid PPO observations by default. Calculations are grouped by `provider` and `ticker`, and warm-up rows remain missing until each rolling, exponential, or expanding-history calculation has enough observations. The lower-level helpers `sma`, `ema`, `ppo`, `ppo_signal`, `ppo_histogram`, and `ppo_percentile` are available when notebooks or experiments need individual indicators.
+The dataframe-returning trend generators are:
+
+- `moving_average_features`, which returns `sma_fast_to_sma_slow`, `ema_fast_to_ema_slow`, and `ema_fast_to_sma_fast`;
+- `ppo_features`, which returns `ppo`, `ppo_signal`, and `ppo_histogram`;
+- `ppo_percentile_features`, which returns `ppo_percentile`.
+
+The default fast/slow moving-average lengths are 20 and 50 rows. The default PPO lengths are 12, 26, and 9 rows, and `ppo_percentile_features` requires 100 prior valid PPO observations by default when used through `add_trend_features`. Calculations are grouped by `provider` and `ticker`, and warm-up rows remain missing until each rolling, exponential, or expanding-history calculation has enough observations.
+
+The lower-level numerical helpers `sma`, `ema`, `ppo`, `ppo_signal`, `ppo_histogram`, and `ppo_percentile` operate on one series and return one index-aligned series. They do not perform dataframe-level feature validation or choose model feature-column names.
 
 ## Future Feature Ideas
 
