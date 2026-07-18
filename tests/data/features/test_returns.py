@@ -2,19 +2,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import swingtrader.data.features.returns as return_module
-from swingtrader.data.features.returns import add_return_features, return_features
+from swingtrader.data.features.returns import add_return_features
 
 
-def test_return_features_returns_only_feature_columns() -> None:
+def test_add_return_features_preserves_source_columns_and_adds_returns() -> None:
     prices = _prices()
     original = prices.copy(deep=True)
 
-    result = return_features(prices, horizons=(1, 2))
+    result = add_return_features(prices, horizons=(1, 2))
 
-    assert isinstance(result, pd.DataFrame)
-    assert list(result.columns) == ["return_1d", "return_2d"]
-    assert not {"provider", "ticker", "trading_date", "adjusted_close"}.intersection(result.columns)
+    assert list(result.columns) == [*prices.columns, "return_1d", "return_2d"]
     pd.testing.assert_index_equal(result.index, prices.index)
     pd.testing.assert_frame_equal(prices, original)
     pd.testing.assert_series_equal(
@@ -27,46 +24,10 @@ def test_return_features_returns_only_feature_columns() -> None:
     )
 
 
-def test_add_return_features_preserves_source_columns_and_adds_features() -> None:
-    prices = _prices()
-    original = prices.copy(deep=True)
-
-    result = add_return_features(prices, horizons=(1, 2))
-
-    assert list(result.columns) == [*prices.columns, "return_1d", "return_2d"]
-    pd.testing.assert_index_equal(result.index, prices.index)
-    pd.testing.assert_frame_equal(prices, original)
-
-
-def test_add_return_features_calls_generator_without_duplicate_validation(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    prices = _prices()
-
-    def fake_return_features(
-        observed: pd.DataFrame,
-        horizons: tuple[int, ...],
-        *,
-        source: str = "adjusted_close",
-        run_validation: bool = True,
-    ) -> pd.DataFrame:
-        assert observed is not prices
-        assert horizons == (1,)
-        assert source == "adjusted_close"
-        assert run_validation is False
-        return pd.DataFrame({"return_1d": [0.0] * len(observed)}, index=observed.index)
-
-    monkeypatch.setattr(return_module, "return_features", fake_return_features)
-
-    result = add_return_features(prices, horizons=(1,))
-
-    assert "return_1d" in result.columns
-
-
-def test_return_features_accepts_identifiers_as_index_levels() -> None:
+def test_add_return_features_accepts_identifiers_as_index_levels() -> None:
     prices = _prices().iloc[:3].set_index(["provider", "ticker", "trading_date"])
 
-    result = return_features(prices, horizons=(1,))
+    result = add_return_features(prices, horizons=(1,))
 
     pd.testing.assert_index_equal(result.index, prices.index)
     pd.testing.assert_series_equal(
@@ -81,20 +42,12 @@ def test_return_features_accepts_identifiers_as_index_levels() -> None:
 )
 def test_add_return_features_rejects_invalid_horizons(horizons: tuple[int, ...]) -> None:
     with pytest.raises(ValueError, match="horizon"):
-        return_features(_prices().iloc[:1], horizons=horizons)
+        add_return_features(_prices().iloc[:1], horizons=horizons)
 
 
-def test_return_features_runs_standalone_validation_by_default() -> None:
+def test_add_return_features_runs_dataframe_validation() -> None:
     with pytest.raises(ValueError, match="Missing required columns: adjusted_close"):
-        return_features(_prices().drop(columns="adjusted_close"), horizons=(1,))
-
-
-def test_return_features_can_skip_standalone_validation() -> None:
-    prices = _prices().iloc[[1, 0, 2]].reset_index(drop=True)
-
-    result = return_features(prices, horizons=(1,), run_validation=False)
-
-    assert list(result.columns) == ["return_1d"]
+        add_return_features(_prices().drop(columns="adjusted_close"), horizons=(1,))
 
 
 def test_add_return_features_handles_empty_input() -> None:

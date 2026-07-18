@@ -1,9 +1,4 @@
-"""Feature transformations for historical adjusted-close returns.
-
-Feature generators return dataframes containing only newly calculated feature
-columns. Orchestrators return a copy of the input dataframe with those feature
-columns appended.
-"""
+"""Feature transformations for historical adjusted-close returns."""
 
 import pandas as pd
 
@@ -22,65 +17,37 @@ def add_return_features(
     calculated independently within each provider/ticker group and the input row
     order is preserved.
     """
-    _validate_horizons(horizons)
-
     validate_feature_input(
         prices,
         required_columns={"adjusted_close"},
     )
     validate_temporal_order(prices)
+    _validate_horizons(horizons)
 
     data = prices.copy()
-    features = return_features(data, horizons=horizons, run_validation=False)
-    data[features.columns] = features
+    if data.empty:
+        for horizon in horizons:
+            data[f"return_{horizon}d"] = pd.Series(index=data.index, dtype="float64")
+        return data
+
+    adjusted_close_by_ticker = _grouped_series(data, data.loc[:, "adjusted_close"])
+
+    for horizon in horizons:
+        previous_price = adjusted_close_by_ticker.shift(horizon)
+
+        data[f"return_{horizon}d"] = safe_divide(
+            data["adjusted_close"],
+            previous_price,
+        ).sub(1)
 
     return data
 
 
-def return_features(
-    prices: pd.DataFrame,
-    horizons: tuple[int, ...] = (1, 5, 10, 20),
-    *,
-    source: str = "adjusted_close",
-    run_validation: bool = True,
-) -> pd.DataFrame:
-    """Calculate trailing percentage-return feature columns.
-
-    Returns a dataframe containing only newly calculated ``return_{horizon}d``
-    columns. The output preserves the exact input index and row order.
-    """
-    _validate_horizons(horizons)
-
-    if run_validation:
-        validate_feature_input(prices, required_columns={source})
-        validate_temporal_order(prices)
-
-    features = pd.DataFrame(index=prices.index)
-
-    if prices.empty:
-        for horizon in horizons:
-            features[f"return_{horizon}d"] = pd.Series(index=prices.index, dtype="float64")
-        return features
-
-    source_by_ticker = _grouped_source(prices, source)
-
-    for horizon in horizons:
-        previous_price = source_by_ticker.shift(horizon)
-
-        features[f"return_{horizon}d"] = safe_divide(
-            prices[source],
-            previous_price,
-        ).sub(1)
-
-    return features
-
-
-def _grouped_source(data: pd.DataFrame, source: str) -> pd.core.groupby.SeriesGroupBy:
+def _grouped_series(data: pd.DataFrame, values: pd.Series) -> pd.core.groupby.SeriesGroupBy:
     identifiers = ("provider", "ticker")
     identifiers_set = set(identifiers)
     index_names = data.index.names
     columns = data.columns
-    values = data.loc[:, source]
 
     if identifiers_set.issubset(index_names):
         return values.groupby(
