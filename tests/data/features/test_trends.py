@@ -7,6 +7,7 @@ from swingtrader.data.features.trends import (
     ema,
     ppo,
     ppo_histogram,
+    ppo_percentile,
     ppo_signal,
     sma,
 )
@@ -19,6 +20,7 @@ def test_add_trend_features_calculates_grouped_features() -> None:
         prices,
         fast_slow_lengths=(2, 3),
         ppo_lengths=(2, 3, 2),
+        ppo_percentile_min_history=1,
     )
 
     expected_sma_ratio = pd.Series(
@@ -38,6 +40,14 @@ def test_add_trend_features_calculates_grouped_features() -> None:
     )
     assert "ppo_signal" in result.columns
     assert "ppo_histogram" in result.columns
+    pd.testing.assert_series_equal(
+        result["ppo_percentile"],
+        pd.Series(
+            [np.nan, np.nan, np.nan, 1.0, np.nan, np.nan, np.nan, 1.0],
+            name="ppo_percentile",
+        ),
+        check_exact=False,
+    )
     assert "ppo" not in prices.columns
 
 
@@ -113,6 +123,15 @@ def test_ppo_signal_and_histogram_calculate_from_existing_ppo_columns() -> None:
     pd.testing.assert_series_equal(histogram, expected_histogram, check_exact=False)
 
 
+def test_ppo_percentile_calculates_grouped_point_in_time_rank() -> None:
+    data = _prices().assign(ppo=[1.0, 3.0, 2.0, 2.0, 5.0, 4.0, np.nan, 6.0])
+
+    percentile = ppo_percentile(data, min_history=1)
+
+    expected = pd.Series([np.nan, 1.0, 0.5, 2.0 / 3.0, np.nan, 0.0, np.nan, 1.0], name="ppo")
+    pd.testing.assert_series_equal(percentile, expected, check_exact=False)
+
+
 def test_trend_helpers_reject_invalid_inputs() -> None:
     prices = _prices()
 
@@ -130,6 +149,12 @@ def test_trend_helpers_reject_invalid_inputs() -> None:
 
     with pytest.raises(ValueError, match="column named 'ppo'"):
         ppo_signal(prices)
+
+    with pytest.raises(ValueError, match="Missing required columns: ppo"):
+        ppo_percentile(prices)
+
+    with pytest.raises(ValueError, match="positive integer"):
+        ppo_percentile(prices.assign(ppo=0.0), min_history=0)
 
     with pytest.raises(ValueError, match="columns 'ppo' and 'ppo_signal'"):
         ppo_histogram(prices)
