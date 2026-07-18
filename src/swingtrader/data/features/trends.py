@@ -107,9 +107,8 @@ def ppo(
 ) -> pd.DataFrame:
     """Calculate PPO, signal-line, and histogram values for one sequence.
 
-    ``values`` must contain observations in chronological order. The returned
-    dataframe preserves the input index and contains ``ppo``, ``ppo_signal``,
-    and ``ppo_histogram`` columns. PPO values use the production ratio scaling.
+    PPO is returned in percentage points by default. Pass ``use_percent=False``
+    to return the raw ratio. The signal and histogram use the same scaling as PPO.
     """
     fast_length, slow_length, signal_length = _validate_ppo_lengths(lengths)
     _validate_temporal_index(values)

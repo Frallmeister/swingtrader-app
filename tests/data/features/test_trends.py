@@ -138,6 +138,15 @@ def test_add_trend_features_calls_ppo_once_per_group(monkeypatch: pytest.MonkeyP
     ]
 
 
+def test_ppo_returns_percent_by_default_or_ratio_when_requested() -> None:
+    values = _prices()["adjusted_close"].iloc[:4]
+
+    ratio = ppo(values, lengths=(2, 3, 2), use_percent=False)
+    percent = ppo(values, lengths=(2, 3, 2))
+
+    pd.testing.assert_frame_equal(percent, ratio.mul(100))
+
+
 def test_sma_and_ema_calculate_one_sequence() -> None:
     prices = _prices()["adjusted_close"].iloc[:4]
 
