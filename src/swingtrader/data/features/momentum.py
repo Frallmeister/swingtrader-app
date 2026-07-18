@@ -51,7 +51,7 @@ def add_momentum_features(
 
     data = data.copy()
 
-    ppo_block = _grouped_ppo(data, data.loc[:, "adjusted_close"], lengths=ppo_lengths)
+    ppo_block = ppo(data.loc[:, "adjusted_close"], lengths=ppo_lengths, use_percent=False)
     data[ppo_block.columns] = ppo_block
 
     ppo_by_ticker = data.loc[:, "ppo"].groupby(
@@ -155,22 +155,6 @@ def _validate_min_history(min_history: int) -> None:
         raise ValueError(
             f"min_history must be a positive integer greater than 0; got {min_history!r}"
         )
-
-
-def _grouped_ppo(
-    data: pd.DataFrame,
-    values: pd.Series,
-    *,
-    lengths: tuple[int, int, int],
-) -> pd.DataFrame:
-    columns = ["ppo", "ppo_signal", "ppo_histogram"]
-    blocks = [
-        ppo(group_values, lengths=lengths, use_percent=False)
-        for _, group_values in values.groupby(level=["provider", "ticker"], sort=False)
-    ]
-    if not blocks:
-        return pd.DataFrame(index=data.index, columns=columns, dtype="float64")
-    return pd.concat(blocks).reindex(data.index).loc[:, columns]
 
 
 def _expanding_percentile(

@@ -110,7 +110,7 @@ def test_add_momentum_features_rejects_invalid_configuration() -> None:
         add_momentum_features(prices, ppo_percentile_min_history=0)
 
 
-def test_add_momentum_features_calls_ppo_once_per_group(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_add_momentum_features_delegates_to_ppo(monkeypatch: pytest.MonkeyPatch) -> None:
     prices = _indexed_prices()
     calls = 0
 
@@ -120,6 +120,7 @@ def test_add_momentum_features_calls_ppo_once_per_group(monkeypatch: pytest.Monk
         nonlocal calls
         calls += 1
         assert lengths == (2, 3, 2)
+        assert use_percent is False
         return pd.DataFrame(
             {
                 "ppo": [0.0] * len(values),
@@ -137,7 +138,9 @@ def test_add_momentum_features_calls_ppo_once_per_group(monkeypatch: pytest.Monk
         ppo_percentile_min_history=1,
     )
 
-    assert calls == 2
+    # ``ppo`` already isolates provider/ticker groups internally, so the
+    # orchestrator delegates to it once rather than grouping the prices itself.
+    assert calls == 1
     assert list(result.loc[:, ["ppo", "ppo_signal", "ppo_histogram"]].columns) == [
         "ppo",
         "ppo_signal",
