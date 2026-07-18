@@ -16,24 +16,42 @@ def test_add_return_features_preserves_source_columns_and_adds_returns() -> None
     pd.testing.assert_frame_equal(prices, original)
     pd.testing.assert_series_equal(
         result["return_1d"],
-        pd.Series([np.nan, 0.1, 0.1, np.nan, -0.2, 0.1], name="return_1d"),
+        pd.Series([np.nan, 0.1, 0.1, np.nan, -0.2, 0.1], index=prices.index, name="return_1d"),
     )
     pd.testing.assert_series_equal(
         result["return_2d"],
-        pd.Series([np.nan, np.nan, 0.21, np.nan, np.nan, -0.12], name="return_2d"),
+        pd.Series(
+            [np.nan, np.nan, 0.21, np.nan, np.nan, -0.12], index=prices.index, name="return_2d"
+        ),
     )
 
 
-def test_add_return_features_accepts_identifiers_as_index_levels() -> None:
-    prices = _prices().iloc[:3].set_index(["provider", "ticker", "trading_date"])
+def test_add_return_features_calculates_each_ticker_independently() -> None:
+    prices = _prices()
 
     result = add_return_features(prices, horizons=(1,))
 
-    pd.testing.assert_index_equal(result.index, prices.index)
+    # The first BBB.ST row is a warm-up NaN; if AAA.ST's tail leaked across the
+    # ticker boundary this would instead be a finite return.
+    assert np.isnan(result.loc[("yfinance", "BBB.ST"), "return_1d"].iloc[0])
     pd.testing.assert_series_equal(
-        result["return_1d"],
-        pd.Series([np.nan, 0.1, 0.1], index=prices.index, name="return_1d"),
+        result.loc[("yfinance", "AAA.ST"), "return_1d"].reset_index(drop=True),
+        pd.Series([np.nan, 0.1, 0.1], name="return_1d"),
     )
+
+
+def test_add_return_features_rejects_identifiers_as_columns() -> None:
+    prices = _prices().reset_index()
+
+    with pytest.raises(ValueError, match="MultiIndex with levels"):
+        add_return_features(prices, horizons=(1,))
+
+
+def test_add_return_features_rejects_unsorted_index() -> None:
+    prices = _prices().iloc[[1, 0, 2, 3, 4, 5]]
+
+    with pytest.raises(ValueError, match="must be sorted"):
+        add_return_features(prices, horizons=(1,))
 
 
 @pytest.mark.parametrize(
@@ -51,7 +69,10 @@ def test_add_return_features_runs_dataframe_validation() -> None:
 
 
 def test_add_return_features_handles_empty_input() -> None:
-    prices = pd.DataFrame(columns=["provider", "ticker", "trading_date", "adjusted_close"])
+    prices = pd.DataFrame(
+        {"adjusted_close": pd.Series(dtype="float64")},
+        index=pd.MultiIndex.from_arrays([[], [], []], names=["provider", "ticker", "trading_date"]),
+    )
 
     result = add_return_features(prices, horizons=(1, 5))
 
@@ -74,7 +95,7 @@ def _prices() -> pd.DataFrame:
                     "2026-07-02",
                     "2026-07-03",
                 ]
-            ).date,
+            ),
             "adjusted_close": [100.0, 110.0, 121.0, 50.0, 40.0, 44.0],
         }
-    )
+    ).set_index(["provider", "ticker", "trading_date"])

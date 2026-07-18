@@ -6,11 +6,12 @@ and leave warm-up periods as missing values until each rolling or exponential
 window has enough prior observations.
 
 Numerical indicators accept either one ordered series for a single ticker or a
-series carrying provider/ticker index levels for many tickers. In the latter
-case the calculation is applied independently within each provider/ticker group
-and the input row order is preserved. Indicators return either one series or,
-for naturally multi-output indicators, one dataframe. The family orchestrator
-returns a copy of the input dataframe with final model feature columns appended.
+multi-ticker series carrying the canonical ``provider``, ``ticker``, and
+``trading_date`` index levels. In the latter case the calculation is applied
+independently within each provider/ticker group and the input row order is
+preserved. Indicators return either one series or, for naturally multi-output
+indicators, one dataframe. The family orchestrator returns a copy of the input
+dataframe with final model feature columns appended.
 """
 
 from collections.abc import Callable
@@ -18,7 +19,10 @@ from collections.abc import Callable
 import pandas as pd
 
 from swingtrader.data.features._numerical import safe_divide
-from swingtrader.data.features._validation import validate_feature_input, validate_temporal_order
+from swingtrader.data.features._validation import (
+    validate_market_price_index,
+    validate_required_columns,
+)
 
 
 def add_trend_features(
@@ -30,14 +34,14 @@ def add_trend_features(
 ) -> pd.DataFrame:
     """Return a copy of data with the default trend feature set added.
 
-    The input must contain provider, ticker, and trading_date identifiers either
-    as columns or named index levels, plus an adjusted_close column. The returned
+    The input must use the canonical market-price MultiIndex with levels
+    ``provider``, ``ticker``, and ``trading_date``, in that exact order, plus an
+    ``adjusted_close`` column. The index must be unique and sorted. The returned
     dataframe preserves the input rows and appends the final moving-average
     ratio, PPO, PPO signal, PPO histogram, and PPO percentile feature columns.
     """
-    required_columns = ["adjusted_close"]
-    validate_feature_input(data, required_columns=required_columns)
-    validate_temporal_order(data=data)
+    validate_market_price_index(data)
+    validate_required_columns(data, required_columns={"adjusted_close"})
 
     fast, slow = fast_slow_lengths
     _validate_length(fast)
@@ -50,7 +54,10 @@ def add_trend_features(
     _validate_min_history(ppo_percentile_min_history)
 
     data = data.copy()
-    adjusted_close_by_ticker = _grouped_series(data, data.loc[:, "adjusted_close"])
+    adjusted_close_by_ticker = data.loc[:, "adjusted_close"].groupby(
+        level=["provider", "ticker"],
+        sort=False,
+    )
 
     sma_fast = adjusted_close_by_ticker.transform(lambda values: _sma(values, length=fast))
     sma_slow = adjusted_close_by_ticker.transform(lambda values: _sma(values, length=slow))
@@ -64,7 +71,10 @@ def add_trend_features(
     ppo_block = _grouped_ppo(data, data.loc[:, "adjusted_close"], lengths=ppo_lengths)
     data[ppo_block.columns] = ppo_block
 
-    ppo_by_ticker = _grouped_series(data, data.loc[:, "ppo"])
+    ppo_by_ticker = data.loc[:, "ppo"].groupby(
+        level=["provider", "ticker"],
+        sort=False,
+    )
     data["ppo_percentile"] = ppo_by_ticker.transform(
         lambda values: _expanding_percentile(values, min_history=ppo_percentile_min_history)
     )
@@ -79,10 +89,10 @@ def sma(
     """Calculate a simple moving average for one or many tickers.
 
     ``values`` must contain observations in chronological order. When ``values``
-    carries provider/ticker index levels the average is calculated independently
-    within each group. The returned series preserves the input index, with the
-    first ``length - 1`` observations of each series left missing until the
-    rolling window is full.
+    carries the canonical ``provider``, ``ticker``, and ``trading_date`` index
+    levels the average is calculated independently within each group. The
+    returned series preserves the input index, with the first ``length - 1``
+    observations of each series left missing until the rolling window is full.
     """
     _validate_length(length)
     return _apply_by_ticker(values, lambda group: _sma(group, length=length))
@@ -96,10 +106,10 @@ def ema(
     """Calculate an exponential moving average for one or many tickers.
 
     ``values`` must contain observations in chronological order. When ``values``
-    carries provider/ticker index levels the average is calculated independently
-    within each group. The returned series preserves the input index. EMA uses
-    pandas ``ewm`` with ``span=length``, ``adjust=False``, and
-    ``min_periods=length``.
+    carries the canonical ``provider``, ``ticker``, and ``trading_date`` index
+    levels the average is calculated independently within each group. The
+    returned series preserves the input index. EMA uses pandas ``ewm`` with
+    ``span=length``, ``adjust=False``, and ``min_periods=length``.
     """
     _validate_length(length)
     return _apply_by_ticker(values, lambda group: _ema(group, length=length))
@@ -113,10 +123,11 @@ def ppo(
 ) -> pd.DataFrame:
     """Calculate PPO, signal-line, and histogram values for one or many tickers.
 
-    When ``values`` carries provider/ticker index levels the indicator is
-    calculated independently within each group. PPO is returned in percentage
-    points by default. Pass ``use_percent=False`` to return the raw ratio. The
-    signal and histogram use the same scaling as PPO.
+    When ``values`` carries the canonical ``provider``, ``ticker``, and
+    ``trading_date`` index levels the indicator is calculated independently
+    within each group. PPO is returned in percentage points by default. Pass
+    ``use_percent=False`` to return the raw ratio. The signal and histogram use
+    the same scaling as PPO.
     """
     fast_length, slow_length, signal_length = _validate_ppo_lengths(lengths)
     return _apply_by_ticker(
@@ -138,8 +149,9 @@ def ppo_percentile(
 ) -> pd.Series:
     """Calculate point-in-time percentile ranks for one or many tickers.
 
-    When ``values`` carries provider/ticker index levels the ranks are
-    calculated independently within each group.
+    When ``values`` carries the canonical ``provider``, ``ticker``, and
+    ``trading_date`` index levels the ranks are calculated independently within
+    each group.
     """
     _validate_min_history(min_history)
     return _apply_by_ticker(
@@ -211,14 +223,7 @@ def _validate_min_history(min_history: int) -> None:
 
 def _validate_temporal_index(values: pd.Series) -> None:
     index = values.index
-    if isinstance(index, pd.DatetimeIndex | pd.PeriodIndex):
-        is_ordered = index.is_monotonic_increasing
-    elif isinstance(index, pd.MultiIndex) and "trading_date" in index.names:
-        is_ordered = index.get_level_values("trading_date").is_monotonic_increasing
-    else:
-        return
-
-    if not is_ordered:
+    if isinstance(index, pd.DatetimeIndex | pd.PeriodIndex) and not index.is_monotonic_increasing:
         raise ValueError("values must be chronologically ordered before calculating this indicator")
 
 
@@ -226,47 +231,24 @@ def _apply_by_ticker(
     values: pd.Series,
     func: Callable[[pd.Series], pd.Series | pd.DataFrame],
 ) -> pd.Series | pd.DataFrame:
-    """Apply ``func`` per provider/ticker group when identifiers are in the index.
+    """Apply ``func`` per provider/ticker group for a multi-ticker series.
 
-    When ``values`` carries provider and ticker index levels the calculation is
-    isolated within each group, order is validated per group, and the original
-    row order is restored. Otherwise ``func`` is applied to the whole series
-    after a single temporal-order check.
+    When ``values`` carries a ``MultiIndex`` the canonical market-price contract
+    is enforced, the calculation is isolated within each provider/ticker group,
+    and the original index is preserved. Otherwise ``values`` is treated as a
+    single ordered sequence and ``func`` is applied after a temporal-order check.
     """
-    index = values.index
-    if isinstance(index, pd.MultiIndex) and {"provider", "ticker"}.issubset(set(index.names)):
-        results = []
-        for _, group in values.groupby(
-            [index.get_level_values("provider"), index.get_level_values("ticker")],
-            sort=False,
-        ):
-            _validate_temporal_index(group)
-            results.append(func(group))
-        if not results:
+    if isinstance(values.index, pd.MultiIndex):
+        validate_market_price_index(values)
+        if values.empty:
             return func(values)
-        return pd.concat(results).reindex(index)
+        results = [
+            func(group) for _, group in values.groupby(level=["provider", "ticker"], sort=False)
+        ]
+        return pd.concat(results).reindex(values.index)
 
     _validate_temporal_index(values)
     return func(values)
-
-
-def _grouped_series(data: pd.DataFrame, values: pd.Series) -> pd.core.groupby.SeriesGroupBy:
-    identifiers = ("provider", "ticker")
-    identifiers_set = set(identifiers)
-    index_names = data.index.names
-    columns = data.columns
-
-    if identifiers_set.issubset(index_names):
-        return values.groupby(
-            [data.index.get_level_values(identifier) for identifier in identifiers],
-            sort=False,
-        )
-    if identifiers_set.issubset(columns):
-        return values.groupby(
-            [data[identifier] for identifier in identifiers],
-            sort=False,
-        )
-    raise ValueError("The identifiers 'provider' and 'ticker' must be in either index or columns")
 
 
 def _grouped_ppo(
@@ -278,7 +260,7 @@ def _grouped_ppo(
     columns = ["ppo", "ppo_signal", "ppo_histogram"]
     blocks = [
         ppo(group_values, lengths=lengths, use_percent=False)
-        for _, group_values in _grouped_series(data, values)
+        for _, group_values in values.groupby(level=["provider", "ticker"], sort=False)
     ]
     if not blocks:
         return pd.DataFrame(index=data.index, columns=columns, dtype="float64")

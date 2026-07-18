@@ -10,7 +10,7 @@ Feature generation currently includes in-memory return and trend features. The c
 
 Feature code should operate only on data available at or before each observation timestamp. It must preserve ticker and trading-date alignment, avoid lookahead leakage, and avoid cross-ticker contamination unless a future feature explicitly defines a safe market-level aggregate.
 
-Current feature inputs must provide `provider`, `ticker`, and `trading_date` consistently as columns or named index levels. Observations are expected to be strictly ordered by `trading_date` within each provider/ticker group.
+Current feature inputs must use a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`, in that exact order, plus the value columns each feature family consumes. The identifiers must not also appear as ordinary columns. External consumers that need identifiers as columns convert explicitly with `features.reset_index()` at their own boundary.
 
 Rolling-window features should handle warm-up periods explicitly instead of silently filling incomplete history. Outputs should be predictable, testable, and suitable for both exploratory analysis and later training workflows. Reusable feature logic belongs in package modules with tests, not only in notebooks.
 

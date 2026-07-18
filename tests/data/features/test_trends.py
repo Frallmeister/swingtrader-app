@@ -7,7 +7,7 @@ from swingtrader.data.features.trends import add_trend_features, ema, ppo, ppo_p
 
 
 def test_add_trend_features_preserves_source_columns_and_adds_final_features() -> None:
-    prices = _prices()
+    prices = _indexed_prices()
     original = prices.copy(deep=True)
 
     result = add_trend_features(
@@ -36,7 +36,7 @@ def test_add_trend_features_preserves_source_columns_and_adds_final_features() -
     pd.testing.assert_frame_equal(prices, original)
 
     pd.testing.assert_series_equal(
-        result["sma_fast_to_sma_slow"],
+        result["sma_fast_to_sma_slow"].reset_index(drop=True),
         pd.Series(
             [np.nan, np.nan, 13.0 / 12.0 - 1.0, 15.0 / 14.0 - 1.0, np.nan, np.nan, 0.0, 0.0],
             name="sma_fast_to_sma_slow",
@@ -49,7 +49,7 @@ def test_add_trend_features_preserves_source_columns_and_adds_final_features() -
         check_exact=False,
     )
     pd.testing.assert_series_equal(
-        result["ema_fast_to_sma_fast"],
+        result["ema_fast_to_sma_fast"].reset_index(drop=True),
         pd.Series(
             [
                 np.nan,
@@ -71,7 +71,7 @@ def test_add_trend_features_preserves_source_columns_and_adds_final_features() -
         check_exact=False,
     )
     pd.testing.assert_series_equal(
-        result["ppo_percentile"],
+        result["ppo_percentile"].reset_index(drop=True),
         pd.Series(
             [np.nan, np.nan, np.nan, 1.0, np.nan, np.nan, np.nan, 1.0],
             name="ppo_percentile",
@@ -81,8 +81,8 @@ def test_add_trend_features_preserves_source_columns_and_adds_final_features() -
     assert "ppo" not in prices.columns
 
 
-def test_add_trend_features_accepts_identifiers_as_index_levels() -> None:
-    prices = _prices().set_index(["provider", "ticker", "trading_date"])
+def test_add_trend_features_preserves_multiindex_and_calculates_each_ticker() -> None:
+    prices = _indexed_prices()
 
     result = add_trend_features(
         prices,
@@ -95,15 +95,22 @@ def test_add_trend_features_accepts_identifiers_as_index_levels() -> None:
     assert result.loc[("yfinance", "BBB.ST"), "sma_fast_to_sma_slow"].notna().sum() == 2
 
 
-def test_add_trend_features_rejects_unordered_input() -> None:
-    prices = _prices().iloc[[1, 0, 2, 3, 4, 5, 6, 7]].reset_index(drop=True)
+def test_add_trend_features_rejects_identifiers_as_columns() -> None:
+    prices = _prices()
 
-    with pytest.raises(ValueError, match="strictly ordered"):
+    with pytest.raises(ValueError, match="MultiIndex with levels"):
+        add_trend_features(prices, fast_slow_lengths=(2, 3), ppo_lengths=(2, 3, 2))
+
+
+def test_add_trend_features_rejects_unsorted_input() -> None:
+    prices = _indexed_prices().iloc[[1, 0, 2, 3, 4, 5, 6, 7]]
+
+    with pytest.raises(ValueError, match="must be sorted"):
         add_trend_features(prices, fast_slow_lengths=(2, 3), ppo_lengths=(2, 3, 2))
 
 
 def test_add_trend_features_calls_ppo_once_per_group(monkeypatch: pytest.MonkeyPatch) -> None:
-    prices = _prices()
+    prices = _indexed_prices()
     calls = 0
 
     def fake_ppo(
@@ -229,10 +236,10 @@ def test_sma_and_ema_reject_unordered_trading_date_multiindex() -> None:
     )
     values = pd.Series([10.0, 14.0, 12.0], index=index, name="adjusted_close")
 
-    with pytest.raises(ValueError, match="chronologically ordered"):
+    with pytest.raises(ValueError, match="must be sorted"):
         sma(values, length=2)
 
-    with pytest.raises(ValueError, match="chronologically ordered"):
+    with pytest.raises(ValueError, match="must be sorted"):
         ema(values, length=2)
 
 
@@ -350,7 +357,7 @@ def test_ppo_percentile_allows_non_temporal_index_and_preserves_row_order() -> N
 
 
 def test_trend_helpers_reject_invalid_inputs() -> None:
-    prices = _prices()
+    prices = _indexed_prices()
 
     with pytest.raises(ValueError, match="fast length"):
         add_trend_features(prices, fast_slow_lengths=(3, 2), ppo_lengths=(2, 3, 2))
@@ -456,37 +463,33 @@ def test_ppo_percentile_groups_by_ticker_index_levels() -> None:
     )
 
 
-def test_primitives_preserve_interleaved_multi_ticker_row_order() -> None:
+def test_primitives_reject_partial_multiindex() -> None:
     index = pd.MultiIndex.from_arrays(
         [
-            ["yfinance"] * 6,
-            ["AAA.ST", "BBB.ST", "AAA.ST", "BBB.ST", "AAA.ST", "BBB.ST"],
-            pd.to_datetime(
-                [
-                    "2026-07-01",
-                    "2026-07-01",
-                    "2026-07-02",
-                    "2026-07-02",
-                    "2026-07-03",
-                    "2026-07-03",
-                ]
-            ),
+            ["AAA.ST", "AAA.ST", "AAA.ST"],
+            pd.to_datetime(["2026-07-01", "2026-07-02", "2026-07-03"]),
         ],
-        names=["provider", "ticker", "trading_date"],
+        names=["ticker", "trading_date"],
     )
-    values = pd.Series([10.0, 100.0, 12.0, 100.0, 14.0, 100.0], index=index, name="adjusted_close")
+    values = pd.Series([10.0, 12.0, 14.0], index=index, name="adjusted_close")
 
-    result = sma(values, length=2)
+    with pytest.raises(ValueError, match="MultiIndex with levels"):
+        sma(values, length=2)
 
-    pd.testing.assert_index_equal(result.index, values.index)
-    pd.testing.assert_series_equal(
-        result,
-        pd.Series(
-            [np.nan, np.nan, 11.0, 100.0, 13.0, 100.0],
-            index=index,
-            name="adjusted_close",
-        ),
+
+def test_primitives_reject_wrong_level_order() -> None:
+    index = pd.MultiIndex.from_arrays(
+        [
+            ["AAA.ST", "AAA.ST", "AAA.ST"],
+            ["yfinance", "yfinance", "yfinance"],
+            pd.to_datetime(["2026-07-01", "2026-07-02", "2026-07-03"]),
+        ],
+        names=["ticker", "provider", "trading_date"],
     )
+    values = pd.Series([10.0, 12.0, 14.0], index=index, name="adjusted_close")
+
+    with pytest.raises(ValueError, match="in that exact order"):
+        sma(values, length=2)
 
 
 @pytest.mark.parametrize(
@@ -520,12 +523,16 @@ def test_primitives_reject_unordered_dates_within_one_ticker(
     )
     values = pd.Series([10.0, 11.0, 12.0, 100.0, 101.0, 102.0], index=index, name="adjusted_close")
 
-    with pytest.raises(ValueError, match="chronologically ordered"):
+    with pytest.raises(ValueError, match="must be sorted"):
         indicator(values)  # type: ignore[operator]
 
 
 def _multi_ticker_close() -> pd.Series:
     return _prices().set_index(["provider", "ticker", "trading_date"])["adjusted_close"]
+
+
+def _indexed_prices() -> pd.DataFrame:
+    return _prices().set_index(["provider", "ticker", "trading_date"])
 
 
 def _prices() -> pd.DataFrame:
