@@ -176,6 +176,7 @@ def ppo_percentile(
 ) -> pd.Series:
     """Calculate point-in-time percentile ranks for one PPO sequence."""
     _validate_min_history(min_history)
+    _validate_temporal_index(values)
     return _expanding_percentile(values, min_history=min_history)
 
 

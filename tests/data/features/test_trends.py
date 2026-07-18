@@ -404,6 +404,19 @@ def test_ppo_percentile_rejects_invalid_min_history(min_history: object) -> None
         )
 
 
+def test_ppo_percentile_rejects_unordered_datetime_index() -> None:
+    values = pd.Series(
+        [1.0, 3.0, 2.0],
+        index=pd.to_datetime(
+            ["2026-07-01", "2026-07-03", "2026-07-02"]
+        ),
+        name="ppo",
+    )
+
+    with pytest.raises(ValueError, match="chronologically ordered"):
+        ppo_percentile(values)
+
+
 def test_trend_helpers_reject_invalid_inputs() -> None:
     prices = _prices()
 
