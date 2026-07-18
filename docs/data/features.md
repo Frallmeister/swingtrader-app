@@ -25,9 +25,10 @@ With the default settings, the helper adds:
 - `ema_fast_to_sma_fast`, the fast EMA divided by the fast SMA minus one;
 - `ppo`, the fast/slow EMA oscillator as a ratio;
 - `ppo_signal`, an EMA signal line over `ppo`;
-- `ppo_histogram`, the difference between `ppo` and `ppo_signal`.
+- `ppo_histogram`, the difference between `ppo` and `ppo_signal`;
+- `ppo_percentile`, the point-in-time percentile rank of `ppo` within prior valid PPO observations for the same provider/ticker group.
 
-The default fast/slow moving-average lengths are 20 and 50 rows. The default PPO lengths are 12, 26, and 9 rows. Calculations are grouped by `provider` and `ticker`, and warm-up rows remain missing until each rolling or exponential window has enough observations. The lower-level helpers `sma`, `ema`, `ppo`, `ppo_signal`, and `ppo_histogram` are available when notebooks or experiments need individual indicators.
+The default fast/slow moving-average lengths are 20 and 50 rows. The default PPO lengths are 12, 26, and 9 rows, and `ppo_percentile` requires 100 prior valid PPO observations by default. Calculations are grouped by `provider` and `ticker`, and warm-up rows remain missing until each rolling, exponential, or expanding-history calculation has enough observations. The lower-level helpers `sma`, `ema`, `ppo`, `ppo_signal`, `ppo_histogram`, and `ppo_percentile` are available when notebooks or experiments need individual indicators.
 
 ## Future Feature Ideas
 

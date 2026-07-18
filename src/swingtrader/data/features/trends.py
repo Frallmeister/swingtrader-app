@@ -19,6 +19,7 @@ def add_trend_features(
     *,
     fast_slow_lengths: tuple[int, int] = (20, 50),
     ppo_lengths: tuple[int, int, int] = (12, 26, 9),
+    ppo_percentile_min_history: int = 100,
 ) -> pd.DataFrame:
     """Add the default trend feature set to a price dataframe.
 
@@ -26,7 +27,7 @@ def add_trend_features(
     as columns or named index levels, plus an adjusted_close column. The returned
     dataframe preserves the input rows and appends moving-average ratio features,
     the price percentage oscillator as a ratio, its signal line, and the PPO
-    histogram.
+    histogram, plus the PPO percentile rank against prior ticker history.
     """
     required_columns = ["adjusted_close"]
     validate_feature_input(data, required_columns=required_columns)
@@ -60,7 +61,43 @@ def add_trend_features(
     )
     data["ppo_signal"] = ppo_signal(data, length=ppo_signal_length, run_validation=False)
     data["ppo_histogram"] = ppo_histogram(data)
+    data["ppo_percentile"] = ppo_percentile(
+        data,
+        min_history=ppo_percentile_min_history,
+        run_validation=False,
+    )
     return data
+
+
+def ppo_percentile(
+    data: pd.DataFrame,
+    *,
+    min_history: int = 1,
+    run_validation: bool = True,
+) -> pd.Series:
+    """Calculate grouped point-in-time PPO percentile ranks.
+
+    Each non-missing PPO value is ranked against valid observations in the same
+    provider/ticker group up to that row, then scaled to a 0-1 percentile using
+    only the count of preceding valid observations. Rows with fewer than
+    ``min_history`` preceding valid PPO observations remain missing.
+    """
+    if run_validation:
+        validate_feature_input(data, required_columns=["ppo"])
+        validate_temporal_order(data)
+
+    if isinstance(min_history, bool) or not isinstance(min_history, int) or min_history < 1:
+        raise ValueError(
+            f"min_history must be a positive integer greater than 0; got {min_history!r}"
+        )
+
+    grouped_ppo = data.groupby(["provider", "ticker"], sort=False)["ppo"]
+    return grouped_ppo.transform(
+        lambda values: _expanding_percentile(
+            values,
+            min_history=min_history,
+        )
+    )
 
 
 def ppo(
@@ -202,3 +239,18 @@ def _moving_average(
         )
     else:
         raise ValueError(f"Method must be either 'sma' or 'ema', got {method!r}")
+
+
+def _expanding_percentile(
+    values: pd.Series,
+    *,
+    min_history: int = 1,
+) -> pd.Series:
+    """Rank each value against valid observations preceding it."""
+    expanding_rank = values.expanding().rank(method="max")
+    valid_count = values.notna().cumsum()
+
+    previous_count = valid_count - 1
+    percentile = (expanding_rank - 1) / previous_count
+
+    return percentile.where(previous_count >= min_history)
