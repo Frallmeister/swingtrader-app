@@ -4,9 +4,12 @@ This module builds row-aligned, point-in-time technical features from ordered
 daily price observations. Calculations are isolated by provider/ticker groups
 and leave warm-up periods as missing values until each rolling or exponential
 window has enough prior observations.
-"""
 
-from typing import Literal
+Numerical indicators operate on one ordered series and return either one series
+or, for naturally multi-output indicators, one dataframe. The family
+orchestrator returns a copy of the input dataframe with final model feature
+columns appended.
+"""
 
 import pandas as pd
 
@@ -21,224 +24,198 @@ def add_trend_features(
     ppo_lengths: tuple[int, int, int] = (12, 26, 9),
     ppo_percentile_min_history: int = 100,
 ) -> pd.DataFrame:
-    """Add the default trend feature set to a price dataframe.
+    """Return a copy of data with the default trend feature set added.
 
     The input must contain provider, ticker, and trading_date identifiers either
     as columns or named index levels, plus an adjusted_close column. The returned
-    dataframe preserves the input rows and appends moving-average ratio features,
-    the price percentage oscillator as a ratio, its signal line, and the PPO
-    histogram, plus the PPO percentile rank against prior ticker history.
+    dataframe preserves the input rows and appends the final moving-average
+    ratio, PPO, PPO signal, PPO histogram, and PPO percentile feature columns.
     """
     required_columns = ["adjusted_close"]
     validate_feature_input(data, required_columns=required_columns)
     validate_temporal_order(data=data)
-    data = data.copy()
 
     fast, slow = fast_slow_lengths
+    _validate_length(fast)
+    _validate_length(slow)
     if fast >= slow:
         raise ValueError(
             f"The fast length must be lower than the slow length; got fast={fast!r}, slow={slow!r}"
         )
+    _validate_ppo_lengths(ppo_lengths)
+    _validate_min_history(ppo_percentile_min_history)
 
-    # Moving average features
-    sma_fast = sma(data=data, length=fast, source="adjusted_close", run_validation=False)
-    sma_slow = sma(data=data, length=slow, source="adjusted_close", run_validation=False)
-    ema_fast = ema(data=data, length=fast, source="adjusted_close", run_validation=False)
-    ema_slow = ema(data=data, length=slow, source="adjusted_close", run_validation=False)
+    data = data.copy()
+    adjusted_close_by_ticker = _grouped_series(data, data.loc[:, "adjusted_close"])
+
+    sma_fast = adjusted_close_by_ticker.transform(lambda values: sma(values, length=fast))
+    sma_slow = adjusted_close_by_ticker.transform(lambda values: sma(values, length=slow))
+    ema_fast = adjusted_close_by_ticker.transform(lambda values: ema(values, length=fast))
+    ema_slow = adjusted_close_by_ticker.transform(lambda values: ema(values, length=slow))
+
     data["sma_fast_to_sma_slow"] = safe_divide(sma_fast, sma_slow).sub(1)
     data["ema_fast_to_ema_slow"] = safe_divide(ema_fast, ema_slow).sub(1)
     data["ema_fast_to_sma_fast"] = safe_divide(ema_fast, sma_fast).sub(1)
 
-    # PPO features
-    ppo_fast, ppo_slow, ppo_signal_length = ppo_lengths
-    data["ppo"] = ppo(
-        data,
-        fast=ppo_fast,
-        slow=ppo_slow,
-        source="adjusted_close",
-        use_percent=False,
-        run_validation=False,
-    )
-    data["ppo_signal"] = ppo_signal(data, length=ppo_signal_length, run_validation=False)
-    data["ppo_histogram"] = ppo_histogram(data)
-    data["ppo_percentile"] = ppo_percentile(
-        data,
-        min_history=ppo_percentile_min_history,
-        run_validation=False,
+    ppo_block = _grouped_ppo(data, data.loc[:, "adjusted_close"], lengths=ppo_lengths)
+    data[ppo_block.columns] = ppo_block
+
+    ppo_by_ticker = _grouped_series(data, data.loc[:, "ppo"])
+    data["ppo_percentile"] = ppo_by_ticker.transform(
+        lambda values: ppo_percentile(values, min_history=ppo_percentile_min_history)
     )
     return data
 
 
+def sma(
+    values: pd.Series,
+    *,
+    length: int,
+) -> pd.Series:
+    """Calculate a simple moving average for one numerical sequence.
+
+    ``values`` must contain observations in chronological order. The returned
+    series preserves the input index, with the first ``length - 1`` observations
+    left missing until the rolling window is full.
+    """
+    _validate_length(length)
+    _validate_temporal_index(values)
+    return values.rolling(window=length, min_periods=length).mean()
+
+
+def ema(
+    values: pd.Series,
+    *,
+    length: int,
+) -> pd.Series:
+    """Calculate an exponential moving average for one numerical sequence.
+
+    ``values`` must contain observations in chronological order. The returned
+    series preserves the input index. EMA uses pandas ``ewm`` with
+    ``span=length``, ``adjust=False``, and ``min_periods=length``.
+    """
+    _validate_length(length)
+    _validate_temporal_index(values)
+    return values.ewm(span=length, adjust=False, min_periods=length).mean()
+
+
+def ppo(
+    values: pd.Series,
+    *,
+    lengths: tuple[int, int, int] = (12, 26, 9),
+    use_percent: bool = True,
+) -> pd.DataFrame:
+    """Calculate PPO, signal-line, and histogram values for one sequence.
+
+    PPO is returned in percentage points by default. Pass ``use_percent=False``
+    to return the raw ratio. The signal and histogram use the same scaling as PPO.
+    """
+    fast_length, slow_length, signal_length = _validate_ppo_lengths(lengths)
+    _validate_temporal_index(values)
+
+    ema_fast = ema(values, length=fast_length)
+    ema_slow = ema(values, length=slow_length)
+    ppo_values = safe_divide(ema_fast - ema_slow, ema_slow)
+    if use_percent:
+        ppo_values = 100 * ppo_values
+    signal_values = ema(ppo_values, length=signal_length)
+    histogram_values = ppo_values - signal_values
+
+    return pd.DataFrame(
+        {
+            "ppo": ppo_values,
+            "ppo_signal": signal_values,
+            "ppo_histogram": histogram_values,
+        },
+        index=values.index,
+    )
+
+
 def ppo_percentile(
-    data: pd.DataFrame,
+    values: pd.Series,
     *,
     min_history: int = 1,
-    run_validation: bool = True,
 ) -> pd.Series:
-    """Calculate grouped point-in-time PPO percentile ranks.
+    """Calculate point-in-time percentile ranks for one PPO sequence."""
+    _validate_min_history(min_history)
+    _validate_temporal_index(values)
+    return _expanding_percentile(values, min_history=min_history)
 
-    Each non-missing PPO value is ranked against valid observations in the same
-    provider/ticker group up to that row, then scaled to a 0-1 percentile using
-    only the count of preceding valid observations. Rows with fewer than
-    ``min_history`` preceding valid PPO observations remain missing.
-    """
-    if run_validation:
-        validate_feature_input(data, required_columns=["ppo"])
-        validate_temporal_order(data)
 
+def _validate_length(length: int) -> None:
+    if isinstance(length, bool) or not isinstance(length, int) or length <= 0:
+        raise ValueError(f"Length must be a positive integer; got {length!r}")
+
+
+def _validate_ppo_lengths(lengths: tuple[int, int, int]) -> tuple[int, int, int]:
+    if len(lengths) != 3:
+        raise ValueError("PPO lengths must contain fast, slow, and signal lengths.")
+
+    fast_length, slow_length, signal_length = lengths
+    _validate_length(fast_length)
+    _validate_length(slow_length)
+    _validate_length(signal_length)
+    if fast_length >= slow_length:
+        raise ValueError(
+            "The fast length must be lower than the slow length; "
+            f"got fast={fast_length!r}, slow={slow_length!r}"
+        )
+    return fast_length, slow_length, signal_length
+
+
+def _validate_min_history(min_history: int) -> None:
     if isinstance(min_history, bool) or not isinstance(min_history, int) or min_history < 1:
         raise ValueError(
             f"min_history must be a positive integer greater than 0; got {min_history!r}"
         )
 
-    grouped_ppo = data.groupby(["provider", "ticker"], sort=False)["ppo"]
-    return grouped_ppo.transform(
-        lambda values: _expanding_percentile(
-            values,
-            min_history=min_history,
-        )
-    )
+
+def _validate_temporal_index(values: pd.Series) -> None:
+    index = values.index
+    if isinstance(index, pd.DatetimeIndex | pd.PeriodIndex):
+        is_ordered = index.is_monotonic_increasing
+    elif isinstance(index, pd.MultiIndex) and "trading_date" in index.names:
+        is_ordered = index.get_level_values("trading_date").is_monotonic_increasing
+    else:
+        return
+
+    if not is_ordered:
+        raise ValueError("values must be chronologically ordered before calculating this indicator")
 
 
-def ppo(
-    data: pd.DataFrame,
-    *,
-    fast: int = 12,
-    slow: int = 26,
-    source: str = "adjusted_close",
-    use_percent: bool = True,
-    run_validation: bool = True,
-) -> pd.Series:
-    """Calculate the price percentage oscillator for a source column.
-
-    PPO is the difference between a fast and slow EMA divided by the slow EMA.
-    Results are grouped by provider/ticker and are returned as percentage points
-    by default; pass ``use_percent=False`` to keep the raw ratio.
-    """
-    if source not in data.columns:
-        raise ValueError(f"Source column {source!r} does not exist.")
-
-    if fast >= slow:
-        raise ValueError(
-            f"The fast length must be lower than the slow length; got fast={fast!r}, slow={slow!r}"
-        )
-
-    if run_validation:
-        validate_feature_input(data, required_columns={source})
-        validate_temporal_order(data)
-    ema_fast = ema(data=data, length=fast, source=source, run_validation=False)
-    ema_slow = ema(data=data, length=slow, source=source, run_validation=False)
-    result = safe_divide(ema_fast - ema_slow, ema_slow)
-    if use_percent:
-        result = result.mul(100)
-    return result
-
-
-def ppo_signal(
-    data: pd.DataFrame,
-    *,
-    length: int = 9,
-    run_validation: bool = True,
-) -> pd.Series:
-    """Calculate the EMA signal line for an existing ``ppo`` column."""
-    if "ppo" not in data.columns:
-        raise ValueError("The dataframe must have a column named 'ppo'.")
-    return ema(data=data, length=length, source="ppo", run_validation=run_validation)
-
-
-def ppo_histogram(
-    data: pd.DataFrame,
-) -> pd.Series:
-    """Calculate PPO histogram values as ``ppo - ppo_signal``."""
-    required_columns = {"ppo", "ppo_signal"}
-    if not required_columns.issubset(data.columns):
-        raise ValueError("The dataframe must have the columns 'ppo' and 'ppo_signal'.")
-    return data["ppo"] - data["ppo_signal"]
-
-
-def sma(
-    *,
-    data: pd.DataFrame,
-    length: int,
-    source: str,
-    run_validation: bool = True,
-) -> pd.Series:
-    """Calculate a simple moving average per provider/ticker group."""
-    return _moving_average(
-        data=data,
-        length=length,
-        source=source,
-        method="sma",
-        run_validation=run_validation,
-    )
-
-
-def ema(
-    *,
-    data: pd.DataFrame,
-    length: int,
-    source: str,
-    run_validation: bool = True,
-) -> pd.Series:
-    """Calculate an exponential moving average per provider/ticker group."""
-    return _moving_average(
-        data=data,
-        length=length,
-        source=source,
-        method="ema",
-        run_validation=run_validation,
-    )
-
-
-def _moving_average(
-    *,
-    data: pd.DataFrame,
-    length: int,
-    source: str,
-    method: Literal["sma", "ema"],
-    run_validation: bool,
-) -> pd.Series:
-    """Calculate a grouped moving average while preserving input row alignment."""
-    if isinstance(length, bool) or not isinstance(length, int) or length <= 0:
-        raise ValueError(f"Length must be a positive integer; got {length!r}")
-
-    if source not in data.columns:
-        raise ValueError(f"Source column {source!r} does not exist.")
-
-    if run_validation:
-        validate_feature_input(data, required_columns={source})
-        validate_temporal_order(data)
-    values = data.loc[:, source]
-
+def _grouped_series(data: pd.DataFrame, values: pd.Series) -> pd.core.groupby.SeriesGroupBy:
     identifiers = ("provider", "ticker")
     identifiers_set = set(identifiers)
     index_names = data.index.names
     columns = data.columns
+
     if identifiers_set.issubset(index_names):
-        values_by_ticker = values.groupby(
+        return values.groupby(
             [data.index.get_level_values(identifier) for identifier in identifiers],
             sort=False,
         )
-    elif identifiers_set.issubset(columns):
-        values_by_ticker = values.groupby(
+    if identifiers_set.issubset(columns):
+        return values.groupby(
             [data[identifier] for identifier in identifiers],
             sort=False,
         )
-    else:
-        raise ValueError(
-            "The identifiers 'provider' and 'ticker' must be in either index or columns"
-        )
+    raise ValueError("The identifiers 'provider' and 'ticker' must be in either index or columns")
 
-    if method == "sma":
-        return values_by_ticker.transform(
-            lambda series: series.rolling(window=length, min_periods=length).mean()
-        )
-    elif method == "ema":
-        return values_by_ticker.transform(
-            lambda series: series.ewm(span=length, adjust=False, min_periods=length).mean()
-        )
-    else:
-        raise ValueError(f"Method must be either 'sma' or 'ema', got {method!r}")
+
+def _grouped_ppo(
+    data: pd.DataFrame,
+    values: pd.Series,
+    *,
+    lengths: tuple[int, int, int],
+) -> pd.DataFrame:
+    columns = ["ppo", "ppo_signal", "ppo_histogram"]
+    blocks = [
+        ppo(group_values, lengths=lengths, use_percent=False)
+        for _, group_values in _grouped_series(data, values)
+    ]
+    if not blocks:
+        return pd.DataFrame(index=data.index, columns=columns, dtype="float64")
+    return pd.concat(blocks).reindex(data.index).loc[:, columns]
 
 
 def _expanding_percentile(
