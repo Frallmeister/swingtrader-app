@@ -14,7 +14,7 @@ The project currently implements the data foundation:
 * initial market data onboarding for active tickers with no bronze rows
 * daily market data updates for already-onboarded tickers
 * inference-readiness and training-eligibility checks based on bronze data quality
-* in-memory adjusted-close return and trend feature generation
+* in-memory adjusted-close return, trend, and momentum feature generation
 * local SQLite support and configurable SQLAlchemy database URLs
 * MkDocs-based project documentation
 * pytest/ruff-based local quality checks
@@ -137,14 +137,16 @@ The current eligibility checks are based on bronze daily price state and data qu
 Feature helpers currently run in memory on ordered pandas dataframes. Inputs must include `provider`, `ticker`, and `trading_date` identifiers either as columns or named index levels, plus the source price columns required by the feature family.
 
 ```python
+from swingtrader.data.features.momentum import add_momentum_features
 from swingtrader.data.features.returns import add_return_features
 from swingtrader.data.features.trends import add_trend_features
 
 features = add_return_features(prices, horizons=(1, 5, 10, 20))
 features = add_trend_features(features)
+features = add_momentum_features(features)
 ```
 
-Return features add trailing adjusted-close returns. Trend features add moving-average ratios, PPO, PPO signal, and PPO histogram columns grouped by provider and ticker, leaving warm-up rows missing until the relevant windows are available.
+Return features add trailing adjusted-close returns. Trend features add moving-average ratios. Momentum features add PPO, PPO signal, PPO histogram, and PPO percentile columns. All features are grouped by provider and ticker, leaving warm-up rows missing until the relevant windows are available.
 
 ## Project Layout
 
