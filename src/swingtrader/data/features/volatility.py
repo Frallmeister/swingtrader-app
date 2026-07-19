@@ -85,7 +85,11 @@ def atr(data: pd.DataFrame, *, length: int = 14) -> pd.Series:
     ATR is Wilder's smoothed moving average of :func:`true_range` over ``length``
     rows, so the first ``length - 1`` rows of each ticker remain missing until the
     window is full. ``data`` must contain ``high``, ``low``, and ``close`` columns
-    in chronological order.
+    in chronological order. The smoothing is the recursive form seeded from the
+    first True Range rather than the canonical simple average of the first
+    ``length`` True Ranges, so early ATR values differ slightly from a canonical
+    implementation before converging (see
+    :func:`swingtrader.data.features._numerical.wilder_moving_average`).
 
     When ``data`` carries the canonical ``provider``, ``ticker``, and
     ``trading_date`` index levels the calculation is isolated within each group.

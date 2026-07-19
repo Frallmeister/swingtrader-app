@@ -32,6 +32,11 @@ def wilder_moving_average(values: pd.Series, *, length: int) -> pd.Series:
     missing until the window is full. This is the recursive smoothing Wilder
     defined for indicators such as ATR and RSI, and it decays more slowly than
     :func:`exponential_moving_average` for the same ``length``.
+
+    This recursive form is seeded from the first observation rather than the
+    canonical Wilder definition, which seeds the first output with the simple
+    average of the first ``length`` observations. The two forms converge quickly
+    as more observations accrue, but early values differ slightly from a
+    canonical implementation.
     """
     return values.ewm(alpha=1 / length, adjust=False, min_periods=length).mean()
-

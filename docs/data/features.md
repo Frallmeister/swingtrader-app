@@ -24,7 +24,7 @@ records = features.reset_index()
 
 Feature functions follow two contracts:
 
-- public numerical indicators operate on one ordered `pd.Series` and return either one index-aligned `pd.Series` or, for naturally multi-output indicators, one index-aligned `pd.DataFrame`;
+- public numerical indicators operate per ticker and return either one index-aligned `pd.Series` or, for naturally multi-output indicators, one index-aligned `pd.DataFrame`. Most indicators take a single ordered `pd.Series`; indicators that need several price columns at once, such as the volatility indicators consuming `high`, `low`, and `close`, take a `pd.DataFrame` instead;
 - application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, and `add_volatility_features` return a copy of the input dataframe with final model feature columns added.
 
 ## Return Features
@@ -96,6 +96,8 @@ The public numerical volatility indicators are:
 Because volatility indicators consume several price columns, each accepts a dataframe with `high`, `low`, and `close` columns rather than a single series, and each returns one index-aligned series. A standalone single-ticker dataframe does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved.
 
 The default ATR length is 14 rows and is calibratable through the `atr_length` argument on `add_volatility_features` and the `length` argument on `atr` and `atr_percent`. True Range uses the previous close taken within each provider/ticker group, so the first row of each ticker falls back to its high-low range. ATR then applies Wilder's smoothing, leaving the first `length - 1` rows of each ticker missing until the window is full.
+
+Wilder's smoothing here is the recursive exponential form seeded from the first True Range value, not the canonical definition that seeds the first ATR with the simple average of the first `length` True Ranges. The two forms converge quickly as more observations accrue, but early ATR (and `atr_percent`) values differ slightly from a canonical implementation.
 
 Raw `true_range` and `atr` are expressed in the input price units and are not comparable across tickers, so `add_volatility_features` only appends the scale-invariant `atr_percent` column. `true_range` and `atr` are exposed as standalone indicators, analogous to `macd`, so future consumers such as the frontend application can obtain absolute price-unit values directly. The volatility module is intended to later host additional range and dispersion measures.
 
