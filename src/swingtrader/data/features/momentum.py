@@ -12,7 +12,8 @@ independently within each provider/ticker group and the input row order is
 preserved. Indicators return either one series or, for naturally multi-output
 indicators, one dataframe. The family orchestrator returns a copy of the input
 dataframe with final model feature columns appended. The module currently
-implements PPO-based and RSI-based features and a standalone MACD indicator.
+implements PPO-based and RSI-based features, the stochastic oscillator, and a
+standalone MACD indicator.
 """
 
 import pandas as pd
@@ -39,6 +40,9 @@ def add_momentum_features(
     rsi_length: int = 21,
     rsi_bollinger_length: int = 20,
     rsi_bollinger_num_std: float = 2.0,
+    stochastic_k_length: int = 14,
+    stochastic_k_smoothing: int = 3,
+    stochastic_d_length: int = 3,
 ) -> pd.DataFrame:
     """Return a copy of data with the default momentum feature set added.
 
@@ -46,12 +50,14 @@ def add_momentum_features(
     ``provider``, ``ticker``, and ``trading_date``, in that exact order, plus an
     ``adjusted_close`` column. The index must be unique and sorted. The returned
     dataframe preserves the input rows and appends the final PPO, PPO signal, PPO
-    histogram, PPO percentile, RSI, and RSI %B feature columns.
+    histogram, PPO percentile, RSI, RSI %B, and stochastic %K and %D feature
+    columns.
 
-    RSI is calculated from ``adjusted_close`` so its gains and losses are not
-    distorted by split and dividend discontinuities in the raw close. ``rsi_percent_b``
-    locates the RSI line within its own Bollinger Bands, giving a scale-invariant
-    measure of how stretched momentum is relative to its recent range.
+    RSI and the stochastic oscillator are calculated from ``adjusted_close`` so
+    their calculations are not distorted by split and dividend discontinuities in
+    the raw close. ``rsi_percent_b`` locates the RSI line within its own Bollinger
+    Bands, giving a scale-invariant measure of how stretched momentum is relative
+    to its recent range.
     """
     validate_market_price_index(data)
     validate_required_columns(data, required_columns={"adjusted_close"})
@@ -78,6 +84,14 @@ def add_momentum_features(
         length=rsi_bollinger_length,
         num_std=rsi_bollinger_num_std,
     ).rename("rsi_percent_b")
+
+    stochastic_block = stochastic_oscillator(
+        data.loc[:, "adjusted_close"],
+        k_length=stochastic_k_length,
+        k_smoothing=stochastic_k_smoothing,
+        d_length=stochastic_d_length,
+    )
+    data[stochastic_block.columns] = stochastic_block
     return data
 
 
@@ -167,6 +181,47 @@ def rsi(
     return apply_by_ticker(values, lambda group: _rsi(group, length=length))
 
 
+def stochastic_oscillator(
+    values: pd.Series,
+    *,
+    k_length: int = 14,
+    k_smoothing: int = 3,
+    d_length: int = 3,
+) -> pd.DataFrame:
+    """Calculate the stochastic oscillator for one or many tickers.
+
+    Returns a dataframe with ``stochastic_k`` and ``stochastic_d`` columns. The
+    raw %K locates each value within its own recent range as
+    ``100 * (value - lowest) / (highest - lowest)`` over ``k_length`` rows, where
+    ``lowest`` and ``highest`` are the rolling minimum and maximum of ``values``.
+    ``stochastic_k`` is that raw %K smoothed with a simple moving average over
+    ``k_smoothing`` rows, and ``stochastic_d`` is a further simple moving average
+    of ``stochastic_k`` over ``d_length`` rows. Passing ``k_smoothing=1`` yields
+    the fast stochastic; the conventional 14/3/3 defaults yield the slow
+    stochastic. Both series are bounded to ``[0, 100]``.
+
+    ``values`` is a single ordered series, so the caller chooses the source, such
+    as close, adjusted close, or an OHLC average. When it carries the canonical
+    ``provider``, ``ticker``, and ``trading_date`` index levels the calculation is
+    isolated within each group, so one ticker's history cannot leak into
+    another's, and the original index and row order are preserved. A window whose
+    high equals its low has no range and is left missing, and the warm-up rows of
+    each series remain missing until every rolling window is full.
+    """
+    validate_length(k_length)
+    validate_length(k_smoothing)
+    validate_length(d_length)
+    return apply_by_ticker(
+        values,
+        lambda group: _stochastic_oscillator(
+            group,
+            k_length=k_length,
+            k_smoothing=k_smoothing,
+            d_length=d_length,
+        ),
+    )
+
+
 def ppo_percentile(
     values: pd.Series,
     *,
@@ -181,6 +236,28 @@ def ppo_percentile(
     _validate_min_history(min_history)
     return apply_by_ticker(
         values, lambda group: _expanding_percentile(group, min_history=min_history)
+    )
+
+
+def _stochastic_oscillator(
+    values: pd.Series,
+    *,
+    k_length: int,
+    k_smoothing: int,
+    d_length: int,
+) -> pd.DataFrame:
+    lowest = values.rolling(window=k_length, min_periods=k_length).min()
+    highest = values.rolling(window=k_length, min_periods=k_length).max()
+    raw_k = 100 * safe_divide(values - lowest, highest - lowest)
+    stochastic_k = raw_k.rolling(window=k_smoothing, min_periods=k_smoothing).mean()
+    stochastic_d = stochastic_k.rolling(window=d_length, min_periods=d_length).mean()
+
+    return pd.DataFrame(
+        {
+            "stochastic_k": stochastic_k,
+            "stochastic_d": stochastic_d,
+        },
+        index=values.index,
     )
 
 
