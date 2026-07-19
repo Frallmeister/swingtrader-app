@@ -12,7 +12,7 @@ independently within each provider/ticker group and the input row order is
 preserved. Indicators return either one series or, for naturally multi-output
 indicators, one dataframe. The family orchestrator returns a copy of the input
 dataframe with final model feature columns appended. The module currently
-implements PPO-based features and a standalone MACD indicator.
+implements PPO-based and RSI-based features and a standalone MACD indicator.
 """
 
 import pandas as pd
@@ -20,6 +20,7 @@ import pandas as pd
 from swingtrader.data.features._numerical import (
     exponential_moving_average,
     safe_divide,
+    wilder_moving_average,
 )
 from swingtrader.data.features._validation import (
     apply_by_ticker,
@@ -27,6 +28,7 @@ from swingtrader.data.features._validation import (
     validate_market_price_index,
     validate_required_columns,
 )
+from swingtrader.data.features.volatility import bollinger_percent_b
 
 
 def add_momentum_features(
@@ -34,6 +36,9 @@ def add_momentum_features(
     *,
     ppo_lengths: tuple[int, int, int] = (12, 26, 9),
     ppo_percentile_min_history: int = 100,
+    rsi_length: int = 14,
+    rsi_bollinger_length: int = 20,
+    rsi_bollinger_num_std: float = 2.0,
 ) -> pd.DataFrame:
     """Return a copy of data with the default momentum feature set added.
 
@@ -41,12 +46,18 @@ def add_momentum_features(
     ``provider``, ``ticker``, and ``trading_date``, in that exact order, plus an
     ``adjusted_close`` column. The index must be unique and sorted. The returned
     dataframe preserves the input rows and appends the final PPO, PPO signal, PPO
-    histogram, and PPO percentile feature columns.
+    histogram, PPO percentile, RSI, and RSI %B feature columns.
+
+    RSI is calculated from ``adjusted_close`` so its gains and losses are not
+    distorted by split and dividend discontinuities in the raw close. ``rsi_percent_b``
+    locates the RSI line within its own Bollinger Bands, giving a scale-invariant
+    measure of how stretched momentum is relative to its recent range.
     """
     validate_market_price_index(data)
     validate_required_columns(data, required_columns={"adjusted_close"})
     _validate_fast_slow_signal_lengths(ppo_lengths)
     _validate_min_history(ppo_percentile_min_history)
+    validate_length(rsi_length)
 
     data = data.copy()
 
@@ -60,6 +71,13 @@ def add_momentum_features(
     data["ppo_percentile"] = ppo_by_ticker.transform(
         lambda values: _expanding_percentile(values, min_history=ppo_percentile_min_history)
     )
+
+    data["rsi"] = rsi(data.loc[:, "adjusted_close"], length=rsi_length)
+    data["rsi_percent_b"] = bollinger_percent_b(
+        data.loc[:, "rsi"],
+        length=rsi_bollinger_length,
+        num_std=rsi_bollinger_num_std,
+    ).rename("rsi_percent_b")
     return data
 
 
@@ -120,6 +138,35 @@ def ppo(
     )
 
 
+def rsi(
+    values: pd.Series,
+    *,
+    length: int = 14,
+) -> pd.Series:
+    """Calculate Wilder's Relative Strength Index for one or many tickers.
+
+    RSI is a bounded ``[0, 100]`` momentum oscillator built from the average gain
+    and average loss over ``length`` rows, each smoothed with Wilder's recursive
+    moving average. It is calculated as ``100 * avg_gain / (avg_gain + avg_loss)``,
+    so a window with no losses returns 100 and a window with no gains returns 0. A
+    fully flat window has neither gains nor losses and is left missing.
+
+    ``values`` is a single ordered series, so the caller chooses the source, such
+    as close, adjusted close, or an OHLC average. When it carries the canonical
+    ``provider``, ``ticker``, and ``trading_date`` index levels the calculation is
+    isolated within each group. The first ``length`` rows of each series remain
+    missing until the smoothing window is full.
+
+    The smoothing is the recursive form seeded from the first change rather than
+    the canonical Wilder definition that seeds from the simple average of the
+    first ``length`` changes, so early RSI values differ slightly from a canonical
+    implementation before converging (see
+    :func:`swingtrader.data.features._numerical.wilder_moving_average`).
+    """
+    validate_length(length)
+    return apply_by_ticker(values, lambda group: _rsi(group, length=length))
+
+
 def ppo_percentile(
     values: pd.Series,
     *,
@@ -135,6 +182,15 @@ def ppo_percentile(
     return apply_by_ticker(
         values, lambda group: _expanding_percentile(group, min_history=min_history)
     )
+
+
+def _rsi(values: pd.Series, *, length: int) -> pd.Series:
+    delta = values.diff()
+    gain = delta.clip(lower=0)
+    loss = delta.mul(-1).clip(lower=0)
+    avg_gain = wilder_moving_average(gain, length=length)
+    avg_loss = wilder_moving_average(loss, length=length)
+    return (100 * safe_divide(avg_gain, avg_gain + avg_loss)).rename("rsi")
 
 
 def _macd(

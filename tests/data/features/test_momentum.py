@@ -3,7 +3,8 @@ import pandas as pd
 import pytest
 
 import swingtrader.data.features.momentum as momentum_module
-from swingtrader.data.features.momentum import add_momentum_features, macd, ppo, ppo_percentile
+from swingtrader.data.features.momentum import add_momentum_features, macd, ppo, ppo_percentile, rsi
+from swingtrader.data.features.volatility import bollinger_percent_b
 
 
 def test_add_momentum_features_preserves_source_columns_and_adds_final_features() -> None:
@@ -22,6 +23,8 @@ def test_add_momentum_features_preserves_source_columns_and_adds_final_features(
         "ppo_signal",
         "ppo_histogram",
         "ppo_percentile",
+        "rsi",
+        "rsi_percent_b",
     ]
     assert list(result.columns) == expected_columns
     pd.testing.assert_index_equal(result.index, prices.index)
@@ -342,6 +345,101 @@ def test_macd_groups_by_ticker_index_levels() -> None:
     bbb_macd = result.loc[("yfinance", "BBB.ST"), "macd"]
     assert (bbb_macd.dropna() == 0.0).all()
     assert bbb_macd.isna().sum() == 1
+
+
+def test_add_momentum_features_adds_rsi_from_adjusted_close_and_rsi_percent_b() -> None:
+    prices = _indexed_prices()
+
+    result = add_momentum_features(
+        prices,
+        ppo_lengths=(2, 3, 2),
+        ppo_percentile_min_history=1,
+        rsi_length=2,
+        rsi_bollinger_length=2,
+    )
+
+    expected_rsi = rsi(prices["adjusted_close"], length=2)
+    pd.testing.assert_series_equal(result["rsi"], expected_rsi.rename("rsi"), check_exact=False)
+
+    expected_percent_b = bollinger_percent_b(result["rsi"], length=2, num_std=2.0)
+    pd.testing.assert_series_equal(
+        result["rsi_percent_b"],
+        expected_percent_b.rename("rsi_percent_b"),
+        check_exact=False,
+    )
+    # AAA.ST rises every day, so once the window warms up its RSI is a pure 100.
+    aaa_rsi = result.loc[("yfinance", "AAA.ST"), "rsi"]
+    assert (aaa_rsi.dropna() == 100.0).all()
+    # BBB.ST is flat, so it has neither gains nor losses and RSI stays missing.
+    assert result.loc[("yfinance", "BBB.ST"), "rsi"].isna().all()
+
+
+def test_add_momentum_features_rejects_invalid_rsi_length() -> None:
+    prices = _indexed_prices()
+
+    with pytest.raises(ValueError, match="positive integer"):
+        add_momentum_features(prices, ppo_lengths=(2, 3, 2), rsi_length=0)
+
+
+def test_rsi_is_100_without_losses_and_0_without_gains() -> None:
+    rising = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0], name="adjusted_close")
+    falling = pd.Series([5.0, 4.0, 3.0, 2.0, 1.0], name="adjusted_close")
+
+    rising_rsi = rsi(rising, length=2)
+    falling_rsi = rsi(falling, length=2)
+
+    assert (rising_rsi.dropna() == 100.0).all()
+    assert (falling_rsi.dropna() == 0.0).all()
+    # The first ``length`` rows stay missing until the smoothing window is full.
+    assert rising_rsi.iloc[:2].isna().all()
+    assert rising_rsi.notna().sum() == 3
+
+
+def test_rsi_leaves_flat_series_missing() -> None:
+    flat = pd.Series([50.0, 50.0, 50.0, 50.0], name="adjusted_close")
+
+    result = rsi(flat, length=2)
+
+    assert result.isna().all()
+
+
+def test_rsi_stays_within_bounds() -> None:
+    values = pd.Series([10.0, 11.0, 9.5, 12.0, 8.0, 13.0, 11.5, 14.0], name="adjusted_close")
+
+    result = rsi(values, length=3).dropna()
+
+    assert ((result >= 0.0) & (result <= 100.0)).all()
+
+
+def test_rsi_allows_non_temporal_index_and_preserves_row_order() -> None:
+    values = pd.Series([10.0, 14.0, 12.0], index=pd.Index([2, 0, 1]), name="adjusted_close")
+
+    result = rsi(values, length=1)
+
+    pd.testing.assert_index_equal(result.index, values.index)
+
+
+@pytest.mark.parametrize("length", [0, -1, True, 1.5])
+def test_rsi_rejects_invalid_length(length: object) -> None:
+    with pytest.raises(ValueError, match="positive integer"):
+        rsi(
+            _prices()["adjusted_close"],
+            length=length,  # type: ignore[arg-type]
+        )
+
+
+def test_rsi_groups_by_ticker_index_levels() -> None:
+    close = _multi_ticker_close()
+
+    result = rsi(close, length=2)
+
+    pd.testing.assert_index_equal(result.index, close.index)
+    # AAA.ST rises monotonically, so its warmed-up RSI is a pure 100.
+    aaa_rsi = result.loc[("yfinance", "AAA.ST")]
+    assert (aaa_rsi.dropna() == 100.0).all()
+    assert aaa_rsi.isna().sum() == 2
+    # BBB.ST is flat and isolated, so it has no gains or losses.
+    assert result.loc[("yfinance", "BBB.ST")].isna().all()
 
 
 def _multi_ticker_close() -> pd.Series:

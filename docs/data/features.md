@@ -63,21 +63,28 @@ With the default settings, the orchestrator adds:
 - `ppo`, the fast/slow EMA oscillator as a ratio;
 - `ppo_signal`, an EMA signal line over `ppo`;
 - `ppo_histogram`, the difference between `ppo` and `ppo_signal`;
-- `ppo_percentile`, the point-in-time percentile rank of `ppo` within prior valid PPO observations for the same provider/ticker group.
+- `ppo_percentile`, the point-in-time percentile rank of `ppo` within prior valid PPO observations for the same provider/ticker group;
+- `rsi`, Wilder's Relative Strength Index calculated from `adjusted_close`;
+- `rsi_percent_b`, the position of the `rsi` line within its own Bollinger bands.
 
 The public numerical momentum indicators are:
 
 - `ppo`, which has three natural outputs and returns a dataframe with `ppo`, `ppo_signal`, and `ppo_histogram` columns;
 - `ppo_percentile`, which has one natural output and returns a series;
+- `rsi`, which has one natural output and returns a bounded `[0, 100]` oscillator series;
 - `macd`, which has three natural outputs and returns a dataframe with `macd`, `macd_signal`, and `macd_histogram` columns expressed in the input price units.
 
 Each indicator accepts either one ordered series for a single ticker or a multi-ticker series that carries the canonical `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker series does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved. A partial or wrongly ordered MultiIndex, such as `["ticker", "trading_date"]`, is rejected.
 
-The default PPO lengths are 12, 26, and 9 rows, and `add_momentum_features` requires 100 prior valid PPO observations before `ppo_percentile` is populated by default. Calculations are grouped by `provider` and `ticker`, and warm-up rows remain missing until each exponential or expanding-history calculation has enough observations. The momentum module is intended to later host oscillators such as RSI and rate-of-change.
+The default PPO lengths are 12, 26, and 9 rows, and `add_momentum_features` requires 100 prior valid PPO observations before `ppo_percentile` is populated by default. Calculations are grouped by `provider` and `ticker`, and warm-up rows remain missing until each exponential or expanding-history calculation has enough observations. The momentum module is intended to later host additional oscillators such as rate-of-change.
 
 PPO and PPO percentile validate their local parameters. A standalone single-ticker series is rejected only when its datetime or period index is visibly unordered. A multi-ticker series must satisfy the canonical market-price index contract, and the calculation stays within each provider/ticker group. They do not perform dataframe-level column validation and do not sort input values. PPO signal and histogram are part of the cohesive `ppo` output rather than separate public functions.
 
 `macd` shares the PPO length validation and grouping semantics but returns the raw fast-minus-slow EMA difference in the input price units instead of a scaled ratio. It is not included in `add_momentum_features`; it is exposed as a standalone indicator so future consumers, such as the frontend application, can compute MACD, signal, and histogram values directly. The default lengths are 12, 26, and 9 rows.
+
+`rsi` operates on a single ordered series, so the caller chooses the source, such as close, adjusted close, or an OHLC average. It is a bounded `[0, 100]` oscillator built from the average gain and average loss over `length` rows, each smoothed with Wilder's moving average, and calculated as `100 * avg_gain / (avg_gain + avg_loss)`. A window with no losses returns 100 and a window with no gains returns 0, while a fully flat window has neither gains nor losses and is left missing. The Wilder smoothing is the recursive form seeded from the first change rather than the canonical definition that seeds from the simple average of the first `length` changes, so early values differ slightly before converging, matching the ATR behavior in the volatility module. The first `length` rows of each series remain missing until the window is full.
+
+Inside `add_momentum_features`, `rsi` is calculated from `adjusted_close` so its gains and losses are not distorted by split and dividend discontinuities in the raw close, matching the return, trend, and volatility families. `rsi_percent_b` then reuses the volatility module's `bollinger_percent_b` on the `rsi` line, locating momentum within its own recent range as a scale-invariant feature. The default RSI length is 14 rows, calibratable through `rsi_length` on `add_momentum_features` and `length` on `rsi`, and the RSI Bollinger bands default to 20 rows with 2 standard deviations, calibratable through `rsi_bollinger_length` and `rsi_bollinger_num_std`.
 
 ## Volatility Features
 
@@ -98,7 +105,7 @@ The public numerical volatility indicators are:
 - `bollinger_bandwidth`, which returns a series with the band width relative to the middle band;
 - `bollinger_percent_b`, which returns a series with the position within the bands.
 
-The indicators split into two input shapes. `true_range`, `atr`, and `atr_percent` consume several price columns, so each accepts a dataframe with `high`, `low`, and `close` columns. The Bollinger indicators instead operate on a single ordered series, such as `adjusted_close` or any other signal, which keeps them reusable: once RSI lands in the momentum module the same functions will be applied to the RSI signal and exposed as additional features. A standalone single-ticker input does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved.
+The indicators split into two input shapes. `true_range`, `atr`, and `atr_percent` consume several price columns, so each accepts a dataframe with `high`, `low`, and `close` columns. The Bollinger indicators instead operate on a single ordered series, such as `adjusted_close` or any other signal, which keeps them reusable: the momentum module applies `bollinger_percent_b` to its RSI signal to expose the `rsi_percent_b` feature. A standalone single-ticker input does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved.
 
 Inside `add_volatility_features`, ATR is calculated from raw `high`, `low`, and `close` because True Range needs the intraday extremes together, whereas the Bollinger features are calculated from `adjusted_close`. Using the adjusted series keeps the rolling mean and standard deviation from being distorted by the split and dividend discontinuities in the raw close, and matches the return, trend, and momentum families.
 
