@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from swingtrader.data.features.trends import add_trend_features, ema, sma
+from swingtrader.data.features._numerical import wilder_moving_average
+from swingtrader.data.features.trends import add_trend_features, adx, ema, sma
 
 
 def test_add_trend_features_preserves_source_columns_and_adds_final_features() -> None:
@@ -19,6 +20,9 @@ def test_add_trend_features_preserves_source_columns_and_adds_final_features() -
         "sma_fast_to_sma_slow",
         "ema_fast_to_ema_slow",
         "ema_fast_to_sma_fast",
+        "adx",
+        "plus_di",
+        "minus_di",
     ]
     assert list(result.columns) == expected_columns
     assert "sma_fast" not in result.columns
@@ -313,6 +317,137 @@ def test_primitives_reject_unordered_dates_within_one_ticker(
         indicator(values)  # type: ignore[operator]
 
 
+def test_add_trend_features_uses_custom_adx_length() -> None:
+    prices = _indexed_prices()
+
+    default_length = add_trend_features(prices)
+    custom_length = add_trend_features(prices, adx_length=2)
+
+    # The default 14-row window never warms up on this short history, while the
+    # short custom window produces populated directional-movement values.
+    assert default_length["plus_di"].notna().sum() == 0
+    assert custom_length["plus_di"].notna().sum() > 0
+
+
+def test_add_trend_features_requires_high_low_close() -> None:
+    prices = _indexed_prices().drop(columns="high")
+
+    with pytest.raises(ValueError, match="Missing required columns"):
+        add_trend_features(prices, fast_slow_lengths=(2, 3))
+
+
+def test_adx_returns_expected_columns_and_values() -> None:
+    frame = _ohlc()
+
+    result = adx(frame, length=2)
+
+    assert isinstance(result, pd.DataFrame)
+    assert list(result.columns) == ["adx", "plus_di", "minus_di"]
+    pd.testing.assert_index_equal(result.index, frame.index)
+
+    # A strictly rising ticker has only positive directional movement, so
+    # minus_di collapses to zero and plus_di follows the smoothed +DM / TR ratio.
+    pd.testing.assert_series_equal(
+        result["plus_di"].reset_index(drop=True),
+        pd.Series(
+            [
+                np.nan,
+                40.0,
+                100 * 1.5 / 2.75,
+                100 * 1.75 / 2.875,
+            ],
+            name="plus_di",
+        ),
+        check_exact=False,
+    )
+    pd.testing.assert_series_equal(
+        result["minus_di"].reset_index(drop=True),
+        pd.Series([np.nan, 0.0, 0.0, 0.0], name="minus_di"),
+        check_exact=False,
+    )
+    # With no negative directional movement DX is pinned at 100, so its Wilder
+    # smoothing is 100 once two DX observations exist.
+    assert result["adx"].dropna().eq(100.0).all()
+
+
+def test_adx_is_bounded_and_directional() -> None:
+    frame = _ohlc()
+
+    result = adx(frame, length=2)
+
+    populated = result.dropna()
+    assert populated["plus_di"].between(0, 100).all()
+    assert populated["minus_di"].between(0, 100).all()
+    assert populated["adx"].between(0, 100).all()
+    # A rising ticker trends up, so the positive indicator dominates.
+    assert (populated["plus_di"] > populated["minus_di"]).all()
+
+
+def test_adx_groups_by_ticker_index_levels() -> None:
+    prices = _indexed_prices()
+
+    result = adx(prices, length=2)
+
+    assert list(result.columns) == ["adx", "plus_di", "minus_di"]
+    pd.testing.assert_index_equal(result.index, prices.index)
+    # A constant BBB.ST price has zero True Range, so the directional ratios are
+    # undefined (NA), isolated from AAA.ST's rising trend.
+    assert result.loc[("yfinance", "BBB.ST"), "plus_di"].isna().all()
+    assert result.loc[("yfinance", "BBB.ST"), "minus_di"].isna().all()
+    assert result.loc[("yfinance", "BBB.ST"), "adx"].isna().all()
+    assert result.loc[("yfinance", "AAA.ST"), "plus_di"].notna().sum() == 3
+
+
+def test_adx_allows_non_temporal_index_and_preserves_row_order() -> None:
+    frame = _ohlc().set_axis(pd.Index([2, 0, 1, 3]))
+
+    result = adx(frame, length=2)
+
+    pd.testing.assert_index_equal(result.index, frame.index)
+
+
+def test_adx_requires_high_low_close() -> None:
+    frame = _ohlc().drop(columns="close")
+
+    with pytest.raises(ValueError, match="Missing required columns"):
+        adx(frame, length=2)
+
+
+@pytest.mark.parametrize("length", [0, -1, True, 1.5, "2"])
+def test_adx_rejects_invalid_length(length: object) -> None:
+    with pytest.raises(ValueError, match="positive integer"):
+        adx(_ohlc(), length=length)  # type: ignore[arg-type]
+
+
+def test_adx_matches_wilder_primitives() -> None:
+    prices = _indexed_prices()
+
+    result = adx(prices, length=2)
+
+    aaa = prices.loc[("yfinance", "AAA.ST")]
+    high, low, close = aaa["high"], aaa["low"], aaa["close"]
+    up_move = high.diff()
+    down_move = low.shift(1) - low
+    plus_dm = up_move.where((up_move > down_move) & (up_move > 0), 0.0)
+    previous_close = close.shift(1)
+    true_range = pd.concat(
+        [high - low, (high - previous_close).abs(), (low - previous_close).abs()], axis=1
+    ).max(axis=1)
+    expected_plus_di = (
+        100 * wilder_moving_average(plus_dm, length=2) / wilder_moving_average(true_range, length=2)
+    )
+
+    pd.testing.assert_series_equal(
+        result.loc[("yfinance", "AAA.ST"), "plus_di"].reset_index(drop=True),
+        expected_plus_di.reset_index(drop=True).rename("plus_di"),
+        check_exact=False,
+    )
+
+
+def _ohlc() -> pd.DataFrame:
+    return _prices().set_index(["provider", "ticker", "trading_date"]).loc[("yfinance", "AAA.ST")]
+
+
 def _multi_ticker_close() -> pd.Series:
     return _prices().set_index(["provider", "ticker", "trading_date"])["adjusted_close"]
 
@@ -347,6 +482,9 @@ def _prices() -> pd.DataFrame:
                     "2026-07-06",
                 ]
             ).date,
+            "high": [11.0, 13.0, 15.0, 17.0, 100.0, 100.0, 100.0, 100.0],
+            "low": [9.0, 11.0, 13.0, 15.0, 100.0, 100.0, 100.0, 100.0],
+            "close": [10.0, 12.0, 14.0, 16.0, 100.0, 100.0, 100.0, 100.0],
             "adjusted_close": [10.0, 12.0, 14.0, 16.0, 100.0, 100.0, 100.0, 100.0],
         }
     )

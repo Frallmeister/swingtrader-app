@@ -35,24 +35,32 @@ For example, `horizons=(1, 5, 10)` produces `return_1d`, `return_5d`, and `retur
 
 ## Trend Features
 
-The trend feature orchestrator is `swingtrader.data.features.trends.add_trend_features`. It validates the source prices once, copies them, calculates the final trend model features from `adjusted_close`, and appends those columns while preserving input row alignment.
+The trend feature orchestrator is `swingtrader.data.features.trends.add_trend_features`. It validates the source prices once, copies them, calculates the final trend model features, and appends those columns while preserving input row alignment.
 
 With the default settings, the orchestrator adds:
 
 - `sma_fast_to_sma_slow`, the fast SMA divided by the slow SMA minus one;
 - `ema_fast_to_ema_slow`, the fast EMA divided by the slow EMA minus one;
-- `ema_fast_to_sma_fast`, the fast EMA divided by the fast SMA minus one.
+- `ema_fast_to_sma_fast`, the fast EMA divided by the fast SMA minus one;
+- `adx`, Wilder's Average Directional Index measuring trend strength;
+- `plus_di`, the positive directional indicator measuring upward directional movement;
+- `minus_di`, the negative directional indicator measuring downward directional movement.
 
 The public numerical trend indicators are:
 
 - `sma`, which has one natural output and returns a series;
-- `ema`, which has one natural output and returns a series.
+- `ema`, which has one natural output and returns a series;
+- `adx`, which has three natural outputs and returns a dataframe with `adx`, `plus_di`, and `minus_di` columns.
 
 Each indicator accepts either one ordered series for a single ticker or a multi-ticker series that carries the canonical `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker series does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved. A partial or wrongly ordered MultiIndex, such as `["ticker", "trading_date"]`, is rejected.
 
-The default fast/slow moving-average lengths are 20 and 50 rows. Calculations are grouped by `provider` and `ticker`, and warm-up rows remain missing until each rolling or exponential calculation has enough observations. Intermediate moving-average values such as `sma_fast`, `sma_slow`, `ema_fast`, and `ema_slow` are local calculations and are not persisted as feature columns. The trend module is intended to later host directional indicators such as `adx`, `plus_di`, and `minus_di`.
+The default fast/slow moving-average lengths are 20 and 50 rows. Calculations are grouped by `provider` and `ticker`, and warm-up rows remain missing until each rolling or exponential calculation has enough observations. Intermediate moving-average values such as `sma_fast`, `sma_slow`, `ema_fast`, and `ema_slow` are local calculations and are not persisted as feature columns.
 
 SMA and EMA validate their local parameters. A standalone single-ticker series is rejected only when its datetime or period index is visibly unordered. A multi-ticker series must satisfy the canonical market-price index contract, and the calculation stays within each provider/ticker group. They do not perform dataframe-level column validation and do not sort input values.
+
+`adx` implements Wilder's directional-movement system and, unlike the moving-average ratios, consumes several price columns at once, so it takes a dataframe with `high`, `low`, and `close` columns rather than a single series. It returns the `adx`, `plus_di`, and `minus_di` columns together as one cohesive output, analogous to `macd` and `bollinger_bands`. The positive and negative directional indicators measure the share of smoothed True Range attributable to upward and downward directional movement over `length` rows, and ADX is Wilder's smoothed moving average of the directional index `DX` over the same `length`. All three are bounded to `[0, 100]`: `plus_di` and `minus_di` gauge direction while `adx` gauges strength regardless of direction.
+
+Inside `add_trend_features`, ADX, `plus_di`, and `minus_di` are calculated from the raw `high`, `low`, and `close` because the directional-movement system needs the intraday extremes together, matching the ATR calculation in the volatility module, whereas the moving-average ratios use `adjusted_close`. The smoothing length is the conventional 14 rows by default and is calibratable through the `adx_length` argument on `add_trend_features` and the `length` argument on `adx`. Both the directional indicators and ADX use Wilder's recursive smoothing seeded from the first observation rather than the canonical definition that seeds from the simple average of the first `length` observations, so early values differ slightly before converging, matching the ATR and RSI behavior elsewhere. Because ADX smooths `DX` a second time, its warm-up spans roughly `2 * length` rows before values become populated.
 
 ## Momentum Features
 

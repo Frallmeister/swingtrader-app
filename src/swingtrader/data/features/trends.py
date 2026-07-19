@@ -9,10 +9,11 @@ Numerical indicators accept either one ordered series for a single ticker or a
 multi-ticker series carrying the canonical ``provider``, ``ticker``, and
 ``trading_date`` index levels. In the latter case the calculation is applied
 independently within each provider/ticker group and the input row order is
-preserved. The family orchestrator returns a copy of the input dataframe with
-final model feature columns appended. The module currently implements
-moving-average trend features and is intended to later host directional
-indicators such as ADX, +DI, and -DI.
+preserved. Indicators return either one series or, for naturally multi-output
+indicators, one dataframe. The family orchestrator returns a copy of the input
+dataframe with final model feature columns appended. The module currently
+implements moving-average trend features and the ADX directional-movement
+system.
 """
 
 import pandas as pd
@@ -20,6 +21,7 @@ import pandas as pd
 from swingtrader.data.features._numerical import (
     exponential_moving_average,
     safe_divide,
+    wilder_moving_average,
 )
 from swingtrader.data.features._validation import (
     apply_by_ticker,
@@ -33,17 +35,25 @@ def add_trend_features(
     data: pd.DataFrame,
     *,
     fast_slow_lengths: tuple[int, int] = (20, 50),
+    adx_length: int = 14,
 ) -> pd.DataFrame:
     """Return a copy of data with the default trend feature set added.
 
     The input must use the canonical market-price MultiIndex with levels
-    ``provider``, ``ticker``, and ``trading_date``, in that exact order, plus an
-    ``adjusted_close`` column. The index must be unique and sorted. The returned
-    dataframe preserves the input rows and appends the final moving-average ratio
-    feature columns.
+    ``provider``, ``ticker``, and ``trading_date``, in that exact order, plus
+    ``high``, ``low``, ``close``, and ``adjusted_close`` columns. The index must
+    be unique and sorted. The returned dataframe preserves the input rows and
+    appends the final moving-average ratio and directional-movement feature
+    columns.
+
+    The moving-average ratios are calculated from ``adjusted_close`` so they are
+    not distorted by split and dividend discontinuities in the raw close. ADX,
+    ``plus_di``, and ``minus_di`` are calculated from the raw ``high``, ``low``,
+    and ``close`` because the directional-movement system needs the intraday
+    extremes together, matching the ATR calculation in the volatility module.
     """
     validate_market_price_index(data)
-    validate_required_columns(data, required_columns={"adjusted_close"})
+    validate_required_columns(data, required_columns={"high", "low", "close", "adjusted_close"})
 
     fast, slow = fast_slow_lengths
     validate_length(fast)
@@ -52,6 +62,7 @@ def add_trend_features(
         raise ValueError(
             f"The fast length must be lower than the slow length; got fast={fast!r}, slow={slow!r}"
         )
+    validate_length(adx_length)
 
     data = data.copy()
     adjusted_close_by_ticker = data.loc[:, "adjusted_close"].groupby(
@@ -67,6 +78,9 @@ def add_trend_features(
     data["sma_fast_to_sma_slow"] = safe_divide(sma_fast, sma_slow).sub(1)
     data["ema_fast_to_ema_slow"] = safe_divide(ema_fast, ema_slow).sub(1)
     data["ema_fast_to_sma_fast"] = safe_divide(ema_fast, sma_fast).sub(1)
+
+    adx_block = adx(data.loc[:, ["high", "low", "close"]], length=adx_length)
+    data[adx_block.columns] = adx_block
 
     return data
 
@@ -105,9 +119,84 @@ def ema(
     return apply_by_ticker(values, lambda group: _ema(group, length=length))
 
 
+def adx(
+    data: pd.DataFrame,
+    *,
+    length: int = 14,
+) -> pd.DataFrame:
+    """Calculate Wilder's directional-movement system for one or many tickers.
+
+    Returns a dataframe with ``adx``, ``plus_di``, and ``minus_di`` columns. The
+    positive and negative directional indicators measure the share of smoothed
+    True Range attributable to upward and downward directional movement over
+    ``length`` rows, and ADX is Wilder's smoothed moving average of the
+    directional index ``DX`` over the same ``length``. All three are bounded to
+    ``[0, 100]``: ``plus_di`` and ``minus_di`` gauge trend direction while ``adx``
+    gauges trend strength regardless of direction.
+
+    ``data`` must contain ``high``, ``low``, and ``close`` columns in
+    chronological order, because the directional-movement system needs the
+    intraday extremes together. When ``data`` carries the canonical ``provider``,
+    ``ticker``, and ``trading_date`` index levels the calculation is isolated
+    within each group, so one ticker's history cannot leak into another's, and
+    the original index and row order are preserved.
+
+    Both the directional indicators and ADX use Wilder's recursive smoothing
+    seeded from the first observation rather than the canonical Wilder definition
+    that seeds from the simple average of the first ``length`` observations, so
+    early values differ slightly from a canonical implementation before
+    converging (see
+    :func:`swingtrader.data.features._numerical.wilder_moving_average`). Because
+    ADX smooths ``DX`` a second time, its warm-up spans roughly ``2 * length``
+    rows before values become populated.
+    """
+    validate_length(length)
+    validate_required_columns(data, required_columns={"high", "low", "close"})
+    return apply_by_ticker(data, lambda group: _adx(group, length=length))
+
+
 def _sma(values: pd.Series, *, length: int) -> pd.Series:
     return values.rolling(window=length, min_periods=length).mean()
 
 
 def _ema(values: pd.Series, *, length: int) -> pd.Series:
     return exponential_moving_average(values, length=length)
+
+
+def _adx(data: pd.DataFrame, *, length: int) -> pd.DataFrame:
+    high = data.loc[:, "high"]
+    low = data.loc[:, "low"]
+    close = data.loc[:, "close"]
+
+    up_move = high.diff()
+    down_move = low.shift(1) - low
+    plus_dm = up_move.where((up_move > down_move) & (up_move > 0), 0.0)
+    minus_dm = down_move.where((down_move > up_move) & (down_move > 0), 0.0)
+
+    previous_close = close.shift(1)
+    true_range = pd.concat(
+        [
+            high - low,
+            (high - previous_close).abs(),
+            (low - previous_close).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
+
+    smoothed_true_range = wilder_moving_average(true_range, length=length)
+    plus_di = 100 * safe_divide(wilder_moving_average(plus_dm, length=length), smoothed_true_range)
+    minus_di = 100 * safe_divide(
+        wilder_moving_average(minus_dm, length=length), smoothed_true_range
+    )
+
+    directional_index = 100 * safe_divide((plus_di - minus_di).abs(), plus_di + minus_di)
+    adx_values = wilder_moving_average(directional_index, length=length)
+
+    return pd.DataFrame(
+        {
+            "adx": adx_values,
+            "plus_di": plus_di,
+            "minus_di": minus_di,
+        },
+        index=data.index,
+    )
