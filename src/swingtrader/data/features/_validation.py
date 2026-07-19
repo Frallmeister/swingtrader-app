@@ -66,15 +66,16 @@ def validate_length(length: int) -> None:
 
 
 def apply_by_ticker(
-    values: pd.Series,
-    func: Callable[[pd.Series], pd.Series | pd.DataFrame],
+    values: pd.Series | pd.DataFrame,
+    func: Callable[[pd.Series | pd.DataFrame], pd.Series | pd.DataFrame],
 ) -> pd.Series | pd.DataFrame:
-    """Apply ``func`` per provider/ticker group for a multi-ticker series.
+    """Apply ``func`` per provider/ticker group for a multi-ticker input.
 
-    When ``values`` carries a ``MultiIndex`` the canonical market-price contract
-    is enforced, the calculation is isolated within each provider/ticker group,
-    and the original index is preserved. Otherwise ``values`` is treated as a
-    single ordered sequence and ``func`` is applied after a temporal-order check.
+    ``values`` may be a ``pd.Series`` or a ``pd.DataFrame``. When it carries a
+    ``MultiIndex`` the canonical market-price contract is enforced, the
+    calculation is isolated within each provider/ticker group, and the original
+    index is preserved. Otherwise ``values`` is treated as a single ordered
+    sequence and ``func`` is applied after a temporal-order check.
     """
     if isinstance(values.index, pd.MultiIndex):
         validate_market_price_index(values)
@@ -89,7 +90,7 @@ def apply_by_ticker(
     return func(values)
 
 
-def _validate_temporal_index(values: pd.Series) -> None:
+def _validate_temporal_index(values: pd.Series | pd.DataFrame) -> None:
     index = values.index
     if isinstance(index, pd.DatetimeIndex | pd.PeriodIndex) and not index.is_monotonic_increasing:
         raise ValueError("values must be chronologically ordered before calculating this indicator")
