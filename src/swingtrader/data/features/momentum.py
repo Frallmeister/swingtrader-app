@@ -189,6 +189,7 @@ def _ppo(
 def _validate_macd_lengths(lengths: tuple[int, int, int]) -> tuple[int, int, int]:
     return _validate_ppo_lengths(lengths=lengths)
 
+
 def _validate_ppo_lengths(lengths: tuple[int, int, int]) -> tuple[int, int, int]:
     if len(lengths) != 3:
         raise ValueError("Lengths must contain fast, slow, and signal lengths.")
