@@ -442,6 +442,31 @@ def test_rsi_groups_by_ticker_index_levels() -> None:
     assert result.loc[("yfinance", "BBB.ST")].isna().all()
 
 
+def test_rsi_returns_expected_values_for_mixed_price_changes() -> None:
+    values = pd.Series(
+        [10.0, 11.0, 9.5, 12.0, 8.0, 13.0, 11.5, 14.0],
+        name="adjusted_close",
+    )
+
+    result = rsi(values, length=3)
+
+    expected = pd.Series(
+        [
+            np.nan,
+            np.nan,
+            np.nan,
+            79.3103448275862,
+            35.3846153846154,
+            68.3018867924528,
+            55.5640832853026,
+            69.6937969374878,
+        ],
+        name="rsi",
+    )
+
+    pd.testing.assert_series_equal(result, expected, check_exact=False)
+
+
 def _multi_ticker_close() -> pd.Series:
     return _prices().set_index(["provider", "ticker", "trading_date"])["adjusted_close"]
 
