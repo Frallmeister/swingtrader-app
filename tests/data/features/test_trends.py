@@ -444,6 +444,63 @@ def test_adx_matches_wilder_primitives() -> None:
     )
 
 
+def test_adx_returns_expected_values_for_mixed_directional_movement() -> None:
+    # High and low oscillate up and down every row, so +DM and -DM alternate in
+    # dominance and both directional indicators stay populated. ADX then settles
+    # into a low "weak trend" reading rather than being pinned at 100 the way a
+    # one-directional series leaves it.
+    frame = pd.DataFrame(
+        {
+            "high": [10.0, 13.0, 11.0, 14.0, 12.0, 15.0, 13.0, 16.0],
+            "low": [8.0, 9.0, 6.0, 8.0, 5.0, 7.0, 4.0, 6.0],
+            "close": [9.0, 12.0, 7.0, 13.0, 6.0, 14.0, 5.0, 15.0],
+        }
+    )
+
+    result = adx(frame, length=3)
+
+    expected = pd.DataFrame(
+        {
+            "adx": [
+                np.nan,
+                np.nan,
+                np.nan,
+                np.nan,
+                23.74269005847953,
+                24.517243609286506,
+                23.011495739524342,
+                22.836545160330456,
+            ],
+            "plus_di": [
+                np.nan,
+                np.nan,
+                17.64705882352941,
+                29.770992366412212,
+                16.317991631799163,
+                23.679525222551927,
+                13.75862068965517,
+                19.28232835516591,
+            ],
+            "minus_di": [
+                np.nan,
+                np.nan,
+                26.470588235294112,
+                13.740458015267176,
+                24.476987447698743,
+                13.887240356083087,
+                20.637931034482758,
+                12.202456802079617,
+            ],
+        }
+    )
+
+    pd.testing.assert_frame_equal(
+        result.reset_index(drop=True),
+        expected,
+        check_exact=False,
+    )
+
+
 def _ohlc() -> pd.DataFrame:
     return _prices().set_index(["provider", "ticker", "trading_date"]).loc[("yfinance", "AAA.ST")]
 
