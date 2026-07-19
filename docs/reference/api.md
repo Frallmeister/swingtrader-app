@@ -50,6 +50,10 @@ This page documents selected implemented modules. Planned modules are intentiona
 
 ::: swingtrader.data.features.momentum
 
+## Volatility Features
+
+::: swingtrader.data.features.volatility
+
 ## Modeling Dataset Labels
 
 ::: swingtrader.modeling.datasets.labels

@@ -1,6 +1,6 @@
 # Features
 
-Feature generation currently supports in-memory historical return, trend, and momentum features for exploratory analysis and baseline modeling. Persistent feature tables and versioned feature pipelines are still future work.
+Feature generation currently supports in-memory historical return, trend, momentum, and volatility features for exploratory analysis and baseline modeling. Persistent feature tables and versioned feature pipelines are still future work.
 
 ## Intended Role
 
@@ -25,7 +25,7 @@ records = features.reset_index()
 Feature functions follow two contracts:
 
 - public numerical indicators operate on one ordered `pd.Series` and return either one index-aligned `pd.Series` or, for naturally multi-output indicators, one index-aligned `pd.DataFrame`;
-- application feature orchestrators such as `add_return_features`, `add_trend_features`, and `add_momentum_features` return a copy of the input dataframe with final model feature columns added.
+- application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, and `add_volatility_features` return a copy of the input dataframe with final model feature columns added.
 
 ## Return Features
 
@@ -79,9 +79,28 @@ PPO and PPO percentile validate their local parameters. A standalone single-tick
 
 `macd` shares the PPO length validation and grouping semantics but returns the raw fast-minus-slow EMA difference in the input price units instead of a scaled ratio. It is not included in `add_momentum_features`; it is exposed as a standalone indicator so future consumers, such as the frontend application, can compute MACD, signal, and histogram values directly. The default lengths are 12, 26, and 9 rows.
 
+## Volatility Features
+
+The volatility feature orchestrator is `swingtrader.data.features.volatility.add_volatility_features`. It validates the source prices once, copies them, calculates the final volatility model feature from `high`, `low`, and `close`, and appends it while preserving input row alignment.
+
+With the default settings, the orchestrator adds:
+
+- `atr_percent`, the Average True Range expressed as a percentage of the closing price.
+
+The public numerical volatility indicators are:
+
+- `true_range`, which returns a series with the greatest of the current high-low range, the absolute gap between the current high and the previous close, and the absolute gap between the current low and the previous close;
+- `atr`, which returns a series with Wilder's smoothed moving average of `true_range` in the input price units;
+- `atr_percent`, which returns a series with `atr` divided by the current close and scaled to percentage points.
+
+Because volatility indicators consume several price columns, each accepts a dataframe with `high`, `low`, and `close` columns rather than a single series, and each returns one index-aligned series. A standalone single-ticker dataframe does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved.
+
+The default ATR length is 14 rows and is calibratable through the `atr_length` argument on `add_volatility_features` and the `length` argument on `atr` and `atr_percent`. True Range uses the previous close taken within each provider/ticker group, so the first row of each ticker falls back to its high-low range. ATR then applies Wilder's smoothing, leaving the first `length - 1` rows of each ticker missing until the window is full.
+
+Raw `true_range` and `atr` are expressed in the input price units and are not comparable across tickers, so `add_volatility_features` only appends the scale-invariant `atr_percent` column. `true_range` and `atr` are exposed as standalone indicators, analogous to `macd`, so future consumers such as the frontend application can obtain absolute price-unit values directly. The volatility module is intended to later host additional range and dispersion measures.
+
 ## Future Feature Ideas
 
-- volatility measures;
 - volume features;
 - opening gap features such as next open versus previous close;
 - later macro and market-context joins.

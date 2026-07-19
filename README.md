@@ -14,7 +14,7 @@ The project currently implements the data foundation:
 * initial market data onboarding for active tickers with no bronze rows
 * daily market data updates for already-onboarded tickers
 * inference-readiness and training-eligibility checks based on bronze data quality
-* in-memory adjusted-close return, trend, and momentum feature generation
+* in-memory adjusted-close return, trend, and momentum feature generation, plus high/low/close volatility features
 * local SQLite support and configurable SQLAlchemy database URLs
 * MkDocs-based project documentation
 * pytest/ruff-based local quality checks
@@ -140,15 +140,17 @@ Feature helpers currently run in memory on ordered pandas dataframes. Inputs mus
 from swingtrader.data.features.momentum import add_momentum_features
 from swingtrader.data.features.returns import add_return_features
 from swingtrader.data.features.trends import add_trend_features
+from swingtrader.data.features.volatility import add_volatility_features
 
 prices = prices.set_index(["provider", "ticker", "trading_date"]).sort_index()
 
 features = add_return_features(prices, horizons=(1, 5, 10, 20))
 features = add_trend_features(features)
 features = add_momentum_features(features)
+features = add_volatility_features(features)
 ```
 
-Return features add trailing adjusted-close returns. Trend features add moving-average ratios. Momentum features add PPO, PPO signal, PPO histogram, and PPO percentile columns. A standalone `macd` indicator (MACD, signal, and histogram, in the input price units) is also available for direct use, such as in future frontend charts, but is not included in `add_momentum_features`. All features are grouped by provider and ticker, leaving warm-up rows missing until the relevant windows are available. External consumers that need identifiers as columns convert back explicitly with `features.reset_index()`.
+Return features add trailing adjusted-close returns. Trend features add moving-average ratios. Momentum features add PPO, PPO signal, PPO histogram, and PPO percentile columns. A standalone `macd` indicator (MACD, signal, and histogram, in the input price units) is also available for direct use, such as in future frontend charts, but is not included in `add_momentum_features`. Volatility features add an `atr_percent` column (Average True Range as a percentage of close); the standalone `true_range` and `atr` indicators expose absolute price-unit values but are not included in `add_volatility_features`. All features are grouped by provider and ticker, leaving warm-up rows missing until the relevant windows are available. External consumers that need identifiers as columns convert back explicitly with `features.reset_index()`.
 
 ## Project Layout
 

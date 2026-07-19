@@ -22,3 +22,16 @@ def exponential_moving_average(values: pd.Series, *, length: int) -> pd.Series:
     missing until the window is full.
     """
     return values.ewm(span=length, adjust=False, min_periods=length).mean()
+
+
+def wilder_moving_average(values: pd.Series, *, length: int) -> pd.Series:
+    """Calculate Wilder's smoothed moving average (RMA) over one ordered series.
+
+    Uses pandas ``ewm`` with ``alpha=1 / length``, ``adjust=False``, and
+    ``min_periods=length`` so the first ``length - 1`` observations remain
+    missing until the window is full. This is the recursive smoothing Wilder
+    defined for indicators such as ATR and RSI, and it decays more slowly than
+    :func:`exponential_moving_average` for the same ``length``.
+    """
+    return values.ewm(alpha=1 / length, adjust=False, min_periods=length).mean()
+
