@@ -12,8 +12,7 @@ independently within each provider/ticker group and the input row order is
 preserved. Indicators return either one series or, for naturally multi-output
 indicators, one dataframe. The family orchestrator returns a copy of the input
 dataframe with final model feature columns appended. The module currently
-implements PPO-based features and is intended to later host oscillators such as
-RSI and rate-of-change.
+implements PPO-based features and a standalone MACD indicator.
 """
 
 import pandas as pd
@@ -46,7 +45,7 @@ def add_momentum_features(
     """
     validate_market_price_index(data)
     validate_required_columns(data, required_columns={"adjusted_close"})
-    _validate_ppo_lengths(ppo_lengths)
+    _validate_fast_slow_signal_lengths(ppo_lengths)
     _validate_min_history(ppo_percentile_min_history)
 
     data = data.copy()
@@ -64,6 +63,36 @@ def add_momentum_features(
     return data
 
 
+def macd(
+    values: pd.Series,
+    *,
+    lengths: tuple[int, int, int] = (12, 26, 9),
+) -> pd.DataFrame:
+    """Calculate MACD, signal-line, and histogram values for one or many tickers.
+
+    Returns a dataframe with ``macd``, ``macd_signal``, and ``macd_histogram``
+    columns. MACD is the difference between the fast and slow EMAs of ``values``
+    and is expressed in the input price units, ``macd_signal`` is an EMA over
+    ``macd``, and ``macd_histogram`` is ``macd`` minus ``macd_signal``. When
+    ``values`` carries the canonical ``provider``, ``ticker``, and
+    ``trading_date`` index levels the indicator is calculated independently
+    within each group.
+
+    MACD is not part of :func:`add_momentum_features`; it is provided as a
+    standalone indicator for future consumers such as the frontend application.
+    """
+    fast_length, slow_length, signal_length = _validate_fast_slow_signal_lengths(lengths)
+    return apply_by_ticker(
+        values,
+        lambda group: _macd(
+            group,
+            fast_length=fast_length,
+            slow_length=slow_length,
+            signal_length=signal_length,
+        ),
+    )
+
+
 def ppo(
     values: pd.Series,
     *,
@@ -78,7 +107,7 @@ def ppo(
     ``use_percent=False`` to return the raw ratio. The signal and histogram use
     the same scaling as PPO.
     """
-    fast_length, slow_length, signal_length = _validate_ppo_lengths(lengths)
+    fast_length, slow_length, signal_length = _validate_fast_slow_signal_lengths(lengths)
     return apply_by_ticker(
         values,
         lambda group: _ppo(
@@ -108,6 +137,29 @@ def ppo_percentile(
     )
 
 
+def _macd(
+    values: pd.Series,
+    *,
+    fast_length: int,
+    slow_length: int,
+    signal_length: int,
+) -> pd.DataFrame:
+    ema_fast = exponential_moving_average(values, length=fast_length)
+    ema_slow = exponential_moving_average(values, length=slow_length)
+    macd_values = ema_fast - ema_slow
+    signal_values = exponential_moving_average(macd_values, length=signal_length)
+    histogram_values = macd_values - signal_values
+
+    return pd.DataFrame(
+        {
+            "macd": macd_values,
+            "macd_signal": signal_values,
+            "macd_histogram": histogram_values,
+        },
+        index=values.index,
+    )
+
+
 def _ppo(
     values: pd.Series,
     *,
@@ -134,9 +186,9 @@ def _ppo(
     )
 
 
-def _validate_ppo_lengths(lengths: tuple[int, int, int]) -> tuple[int, int, int]:
+def _validate_fast_slow_signal_lengths(lengths: tuple[int, int, int]) -> tuple[int, int, int]:
     if len(lengths) != 3:
-        raise ValueError("PPO lengths must contain fast, slow, and signal lengths.")
+        raise ValueError("Lengths must contain fast, slow, and signal lengths.")
 
     fast_length, slow_length, signal_length = lengths
     validate_length(fast_length)
