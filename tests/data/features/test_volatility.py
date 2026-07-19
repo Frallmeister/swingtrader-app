@@ -32,15 +32,15 @@ def test_add_volatility_features_preserves_source_columns_and_adds_final_feature
     expected = atr_percent(prices, length=2).rename("atr_percent")
     pd.testing.assert_series_equal(result["atr_percent"], expected, check_exact=False)
 
-    close = prices["close"]
+    adjusted_close = prices["adjusted_close"]
     pd.testing.assert_series_equal(
         result["bollinger_bandwidth"],
-        bollinger_bandwidth(close, length=3, num_std=2.0).rename("bollinger_bandwidth"),
+        bollinger_bandwidth(adjusted_close, length=3, num_std=2.0).rename("bollinger_bandwidth"),
         check_exact=False,
     )
     pd.testing.assert_series_equal(
         result["bollinger_percent_b"],
-        bollinger_percent_b(close, length=3, num_std=2.0).rename("bollinger_percent_b"),
+        bollinger_percent_b(adjusted_close, length=3, num_std=2.0).rename("bollinger_percent_b"),
         check_exact=False,
     )
 
@@ -87,6 +87,13 @@ def test_add_volatility_features_rejects_unsorted_input() -> None:
 
 def test_add_volatility_features_requires_high_low_close() -> None:
     prices = _indexed_prices().drop(columns="high")
+
+    with pytest.raises(ValueError, match="Missing required columns"):
+        add_volatility_features(prices)
+
+
+def test_add_volatility_features_requires_adjusted_close() -> None:
+    prices = _indexed_prices().drop(columns="adjusted_close")
 
     with pytest.raises(ValueError, match="Missing required columns"):
         add_volatility_features(prices)
@@ -399,5 +406,6 @@ def _prices() -> pd.DataFrame:
             "high": [11.0, 13.0, 15.0, 14.0, 100.0, 100.0, 100.0, 100.0],
             "low": [9.0, 10.0, 12.0, 13.0, 100.0, 100.0, 100.0, 100.0],
             "close": [10.0, 12.0, 14.0, 13.0, 100.0, 100.0, 100.0, 100.0],
+            "adjusted_close": [9.0, 11.0, 13.0, 12.5, 100.0, 100.0, 100.0, 100.0],
         }
     )

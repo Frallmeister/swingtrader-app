@@ -31,8 +31,6 @@ from swingtrader.data.features._validation import (
     validate_required_columns,
 )
 
-_REQUIRED_PRICE_COLUMNS = frozenset({"high", "low", "close"})
-
 
 def add_volatility_features(
     data: pd.DataFrame,
@@ -45,10 +43,15 @@ def add_volatility_features(
 
     The input must use the canonical market-price MultiIndex with levels
     ``provider``, ``ticker``, and ``trading_date``, in that exact order, plus
-    ``high``, ``low``, and ``close`` columns. The index must be unique and
-    sorted. The returned dataframe preserves the input rows and appends the final
-    ``atr_percent``, ``bollinger_bandwidth``, and ``bollinger_percent_b`` feature
-    columns. The Bollinger features are calculated from ``close``.
+    ``high``, ``low``, ``close``, and ``adjusted_close`` columns. The index must
+    be unique and sorted. The returned dataframe preserves the input rows and
+    appends the final ``atr_percent``, ``bollinger_bandwidth``, and
+    ``bollinger_percent_b`` feature columns.
+
+    ATR is calculated from raw ``high``, ``low``, and ``close`` because True Range
+    needs the intraday extremes together. The Bollinger features are calculated
+    from ``adjusted_close`` so their rolling mean and standard deviation are not
+    distorted by split and dividend discontinuities in the raw close.
 
     Raw True Range, ATR, and the Bollinger bands themselves are expressed in the
     input price units and are not comparable across tickers, so the orchestrator
@@ -57,7 +60,7 @@ def add_volatility_features(
     values are required.
     """
     validate_market_price_index(data)
-    validate_required_columns(data, required_columns=_REQUIRED_PRICE_COLUMNS)
+    validate_required_columns(data, required_columns={"high", "low", "close", "adjusted_close"})
     validate_length(atr_length)
     validate_length(bollinger_length)
     _validate_num_std(bollinger_num_std)
@@ -65,12 +68,12 @@ def add_volatility_features(
     data = data.copy()
     data["atr_percent"] = atr_percent(data, length=atr_length)
 
-    close = data.loc[:, "close"]
+    adjusted_close = data.loc[:, "adjusted_close"]
     data["bollinger_bandwidth"] = bollinger_bandwidth(
-        close, length=bollinger_length, num_std=bollinger_num_std
+        adjusted_close, length=bollinger_length, num_std=bollinger_num_std
     )
     data["bollinger_percent_b"] = bollinger_percent_b(
-        close, length=bollinger_length, num_std=bollinger_num_std
+        adjusted_close, length=bollinger_length, num_std=bollinger_num_std
     )
     return data
 
@@ -91,7 +94,7 @@ def true_range(data: pd.DataFrame) -> pd.Series:
     preserves the input index and row order and is expressed in the input price
     units.
     """
-    validate_required_columns(data, required_columns=_REQUIRED_PRICE_COLUMNS)
+    validate_required_columns(data, required_columns={"high", "low", "close"})
     return apply_by_ticker(data, _true_range)
 
 
@@ -114,7 +117,7 @@ def atr(data: pd.DataFrame, *, length: int = 14) -> pd.Series:
     the frontend application, and is not part of :func:`add_volatility_features`.
     """
     validate_length(length)
-    validate_required_columns(data, required_columns=_REQUIRED_PRICE_COLUMNS)
+    validate_required_columns(data, required_columns={"high", "low", "close"})
     return apply_by_ticker(data, lambda group: _atr(group, length=length))
 
 
@@ -130,7 +133,7 @@ def atr_percent(data: pd.DataFrame, *, length: int = 14) -> pd.Series:
     ``trading_date`` index levels the calculation is isolated within each group.
     """
     validate_length(length)
-    validate_required_columns(data, required_columns=_REQUIRED_PRICE_COLUMNS)
+    validate_required_columns(data, required_columns={"high", "low", "close"})
     return apply_by_ticker(data, lambda group: _atr_percent(group, length=length))
 
 
