@@ -148,7 +148,7 @@ features = add_trend_features(features)
 features = add_momentum_features(features)
 ```
 
-Return features add trailing adjusted-close returns. Trend features add moving-average ratios. Momentum features add PPO, PPO signal, PPO histogram, and PPO percentile columns. All features are grouped by provider and ticker, leaving warm-up rows missing until the relevant windows are available. External consumers that need identifiers as columns convert back explicitly with `features.reset_index()`.
+Return features add trailing adjusted-close returns. Trend features add moving-average ratios. Momentum features add PPO, PPO signal, PPO histogram, and PPO percentile columns. A standalone `macd` indicator (MACD, signal, and histogram, in the input price units) is also available for direct use, such as in future frontend charts, but is not included in `add_momentum_features`. All features are grouped by provider and ticker, leaving warm-up rows missing until the relevant windows are available. External consumers that need identifiers as columns convert back explicitly with `features.reset_index()`.
 
 ## Project Layout
 
