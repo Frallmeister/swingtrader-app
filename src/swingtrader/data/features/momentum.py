@@ -36,7 +36,7 @@ def add_momentum_features(
     *,
     ppo_lengths: tuple[int, int, int] = (12, 26, 9),
     ppo_percentile_min_history: int = 100,
-    rsi_length: int = 14,
+    rsi_length: int = 21,
     rsi_bollinger_length: int = 20,
     rsi_bollinger_num_std: float = 2.0,
 ) -> pd.DataFrame:
