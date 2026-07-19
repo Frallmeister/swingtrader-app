@@ -64,7 +64,7 @@ Inside `add_trend_features`, ADX, `plus_di`, and `minus_di` are calculated from 
 
 ## Momentum Features
 
-The momentum feature orchestrator is `swingtrader.data.features.momentum.add_momentum_features`. It validates the source prices once, copies them, calculates the PPO and RSI features from `adjusted_close` and the stochastic oscillator from the raw `high`, `low`, and `close`, and appends those columns while preserving input row alignment.
+The momentum feature orchestrator is `swingtrader.data.features.momentum.add_momentum_features`. It validates the source prices once, copies them, calculates the PPO and RSI features from `adjusted_close`, the stochastic oscillator from the raw `high`, `low`, and `close`, and the Money Flow Index from the raw `high`, `low`, `close`, and `volume`, and appends those columns while preserving input row alignment.
 
 With the default settings, the orchestrator adds:
 
@@ -75,7 +75,9 @@ With the default settings, the orchestrator adds:
 - `rsi`, Wilder's Relative Strength Index calculated from `adjusted_close`;
 - `rsi_percent_b`, the position of the `rsi` line within its own Bollinger bands;
 - `stochastic_k`, the smoothed stochastic %K locating the close within its recent high/low range;
-- `stochastic_d`, a further simple moving average of `stochastic_k`.
+- `stochastic_d`, a further simple moving average of `stochastic_k`;
+- `mfi`, the Money Flow Index, a volume-weighted momentum oscillator calculated from `high`, `low`, `close`, and `volume`;
+- `mfi_percent_b`, the position of the `mfi` line within its own Bollinger bands.
 
 The public numerical momentum indicators are:
 
@@ -83,6 +85,7 @@ The public numerical momentum indicators are:
 - `ppo_percentile`, which has one natural output and returns a series;
 - `rsi`, which has one natural output and returns a bounded `[0, 100]` oscillator series;
 - `stochastic_oscillator`, which has two natural outputs and returns a dataframe with `stochastic_k` and `stochastic_d` columns bounded to `[0, 100]`, and which consumes a dataframe with `high`, `low`, and `close` columns rather than a single series;
+- `mfi`, which has one natural output and returns a bounded `[0, 100]` oscillator series, and which consumes a dataframe with `high`, `low`, `close`, and `volume` columns rather than a single series;
 - `macd`, which has three natural outputs and returns a dataframe with `macd`, `macd_signal`, and `macd_histogram` columns expressed in the input price units.
 
 Each indicator accepts either one ordered series for a single ticker or a multi-ticker series that carries the canonical `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker series does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved. A partial or wrongly ordered MultiIndex, such as `["ticker", "trading_date"]`, is rejected.
@@ -100,6 +103,10 @@ Inside `add_momentum_features`, `rsi` is calculated from `adjusted_close` so its
 `stochastic_oscillator`, unlike the other momentum indicators, consumes several price columns at once, so it takes a dataframe with `high`, `low`, and `close` columns rather than a single series, analogous to `adx` in the trend module. The raw %K locates the close within its recent range as `100 * (close - lowest_low) / (highest_high - lowest_low)` over `k_length` rows, where `lowest_low` and `highest_high` are the rolling minimum low and maximum high over the same window. `stochastic_k` is that raw %K smoothed with a simple moving average over `k_smoothing` rows, and `stochastic_d` is a further simple moving average of `stochastic_k` over `d_length` rows. Passing `k_smoothing=1` yields the fast stochastic, while the conventional 14/3/3 defaults yield the slow stochastic. Both series are bounded to `[0, 100]`, a window whose highest high equals its lowest low has no range and is left missing, and the warm-up rows of each series remain missing until every rolling window is full.
 
 Inside `add_momentum_features`, `stochastic_oscillator` is calculated from the raw `high`, `low`, and `close` because it needs the intraday extremes and the close together, matching the ADX and ATR calculations in the trend and volatility modules. The 14/3/3 slow-stochastic defaults are calibratable through the `stochastic_k_length`, `stochastic_k_smoothing`, and `stochastic_d_length` arguments on `add_momentum_features` and the `k_length`, `k_smoothing`, and `d_length` arguments on `stochastic_oscillator`.
+
+`mfi`, like `stochastic_oscillator`, consumes several price columns at once, so it takes a dataframe with `high`, `low`, `close`, and `volume` columns rather than a single series. Each row's typical price is `(high + low + close) / 3` and its raw money flow is the typical price times `volume`. A row's money flow counts as positive when its typical price rose from the prior row and negative when it fell; a row whose typical price is unchanged contributes to neither. MFI is `100 * positive_flow / (positive_flow + negative_flow)` over the trailing `length` rows, so it is often described as a volume-weighted RSI: a window with no negative flow returns 100, a window with no positive flow returns 0, and a window whose typical price never changes has neither positive nor negative flow and is left missing. The first `length` rows of each series remain missing until the trailing window is full, because the first row has no prior typical price to compare against, so MFI warms up one row later than a plain rolling window.
+
+Inside `add_momentum_features`, `mfi` is calculated from the raw `high`, `low`, `close`, and `volume` because the money flow needs the intraday extremes, the close, and the traded volume together, matching the stochastic, ADX, and ATR calculations. `mfi_percent_b` then reuses the volatility module's `bollinger_percent_b` on the `mfi` line, locating it within its own recent range as a scale-invariant feature, mirroring `rsi_percent_b`. The default length is the conventional 14 rows, calibratable through the `mfi_length` argument on `add_momentum_features` and the `length` argument on `mfi`, and the MFI Bollinger bands default to 20 rows with 2 standard deviations, calibratable through `mfi_bollinger_length` and `mfi_bollinger_num_std`.
 
 ## Volatility Features
 
