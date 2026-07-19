@@ -6,6 +6,9 @@ from swingtrader.data.features.volatility import (
     add_volatility_features,
     atr,
     atr_percent,
+    bollinger_bands,
+    bollinger_bandwidth,
+    bollinger_percent_b,
     true_range,
 )
 
@@ -14,15 +17,32 @@ def test_add_volatility_features_preserves_source_columns_and_adds_final_feature
     prices = _indexed_prices()
     original = prices.copy(deep=True)
 
-    result = add_volatility_features(prices, atr_length=2)
+    result = add_volatility_features(prices, atr_length=2, bollinger_length=3)
 
-    expected_columns = [*prices.columns, "atr_percent"]
+    expected_columns = [
+        *prices.columns,
+        "atr_percent",
+        "bollinger_bandwidth",
+        "bollinger_percent_b",
+    ]
     assert list(result.columns) == expected_columns
     pd.testing.assert_index_equal(result.index, prices.index)
     pd.testing.assert_frame_equal(prices, original)
 
     expected = atr_percent(prices, length=2).rename("atr_percent")
     pd.testing.assert_series_equal(result["atr_percent"], expected, check_exact=False)
+
+    close = prices["close"]
+    pd.testing.assert_series_equal(
+        result["bollinger_bandwidth"],
+        bollinger_bandwidth(close, length=3, num_std=2.0).rename("bollinger_bandwidth"),
+        check_exact=False,
+    )
+    pd.testing.assert_series_equal(
+        result["bollinger_percent_b"],
+        bollinger_percent_b(close, length=3, num_std=2.0).rename("bollinger_percent_b"),
+        check_exact=False,
+    )
 
 
 def test_add_volatility_features_uses_custom_atr_length() -> None:
@@ -77,6 +97,12 @@ def test_add_volatility_features_rejects_invalid_configuration() -> None:
 
     with pytest.raises(ValueError, match="positive integer"):
         add_volatility_features(prices, atr_length=0)
+
+    with pytest.raises(ValueError, match="positive integer"):
+        add_volatility_features(prices, bollinger_length=0)
+
+    with pytest.raises(ValueError, match="positive number"):
+        add_volatility_features(prices, bollinger_num_std=0)
 
 
 def test_true_range_returns_expected_values() -> None:
@@ -185,6 +211,159 @@ def test_atr_percent_groups_by_ticker_index_levels() -> None:
     bbb_atr_percent = result.loc[("yfinance", "BBB.ST")]
     assert (bbb_atr_percent.dropna() == 0.0).all()
     assert bbb_atr_percent.isna().sum() == 1
+
+
+def test_add_volatility_features_uses_custom_bollinger_length() -> None:
+    prices = _indexed_prices()
+
+    default_length = add_volatility_features(prices, atr_length=2)
+    custom_length = add_volatility_features(prices, atr_length=2, bollinger_length=3)
+
+    # The default 20-row window never warms up on this short history, while the
+    # short custom window produces populated Bollinger bandwidth values.
+    assert default_length["bollinger_bandwidth"].notna().sum() == 0
+    assert custom_length["bollinger_bandwidth"].notna().sum() > 0
+
+
+def test_bollinger_bands_returns_expected_columns_and_values() -> None:
+    close = _close()
+
+    result = bollinger_bands(close, length=3, num_std=2)
+
+    assert isinstance(result, pd.DataFrame)
+    assert list(result.columns) == ["bollinger_middle", "bollinger_upper", "bollinger_lower"]
+    pd.testing.assert_index_equal(result.index, close.index)
+
+    rolling = close.rolling(window=3, min_periods=3)
+    expected_middle = rolling.mean()
+    # Population standard deviation (ddof=0), matching Bollinger's definition.
+    expected_std = rolling.std(ddof=0)
+    pd.testing.assert_series_equal(
+        result["bollinger_middle"],
+        expected_middle.rename("bollinger_middle"),
+        check_exact=False,
+    )
+    pd.testing.assert_series_equal(
+        result["bollinger_upper"],
+        (expected_middle + 2 * expected_std).rename("bollinger_upper"),
+        check_exact=False,
+    )
+    pd.testing.assert_series_equal(
+        result["bollinger_lower"],
+        (expected_middle - 2 * expected_std).rename("bollinger_lower"),
+        check_exact=False,
+    )
+    pd.testing.assert_series_equal(
+        result["bollinger_middle"].dropna().reset_index(drop=True),
+        pd.Series([12.0, 13.0], name="bollinger_middle"),
+        check_exact=False,
+    )
+
+
+def test_bollinger_bands_allows_non_temporal_index_and_preserves_row_order() -> None:
+    values = pd.Series([10.0, 14.0, 12.0], index=pd.Index([2, 0, 1]), name="close")
+
+    result = bollinger_bands(values, length=2, num_std=2)
+
+    pd.testing.assert_index_equal(result.index, values.index)
+
+
+@pytest.mark.parametrize("length", [0, -1, True, 1.5])
+def test_bollinger_bands_rejects_invalid_length(length: object) -> None:
+    with pytest.raises(ValueError, match="positive integer"):
+        bollinger_bands(_close(), length=length)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("num_std", [0, -1, True, "2"])
+def test_bollinger_bands_rejects_invalid_num_std(num_std: object) -> None:
+    with pytest.raises(ValueError, match="positive number"):
+        bollinger_bands(_close(), length=3, num_std=num_std)  # type: ignore[arg-type]
+
+
+def test_bollinger_bands_groups_by_ticker_index_levels() -> None:
+    close = _multi_ticker_close()
+
+    result = bollinger_bands(close, length=3, num_std=2)
+
+    assert list(result.columns) == ["bollinger_middle", "bollinger_upper", "bollinger_lower"]
+    pd.testing.assert_index_equal(result.index, close.index)
+    # A constant BBB.ST price collapses the bands onto the middle band, isolated
+    # from AAA.ST.
+    bbb = result.loc[("yfinance", "BBB.ST")].dropna()
+    assert (bbb["bollinger_upper"] == bbb["bollinger_middle"]).all()
+    assert (bbb["bollinger_lower"] == bbb["bollinger_middle"]).all()
+    assert (bbb["bollinger_middle"] == 100.0).all()
+
+
+def test_bollinger_bandwidth_matches_band_width_over_middle() -> None:
+    close = _close()
+
+    result = bollinger_bandwidth(close, length=3, num_std=2)
+
+    assert result.name == "bollinger_bandwidth"
+    bands = bollinger_bands(close, length=3, num_std=2)
+    expected = (
+        (bands["bollinger_upper"] - bands["bollinger_lower"]) / bands["bollinger_middle"]
+    ).rename("bollinger_bandwidth")
+    pd.testing.assert_series_equal(result, expected, check_exact=False)
+
+
+def test_bollinger_bandwidth_groups_by_ticker_index_levels() -> None:
+    close = _multi_ticker_close()
+
+    result = bollinger_bandwidth(close, length=3, num_std=2)
+
+    pd.testing.assert_index_equal(result.index, close.index)
+    # A constant price has zero band width, so bandwidth is zero after warm-up.
+    bbb = result.loc[("yfinance", "BBB.ST")]
+    assert (bbb.dropna() == 0.0).all()
+    assert bbb.notna().sum() == 2
+
+
+@pytest.mark.parametrize("num_std", [0, -1, True, "2"])
+def test_bollinger_bandwidth_rejects_invalid_num_std(num_std: object) -> None:
+    with pytest.raises(ValueError, match="positive number"):
+        bollinger_bandwidth(_close(), length=3, num_std=num_std)  # type: ignore[arg-type]
+
+
+def test_bollinger_percent_b_locates_value_within_bands() -> None:
+    close = _close()
+
+    result = bollinger_percent_b(close, length=3, num_std=2)
+
+    assert result.name == "bollinger_percent_b"
+    bands = bollinger_bands(close, length=3, num_std=2)
+    expected = (
+        (close - bands["bollinger_lower"]) / (bands["bollinger_upper"] - bands["bollinger_lower"])
+    ).rename("bollinger_percent_b")
+    pd.testing.assert_series_equal(result, expected, check_exact=False)
+    # A value equal to the middle band sits exactly halfway between the bands.
+    assert result.iloc[3] == pytest.approx(0.5)
+
+
+def test_bollinger_percent_b_groups_by_ticker_index_levels() -> None:
+    close = _multi_ticker_close()
+
+    result = bollinger_percent_b(close, length=3, num_std=2)
+
+    pd.testing.assert_index_equal(result.index, close.index)
+    # A constant price has zero band width, so %B is undefined (NA).
+    assert result.loc[("yfinance", "BBB.ST")].isna().all()
+    assert result.loc[("yfinance", "AAA.ST")].notna().sum() == 2
+
+
+@pytest.mark.parametrize("num_std", [0, -1, True, "2"])
+def test_bollinger_percent_b_rejects_invalid_num_std(num_std: object) -> None:
+    with pytest.raises(ValueError, match="positive number"):
+        bollinger_percent_b(_close(), length=3, num_std=num_std)  # type: ignore[arg-type]
+
+
+def _close() -> pd.Series:
+    return _prices()["close"].iloc[:4]
+
+
+def _multi_ticker_close() -> pd.Series:
+    return _indexed_prices()["close"]
 
 
 def _indexed_prices() -> pd.DataFrame:

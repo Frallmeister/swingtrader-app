@@ -81,25 +81,32 @@ PPO and PPO percentile validate their local parameters. A standalone single-tick
 
 ## Volatility Features
 
-The volatility feature orchestrator is `swingtrader.data.features.volatility.add_volatility_features`. It validates the source prices once, copies them, calculates the final volatility model feature from `high`, `low`, and `close`, and appends it while preserving input row alignment.
+The volatility feature orchestrator is `swingtrader.data.features.volatility.add_volatility_features`. It validates the source prices once, copies them, calculates the final volatility model features from `high`, `low`, and `close`, and appends them while preserving input row alignment.
 
 With the default settings, the orchestrator adds:
 
-- `atr_percent`, the Average True Range expressed as a percentage of the closing price.
+- `atr_percent`, the Average True Range expressed as a percentage of the closing price;
+- `bollinger_bandwidth`, the width between the upper and lower Bollinger bands relative to the middle band, calculated from `close`;
+- `bollinger_percent_b`, the position of `close` within its Bollinger bands.
 
 The public numerical volatility indicators are:
 
 - `true_range`, which returns a series with the greatest of the current high-low range, the absolute gap between the current high and the previous close, and the absolute gap between the current low and the previous close;
 - `atr`, which returns a series with Wilder's smoothed moving average of `true_range` in the input price units;
-- `atr_percent`, which returns a series with `atr` divided by the current close and scaled to percentage points.
+- `atr_percent`, which returns a series with `atr` divided by the current close and scaled to percentage points;
+- `bollinger_bands`, which returns a dataframe with `bollinger_middle`, `bollinger_upper`, and `bollinger_lower` columns in the input units;
+- `bollinger_bandwidth`, which returns a series with the band width relative to the middle band;
+- `bollinger_percent_b`, which returns a series with the position within the bands.
 
-Because volatility indicators consume several price columns, each accepts a dataframe with `high`, `low`, and `close` columns rather than a single series, and each returns one index-aligned series. A standalone single-ticker dataframe does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved.
+The indicators split into two input shapes. `true_range`, `atr`, and `atr_percent` consume several price columns, so each accepts a dataframe with `high`, `low`, and `close` columns. The Bollinger indicators instead operate on a single ordered series, such as `close` or any other signal, which keeps them reusable: once RSI lands in the momentum module the same functions will be applied to the RSI signal and exposed as additional features. A standalone single-ticker input does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved.
 
 The default ATR length is 14 rows and is calibratable through the `atr_length` argument on `add_volatility_features` and the `length` argument on `atr` and `atr_percent`. True Range uses the previous close taken within each provider/ticker group, so the first row of each ticker falls back to its high-low range. ATR then applies Wilder's smoothing, leaving the first `length - 1` rows of each ticker missing until the window is full.
 
 Wilder's smoothing here is the recursive exponential form seeded from the first True Range value, not the canonical definition that seeds the first ATR with the simple average of the first `length` True Ranges. The two forms converge quickly as more observations accrue, but early ATR (and `atr_percent`) values differ slightly from a canonical implementation.
 
-Raw `true_range` and `atr` are expressed in the input price units and are not comparable across tickers, so `add_volatility_features` only appends the scale-invariant `atr_percent` column. `true_range` and `atr` are exposed as standalone indicators, analogous to `macd`, so future consumers such as the frontend application can obtain absolute price-unit values directly. The volatility module is intended to later host additional range and dispersion measures.
+The default Bollinger length is 20 rows with 2 standard deviations, both calibratable through the `bollinger_length` and `bollinger_num_std` arguments on `add_volatility_features` and the `length` and `num_std` arguments on the Bollinger indicators. The middle band is the simple moving average, and the outer bands sit `num_std` rolling standard deviations away, leaving the first `length - 1` rows of each series missing until the window is full. The rolling standard deviation is the population standard deviation (`ddof=0`), matching John Bollinger's original definition and most charting platforms; implementations that use the sample standard deviation (`ddof=1`) produce slightly wider bands for the same `length`.
+
+Raw `true_range`, `atr`, and `bollinger_bands` are expressed in the input price units and are not comparable across tickers, so `add_volatility_features` only appends the scale-invariant `atr_percent`, `bollinger_bandwidth`, and `bollinger_percent_b` columns. `true_range`, `atr`, and `bollinger_bands` are exposed as standalone indicators, analogous to `macd`, so consumers such as exploratory analysis and the frontend application can obtain absolute price-unit values directly. The volatility module is intended to later host additional range and dispersion measures.
 
 ## Future Feature Ideas
 
