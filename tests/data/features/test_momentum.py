@@ -476,7 +476,7 @@ def test_rsi_returns_expected_values_for_mixed_price_changes() -> None:
     pd.testing.assert_series_equal(result, expected, check_exact=False)
 
 
-def test_add_momentum_features_adds_stochastic_from_adjusted_close() -> None:
+def test_add_momentum_features_adds_stochastic_from_high_low_close() -> None:
     prices = _indexed_prices()
 
     result = add_momentum_features(
@@ -489,14 +489,14 @@ def test_add_momentum_features_adds_stochastic_from_adjusted_close() -> None:
     )
 
     expected = stochastic_oscillator(
-        prices["adjusted_close"], k_length=2, k_smoothing=1, d_length=1
+        prices[["high", "low", "close"]], k_length=2, k_smoothing=1, d_length=1
     )
     pd.testing.assert_series_equal(result["stochastic_k"], expected["stochastic_k"])
     pd.testing.assert_series_equal(result["stochastic_d"], expected["stochastic_d"])
-    # AAA.ST rises every day, so each warmed-up value sits at the top of its
-    # range and %K is a pure 100.
+    # AAA.ST rises steadily with the close sitting three-quarters up each two-day
+    # high/low range, so its warmed-up %K is a constant 75.
     aaa_k = result.loc[("yfinance", "AAA.ST"), "stochastic_k"]
-    assert (aaa_k.dropna() == 100.0).all()
+    assert (aaa_k.dropna() == 75.0).all()
     # BBB.ST is flat, so every window has no range and the oscillator stays
     # missing.
     assert result.loc[("yfinance", "BBB.ST"), "stochastic_k"].isna().all()
@@ -509,7 +509,7 @@ def test_add_momentum_features_delegates_to_stochastic_oscillator(
     calls = 0
 
     def fake_stochastic_oscillator(
-        values: pd.Series,
+        data: pd.DataFrame,
         *,
         k_length: int = 14,
         k_smoothing: int = 3,
@@ -520,12 +520,13 @@ def test_add_momentum_features_delegates_to_stochastic_oscillator(
         assert k_length == 2
         assert k_smoothing == 1
         assert d_length == 1
+        assert list(data.columns) == ["high", "low", "close"]
         return pd.DataFrame(
             {
-                "stochastic_k": [0.0] * len(values),
-                "stochastic_d": [0.0] * len(values),
+                "stochastic_k": [0.0] * len(data),
+                "stochastic_d": [0.0] * len(data),
             },
-            index=values.index,
+            index=data.index,
         )
 
     monkeypatch.setattr(momentum_module, "stochastic_oscillator", fake_stochastic_oscillator)
@@ -567,17 +568,39 @@ def test_add_momentum_features_rejects_invalid_stochastic_lengths(
         )
 
 
-def test_stochastic_oscillator_returns_dataframe_with_expected_columns_and_values() -> None:
-    values = pd.Series([10.0, 11.0, 9.5, 12.0, 8.0], name="adjusted_close")
+def test_add_momentum_features_requires_high_low_close() -> None:
+    prices = _indexed_prices().drop(columns="high")
 
-    result = stochastic_oscillator(values, k_length=3, k_smoothing=1, d_length=2)
+    with pytest.raises(ValueError, match="Missing required columns"):
+        add_momentum_features(prices, ppo_lengths=(2, 3, 2))
+
+
+def test_stochastic_oscillator_returns_dataframe_with_expected_columns_and_values() -> None:
+    frame = pd.DataFrame(
+        {
+            "high": [11.0, 12.0, 13.0, 14.0, 13.0],
+            "low": [9.0, 10.0, 8.0, 11.0, 7.0],
+            "close": [10.0, 11.5, 9.0, 13.0, 8.0],
+        }
+    )
+
+    result = stochastic_oscillator(frame, k_length=3, k_smoothing=1, d_length=2)
 
     assert isinstance(result, pd.DataFrame)
     assert list(result.columns) == ["stochastic_k", "stochastic_d"]
-    pd.testing.assert_index_equal(result.index, values.index)
+    pd.testing.assert_index_equal(result.index, frame.index)
     pd.testing.assert_series_equal(
         result["stochastic_k"],
-        pd.Series([np.nan, np.nan, 0.0, 100.0, 0.0], name="stochastic_k"),
+        pd.Series(
+            [
+                np.nan,
+                np.nan,
+                20.0,
+                100 * 5 / 6,
+                100 * 1 / 7,
+            ],
+            name="stochastic_k",
+        ),
         check_exact=False,
     )
     pd.testing.assert_series_equal(
@@ -588,10 +611,16 @@ def test_stochastic_oscillator_returns_dataframe_with_expected_columns_and_value
 
 
 def test_stochastic_oscillator_smooths_slow_k_with_k_smoothing() -> None:
-    values = pd.Series([10.0, 11.0, 9.5, 12.0, 8.0], name="adjusted_close")
+    frame = pd.DataFrame(
+        {
+            "high": [11.0, 12.0, 13.0, 14.0, 13.0],
+            "low": [9.0, 10.0, 8.0, 11.0, 7.0],
+            "close": [10.0, 11.5, 9.0, 13.0, 8.0],
+        }
+    )
 
-    fast = stochastic_oscillator(values, k_length=3, k_smoothing=1, d_length=1)
-    slow = stochastic_oscillator(values, k_length=3, k_smoothing=2, d_length=1)
+    fast = stochastic_oscillator(frame, k_length=3, k_smoothing=1, d_length=1)
+    slow = stochastic_oscillator(frame, k_length=3, k_smoothing=2, d_length=1)
 
     # The slow %K is the fast (raw) %K smoothed with a two-row simple average.
     pd.testing.assert_series_equal(
@@ -602,23 +631,41 @@ def test_stochastic_oscillator_smooths_slow_k_with_k_smoothing() -> None:
 
 
 def test_stochastic_oscillator_is_100_at_range_high_and_0_at_range_low() -> None:
-    rising = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0], name="adjusted_close")
-    falling = pd.Series([5.0, 4.0, 3.0, 2.0, 1.0], name="adjusted_close")
+    # The close sits at the highest high every row, so %K tops out at 100.
+    top = pd.DataFrame(
+        {
+            "high": [2.0, 3.0, 4.0, 5.0],
+            "low": [1.0, 1.0, 1.0, 1.0],
+            "close": [2.0, 3.0, 4.0, 5.0],
+        }
+    )
+    # The close sits at the lowest low every row, so %K bottoms out at 0.
+    bottom = pd.DataFrame(
+        {
+            "high": [5.0, 5.0, 5.0, 5.0],
+            "low": [4.0, 3.0, 2.0, 1.0],
+            "close": [4.0, 3.0, 2.0, 1.0],
+        }
+    )
 
-    rising_k = stochastic_oscillator(rising, k_length=2, k_smoothing=1, d_length=1)["stochastic_k"]
-    falling_k = stochastic_oscillator(falling, k_length=2, k_smoothing=1, d_length=1)[
-        "stochastic_k"
-    ]
+    top_k = stochastic_oscillator(top, k_length=2, k_smoothing=1, d_length=1)["stochastic_k"]
+    bottom_k = stochastic_oscillator(bottom, k_length=2, k_smoothing=1, d_length=1)["stochastic_k"]
 
-    assert (rising_k.dropna() == 100.0).all()
-    assert (falling_k.dropna() == 0.0).all()
+    assert (top_k.dropna() == 100.0).all()
+    assert (bottom_k.dropna() == 0.0).all()
     # The first ``k_length - 1`` rows stay missing until the window is full.
-    assert rising_k.iloc[:1].isna().all()
-    assert rising_k.notna().sum() == 4
+    assert top_k.iloc[:1].isna().all()
+    assert top_k.notna().sum() == 3
 
 
 def test_stochastic_oscillator_leaves_flat_window_missing() -> None:
-    flat = pd.Series([50.0, 50.0, 50.0, 50.0], name="adjusted_close")
+    flat = pd.DataFrame(
+        {
+            "high": [50.0, 50.0, 50.0, 50.0],
+            "low": [50.0, 50.0, 50.0, 50.0],
+            "close": [50.0, 50.0, 50.0, 50.0],
+        }
+    )
 
     result = stochastic_oscillator(flat, k_length=2, k_smoothing=1, d_length=1)
 
@@ -627,9 +674,15 @@ def test_stochastic_oscillator_leaves_flat_window_missing() -> None:
 
 
 def test_stochastic_oscillator_stays_within_bounds() -> None:
-    values = pd.Series([10.0, 11.0, 9.5, 12.0, 8.0, 13.0, 11.5, 14.0], name="adjusted_close")
+    frame = pd.DataFrame(
+        {
+            "high": [10.0, 13.0, 11.0, 14.0, 12.0, 15.0, 13.0, 16.0],
+            "low": [8.0, 9.0, 6.0, 8.0, 5.0, 7.0, 4.0, 6.0],
+            "close": [9.0, 12.0, 7.0, 13.0, 6.0, 14.0, 5.0, 15.0],
+        }
+    )
 
-    result = stochastic_oscillator(values, k_length=3)
+    result = stochastic_oscillator(frame, k_length=3)
 
     stochastic_k = result["stochastic_k"].dropna()
     stochastic_d = result["stochastic_d"].dropna()
@@ -638,11 +691,25 @@ def test_stochastic_oscillator_stays_within_bounds() -> None:
 
 
 def test_stochastic_oscillator_allows_non_temporal_index_and_preserves_row_order() -> None:
-    values = pd.Series([10.0, 14.0, 12.0], index=pd.Index([2, 0, 1]), name="adjusted_close")
+    frame = pd.DataFrame(
+        {
+            "high": [11.0, 15.0, 13.0],
+            "low": [9.0, 13.0, 11.0],
+            "close": [10.0, 14.0, 12.0],
+        },
+        index=pd.Index([2, 0, 1]),
+    )
 
-    result = stochastic_oscillator(values, k_length=1, k_smoothing=1, d_length=1)
+    result = stochastic_oscillator(frame, k_length=1, k_smoothing=1, d_length=1)
 
-    pd.testing.assert_index_equal(result.index, values.index)
+    pd.testing.assert_index_equal(result.index, frame.index)
+
+
+def test_stochastic_oscillator_requires_high_low_close() -> None:
+    frame = _ohlc().drop(columns="close")
+
+    with pytest.raises(ValueError, match="Missing required columns"):
+        stochastic_oscillator(frame, k_length=2)
 
 
 @pytest.mark.parametrize(
@@ -654,7 +721,7 @@ def test_stochastic_oscillator_rejects_invalid_lengths(
 ) -> None:
     with pytest.raises(ValueError, match="positive integer"):
         stochastic_oscillator(
-            _prices()["adjusted_close"],
+            _ohlc(),
             k_length=k_length,  # type: ignore[arg-type]
             k_smoothing=k_smoothing,  # type: ignore[arg-type]
             d_length=d_length,  # type: ignore[arg-type]
@@ -662,16 +729,16 @@ def test_stochastic_oscillator_rejects_invalid_lengths(
 
 
 def test_stochastic_oscillator_groups_by_ticker_index_levels() -> None:
-    close = _multi_ticker_close()
+    prices = _indexed_prices()
 
-    result = stochastic_oscillator(close, k_length=2, k_smoothing=1, d_length=1)
+    result = stochastic_oscillator(prices, k_length=2, k_smoothing=1, d_length=1)
 
     assert list(result.columns) == ["stochastic_k", "stochastic_d"]
-    pd.testing.assert_index_equal(result.index, close.index)
-    # AAA.ST rises monotonically, so each warmed-up value tops its range and %K
-    # is a pure 100, isolated from BBB.ST.
+    pd.testing.assert_index_equal(result.index, prices.index)
+    # AAA.ST's close sits three-quarters up each two-day range, so its warmed-up
+    # %K is a constant 75, isolated from BBB.ST.
     aaa_k = result.loc[("yfinance", "AAA.ST"), "stochastic_k"]
-    assert (aaa_k.dropna() == 100.0).all()
+    assert (aaa_k.dropna() == 75.0).all()
     assert aaa_k.isna().sum() == 1
     # BBB.ST is flat and isolated, so every window has no range.
     assert result.loc[("yfinance", "BBB.ST"), "stochastic_k"].isna().all()
@@ -679,6 +746,10 @@ def test_stochastic_oscillator_groups_by_ticker_index_levels() -> None:
 
 def _multi_ticker_close() -> pd.Series:
     return _prices().set_index(["provider", "ticker", "trading_date"])["adjusted_close"]
+
+
+def _ohlc() -> pd.DataFrame:
+    return _prices().set_index(["provider", "ticker", "trading_date"]).loc[("yfinance", "AAA.ST")]
 
 
 def _indexed_prices() -> pd.DataFrame:
@@ -711,6 +782,9 @@ def _prices() -> pd.DataFrame:
                     "2026-07-06",
                 ]
             ).date,
+            "high": [11.0, 13.0, 15.0, 17.0, 100.0, 100.0, 100.0, 100.0],
+            "low": [9.0, 11.0, 13.0, 15.0, 100.0, 100.0, 100.0, 100.0],
+            "close": [10.0, 12.0, 14.0, 16.0, 100.0, 100.0, 100.0, 100.0],
             "adjusted_close": [10.0, 12.0, 14.0, 16.0, 100.0, 100.0, 100.0, 100.0],
         }
     )
