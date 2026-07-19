@@ -12,8 +12,8 @@ independently within each provider/ticker group and the input row order is
 preserved. Indicators return either one series or, for naturally multi-output
 indicators, one dataframe. The family orchestrator returns a copy of the input
 dataframe with final model feature columns appended. The module currently
-implements PPO-based and RSI-based features, the stochastic oscillator, and a
-standalone MACD indicator.
+implements PPO-based, RSI-based, and Money Flow Index features, the stochastic
+oscillator, and a standalone MACD indicator.
 """
 
 import pandas as pd
@@ -43,30 +43,38 @@ def add_momentum_features(
     stochastic_k_length: int = 14,
     stochastic_k_smoothing: int = 3,
     stochastic_d_length: int = 3,
+    mfi_length: int = 14,
+    mfi_bollinger_length: int = 20,
+    mfi_bollinger_num_std: float = 2.0,
 ) -> pd.DataFrame:
     """Return a copy of data with the default momentum feature set added.
 
     The input must use the canonical market-price MultiIndex with levels
     ``provider``, ``ticker``, and ``trading_date``, in that exact order, plus
-    ``high``, ``low``, ``close``, and ``adjusted_close`` columns. The index must
-    be unique and sorted. The returned dataframe preserves the input rows and
-    appends the final PPO, PPO signal, PPO histogram, PPO percentile, RSI, RSI %B,
-    and stochastic %K and %D feature columns.
+    ``high``, ``low``, ``close``, ``adjusted_close``, and ``volume`` columns. The
+    index must be unique and sorted. The returned dataframe preserves the input
+    rows and appends the final PPO, PPO signal, PPO histogram, PPO percentile,
+    RSI, RSI %B, stochastic %K and %D, MFI, and MFI %B feature columns.
 
     PPO, RSI, and ``rsi_percent_b`` are calculated from ``adjusted_close`` so they
     are not distorted by split and dividend discontinuities in the raw close.
     ``rsi_percent_b`` locates the RSI line within its own Bollinger Bands, giving
     a scale-invariant measure of how stretched momentum is relative to its recent
-    range. The stochastic oscillator is calculated from the raw ``high``,
-    ``low``, and ``close`` because it needs the intraday extremes and the close
-    together, matching the ADX and ATR calculations in the trend and volatility
-    modules.
+    range. The stochastic oscillator and the Money Flow Index are calculated from
+    the raw ``high``, ``low``, ``close``, and (for MFI) ``volume`` because they
+    need the intraday extremes and the traded volume together, matching the ADX
+    and ATR calculations in the trend and volatility modules. ``mfi_percent_b``
+    locates the MFI line within its own Bollinger Bands, mirroring
+    ``rsi_percent_b``.
     """
     validate_market_price_index(data)
-    validate_required_columns(data, required_columns={"high", "low", "close", "adjusted_close"})
+    validate_required_columns(
+        data, required_columns={"high", "low", "close", "adjusted_close", "volume"}
+    )
     _validate_fast_slow_signal_lengths(ppo_lengths)
     _validate_min_history(ppo_percentile_min_history)
     validate_length(rsi_length)
+    validate_length(mfi_length)
 
     data = data.copy()
 
@@ -95,6 +103,13 @@ def add_momentum_features(
         d_length=stochastic_d_length,
     )
     data[stochastic_block.columns] = stochastic_block
+
+    data["mfi"] = mfi(data.loc[:, ["high", "low", "close", "volume"]], length=mfi_length)
+    data["mfi_percent_b"] = bollinger_percent_b(
+        data.loc[:, "mfi"],
+        length=mfi_bollinger_length,
+        num_std=mfi_bollinger_num_std,
+    ).rename("mfi_percent_b")
     return data
 
 
@@ -228,6 +243,38 @@ def stochastic_oscillator(
     )
 
 
+def mfi(
+    data: pd.DataFrame,
+    *,
+    length: int = 14,
+) -> pd.Series:
+    """Calculate the Money Flow Index for one or many tickers.
+
+    MFI is a bounded ``[0, 100]`` volume-weighted momentum oscillator, often
+    described as a volume-weighted RSI. Each row's typical price is
+    ``(high + low + close) / 3`` and its raw money flow is the typical price times
+    ``volume``. A row's money flow is positive when its typical price rose from the
+    prior row and negative when it fell; a row whose typical price is unchanged
+    contributes to neither. MFI is
+    ``100 * positive_flow / (positive_flow + negative_flow)`` over the trailing
+    ``length`` rows, so a window with no negative flow returns 100 and a window
+    with no positive flow returns 0. A window whose typical price never changes has
+    neither positive nor negative flow and is left missing.
+
+    ``data`` must contain ``high``, ``low``, ``close``, and ``volume`` columns in
+    chronological order, because the oscillator needs the intraday extremes, the
+    close, and the traded volume together. When ``data`` carries the canonical
+    ``provider``, ``ticker``, and ``trading_date`` index levels the calculation is
+    isolated within each group, so one ticker's history cannot leak into
+    another's, and the original index and row order are preserved. The first
+    ``length`` rows of each series remain missing until the trailing window is
+    full, because the first row has no prior typical price to compare against.
+    """
+    validate_length(length)
+    validate_required_columns(data, required_columns={"high", "low", "close", "volume"})
+    return apply_by_ticker(data, lambda group: _mfi(group, length=length))
+
+
 def ppo_percentile(
     values: pd.Series,
     *,
@@ -278,6 +325,19 @@ def _rsi(values: pd.Series, *, length: int) -> pd.Series:
     avg_gain = wilder_moving_average(gain, length=length)
     avg_loss = wilder_moving_average(loss, length=length)
     return (100 * safe_divide(avg_gain, avg_gain + avg_loss)).rename("rsi")
+
+
+def _mfi(data: pd.DataFrame, *, length: int) -> pd.Series:
+    typical_price = (data.loc[:, "high"] + data.loc[:, "low"] + data.loc[:, "close"]) / 3
+    raw_money_flow = typical_price * data.loc[:, "volume"]
+    price_change = typical_price.diff()
+
+    positive_flow = raw_money_flow.where(price_change > 0, 0.0).where(price_change.notna())
+    negative_flow = raw_money_flow.where(price_change < 0, 0.0).where(price_change.notna())
+    positive_sum = positive_flow.rolling(window=length, min_periods=length).sum()
+    negative_sum = negative_flow.rolling(window=length, min_periods=length).sum()
+
+    return (100 * safe_divide(positive_sum, positive_sum + negative_sum)).rename("mfi")
 
 
 def _macd(
