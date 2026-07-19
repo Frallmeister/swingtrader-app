@@ -45,7 +45,7 @@ def add_momentum_features(
     """
     validate_market_price_index(data)
     validate_required_columns(data, required_columns={"adjusted_close"})
-    _validate_ppo_lengths(ppo_lengths)
+    _validate_fast_slow_signal_lengths(ppo_lengths)
     _validate_min_history(ppo_percentile_min_history)
 
     data = data.copy()
@@ -81,7 +81,7 @@ def macd(
     MACD is not part of :func:`add_momentum_features`; it is provided as a
     standalone indicator for future consumers such as the frontend application.
     """
-    fast_length, slow_length, signal_length = _validate_macd_lengths(lengths)
+    fast_length, slow_length, signal_length = _validate_fast_slow_signal_lengths(lengths)
     return apply_by_ticker(
         values,
         lambda group: _macd(
@@ -107,7 +107,7 @@ def ppo(
     ``use_percent=False`` to return the raw ratio. The signal and histogram use
     the same scaling as PPO.
     """
-    fast_length, slow_length, signal_length = _validate_ppo_lengths(lengths)
+    fast_length, slow_length, signal_length = _validate_fast_slow_signal_lengths(lengths)
     return apply_by_ticker(
         values,
         lambda group: _ppo(
@@ -186,11 +186,7 @@ def _ppo(
     )
 
 
-def _validate_macd_lengths(lengths: tuple[int, int, int]) -> tuple[int, int, int]:
-    return _validate_ppo_lengths(lengths=lengths)
-
-
-def _validate_ppo_lengths(lengths: tuple[int, int, int]) -> tuple[int, int, int]:
+def _validate_fast_slow_signal_lengths(lengths: tuple[int, int, int]) -> tuple[int, int, int]:
     if len(lengths) != 3:
         raise ValueError("Lengths must contain fast, slow, and signal lengths.")
 
