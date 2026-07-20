@@ -224,3 +224,6 @@ __marimo__/
 
 # Temporary files
 temp_*.py
+
+*.xlsx
+*.pdf

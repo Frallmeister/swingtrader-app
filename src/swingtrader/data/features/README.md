@@ -4,7 +4,9 @@
 
 The features area is reserved for reusable transformations that convert point-in-time input data into model-ready explanatory variables. Feature code should make historical market data useful for modeling without changing the meaning of the source observations or mixing in target, model, or presentation concerns.
 
-Feature generation currently includes in-memory return, trend, momentum, and volatility features. The current directory should not yet be treated as a persistent feature pipeline.
+Reusable technical indicator calculations live in the separate `swingtrader.indicators` package. Indicators calculate reusable technical quantities; features transform raw data and indicators into model inputs. A feature builder decides which source columns an indicator consumes, how indicators are combined and normalized, and what the model-facing columns are named. Feature families must import indicator calculations from `swingtrader.indicators` rather than reimplementing them or importing calculations from sibling feature families.
+
+Feature generation currently includes in-memory return, trend, momentum, and volatility features, plus a default pipeline in `pipeline.py` that runs the four families in a fixed order. The current directory should not yet be treated as a persistent feature pipeline.
 
 ## Design principles
 

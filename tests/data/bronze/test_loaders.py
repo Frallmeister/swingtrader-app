@@ -8,7 +8,7 @@ from sqlalchemy.engine import Engine
 from swingtrader.data.bronze.loaders import load_bronze_daily_prices
 from swingtrader.data.bronze.schema import metadata as bronze_metadata
 from swingtrader.data.bronze.writer import BRONZE_MARKET_DAILY_PRICE_COLUMNS, upsert_daily_prices
-from swingtrader.data.features._validation import validate_market_price_index
+from swingtrader.data.market_frame import validate_market_price_index
 
 
 @pytest.fixture

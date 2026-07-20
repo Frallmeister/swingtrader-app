@@ -2,8 +2,8 @@
 
 import pandas as pd
 
-from swingtrader.data.features._numerical import safe_divide
-from swingtrader.data.features._validation import (
+from swingtrader.core.numerical import safe_divide
+from swingtrader.data.market_frame import (
     validate_market_price_index,
     validate_required_columns,
 )

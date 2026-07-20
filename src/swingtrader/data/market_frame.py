@@ -1,4 +1,15 @@
-"""Shared validation for the canonical market-price feature representation."""
+"""Canonical in-memory market-data contract shared by indicators and features.
+
+This module defines and enforces the canonical market-price representation used
+across the indicator and feature layers. It contains only pandas ``DataFrame``
+and ``Series`` helpers; it does not introduce a custom dataframe wrapper class.
+
+The canonical multi-instrument contract is a unique, sorted ``MultiIndex`` with
+levels ``provider``, ``ticker``, and ``trading_date``, in that exact order, with
+identifiers not also present as ordinary columns. Public indicators additionally
+support a single-instrument ordered ``Series`` or ``DataFrame`` that only has to
+be chronologically ordered.
+"""
 
 from collections.abc import Callable, Collection
 
@@ -52,17 +63,23 @@ def validate_required_columns(
     *,
     required_columns: Collection[str] = (),
 ) -> None:
-    """Validate that feature input data contains the required value columns."""
+    """Validate that market-frame input data contains the required value columns."""
     missing_columns = set(required_columns).difference(data.columns)
     if missing_columns:
         missing = ", ".join(sorted(missing_columns))
         raise ValueError(f"Missing required columns: {missing}.")
 
 
-def validate_length(length: int) -> None:
-    """Validate that a window length is a positive integer."""
-    if isinstance(length, bool) or not isinstance(length, int) or length <= 0:
-        raise ValueError(f"Length must be a positive integer; got {length!r}")
+def validate_temporal_order(values: pd.Series | pd.DataFrame) -> None:
+    """Validate that a single-instrument input is chronologically ordered.
+
+    A ``DatetimeIndex`` or ``PeriodIndex`` must be monotonically increasing. Other
+    index types are left unchecked because they carry no temporal ordering
+    guarantee.
+    """
+    index = values.index
+    if isinstance(index, pd.DatetimeIndex | pd.PeriodIndex) and not index.is_monotonic_increasing:
+        raise ValueError("values must be chronologically ordered before calculating this indicator")
 
 
 def apply_by_ticker(
@@ -86,11 +103,5 @@ def apply_by_ticker(
         ]
         return pd.concat(results).reindex(values.index)
 
-    _validate_temporal_index(values)
+    validate_temporal_order(values)
     return func(values)
-
-
-def _validate_temporal_index(values: pd.Series | pd.DataFrame) -> None:
-    index = values.index
-    if isinstance(index, pd.DatetimeIndex | pd.PeriodIndex) and not index.is_monotonic_increasing:
-        raise ValueError("values must be chronologically ordered before calculating this indicator")

@@ -70,8 +70,9 @@ This rewrites the lock file so it matches the dependencies currently declared in
 - Retrieval orchestration belongs in `data.ingestion`.
 - Source-oriented database schemas and writes belong in `data.bronze`.
 - Ready-to-use data database initialization belongs in `data.db`; generic engine creation belongs in `core.db`.
-- Model-ready transformations will belong in `data.features`.
+- Reusable technical indicators belong in `indicators`; the canonical market-frame contract helpers belong in `data.market_frame`.
+- Model-ready feature transformations belong in `data.features`, with the default pipeline in `data.features.pipeline`.
 - Thin runnable entrypoints will belong in `data.jobs`.
-- Shared infrastructure belongs in `core`.
+- Shared, domain-neutral numerical helpers belong in `core.numerical`; other shared infrastructure belongs in `core`.
 
 Keep implementation changes narrow. Avoid using notebooks as the only home for reusable behavior.

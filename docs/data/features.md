@@ -22,10 +22,17 @@ External consumers that need identifiers as columns, for example database writes
 records = features.reset_index()
 ```
 
+Feature code is organized into two layers with a clear responsibility boundary:
+
+- **Indicators** calculate reusable technical quantities and live in `swingtrader.indicators`. Indicators know nothing about the model feature set, so they can also be reused by notebooks, tests, and future API or frontend charting functionality.
+- **Features** transform raw data and indicators into model inputs and live in `swingtrader.data.features`. A feature builder decides which source columns an indicator should use, how indicators are combined and normalized, how historical context is represented, and what the model-facing column is named.
+
+In short: indicators calculate reusable technical quantities, and features transform raw data and indicators into model inputs.
+
 Feature functions follow two contracts:
 
-- public numerical indicators operate per ticker and return either one index-aligned `pd.Series` or, for naturally multi-output indicators, one index-aligned `pd.DataFrame`. Most indicators take a single ordered `pd.Series`; indicators that need several price columns at once, such as the volatility indicators consuming `high`, `low`, and `close`, take a `pd.DataFrame` instead;
-- application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, and `add_volatility_features` return a copy of the input dataframe with final model feature columns added.
+- public numerical indicators in `swingtrader.indicators` operate per ticker and return either one index-aligned `pd.Series` or, for naturally multi-output indicators, one index-aligned `pd.DataFrame`. Most indicators take a single ordered `pd.Series`; indicators that need several price columns at once, such as the volatility indicators consuming `high`, `low`, and `close`, take a `pd.DataFrame` instead. Every indicator supports two input forms: a single ordered instrument (only required to be chronologically ordered), or a canonical multi-instrument market frame with a `provider`/`ticker`/`trading_date` MultiIndex, in which case calculations are isolated per group and the input index and row order are preserved;
+- application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, and `add_volatility_features` return a copy of the input dataframe with final model feature columns added. They are importable from `swingtrader.data.features`, and `swingtrader.data.features.pipeline.add_default_features` runs the standard families in a fixed order.
 
 ## Return Features
 
@@ -35,7 +42,7 @@ For example, `horizons=(1, 5, 10)` produces `return_1d`, `return_5d`, and `retur
 
 ## Trend Features
 
-The trend feature orchestrator is `swingtrader.data.features.trends.add_trend_features`. It validates the source prices once, copies them, calculates the final trend model features, and appends those columns while preserving input row alignment.
+The trend feature orchestrator is `swingtrader.data.features.trend.add_trend_features`. It validates the source prices once, copies them, calculates the final trend model features, and appends those columns while preserving input row alignment.
 
 With the default settings, the orchestrator adds:
 
@@ -49,7 +56,7 @@ With the default settings, the orchestrator adds:
 - `plus_di`, the positive directional indicator measuring upward directional movement;
 - `minus_di`, the negative directional indicator measuring downward directional movement.
 
-The public numerical trend indicators are:
+The public numerical trend indicators, importable from `swingtrader.indicators`, are:
 
 - `sma`, which has one natural output and returns a series;
 - `ema`, which has one natural output and returns a series;
@@ -93,7 +100,7 @@ The orchestrator also appends the LazyBear squeeze momentum features:
 - `squeeze_duration`, the number of consecutive rows the current squeeze has been on;
 - `squeeze_release_duration`, the length of the squeeze that fired, recorded on the release row.
 
-The public numerical momentum indicators are:
+The public numerical momentum indicators, importable from `swingtrader.indicators`, are:
 
 - `ppo`, which has three natural outputs and returns a dataframe with `ppo`, `ppo_signal`, and `ppo_histogram` columns;
 - `ppo_percentile`, which has one natural output and returns a series;
@@ -113,7 +120,7 @@ PPO and PPO percentile validate their local parameters. A standalone single-tick
 
 `rsi` operates on a single ordered series, so the caller chooses the source, such as close, adjusted close, or an OHLC average. It is a bounded `[0, 100]` oscillator built from the average gain and average loss over `length` rows, each smoothed with Wilder's moving average, and calculated as `100 * avg_gain / (avg_gain + avg_loss)`. A window with no losses returns 100 and a window with no gains returns 0, while a fully flat window has neither gains nor losses and is left missing. The Wilder smoothing is the recursive form seeded from the first change rather than the canonical definition that seeds from the simple average of the first `length` changes, so early values differ slightly before converging, matching the ATR behavior in the volatility module. The first `length` rows of each series remain missing until the window is full.
 
-Inside `add_momentum_features`, `rsi` is calculated from `adjusted_close` so its gains and losses are not distorted by split and dividend discontinuities in the raw close, matching the return, trend, and volatility families. `rsi_percent_b` then reuses the volatility module's `bollinger_percent_b` on the `rsi` line, locating momentum within its own recent range as a scale-invariant feature. The standalone `rsi` indicator defaults to the conventional 14 rows through its `length` argument, while `add_momentum_features` deliberately defaults `rsi_length` to 21 rows so the persisted model feature uses a smoother, slower oscillator. The RSI Bollinger bands default to 20 rows with 2 standard deviations, calibratable through `rsi_bollinger_length` and `rsi_bollinger_num_std`.
+Inside `add_momentum_features`, `rsi` is calculated from `adjusted_close` so its gains and losses are not distorted by split and dividend discontinuities in the raw close, matching the return, trend, and volatility families. `rsi_percent_b` then reuses the `bollinger_percent_b` indicator on the `rsi` line, locating momentum within its own recent range as a scale-invariant feature. The standalone `rsi` indicator defaults to the conventional 14 rows through its `length` argument, while `add_momentum_features` deliberately defaults `rsi_length` to 21 rows so the persisted model feature uses a smoother, slower oscillator. The RSI Bollinger bands default to 20 rows with 2 standard deviations, calibratable through `rsi_bollinger_length` and `rsi_bollinger_num_std`.
 
 `stochastic_oscillator`, unlike the other momentum indicators, consumes several price columns at once, so it takes a dataframe with `high`, `low`, and `close` columns rather than a single series, analogous to `adx` in the trend module. The raw %K locates the close within its recent range as `100 * (close - lowest_low) / (highest_high - lowest_low)` over `k_length` rows, where `lowest_low` and `highest_high` are the rolling minimum low and maximum high over the same window. `stochastic_k` is that raw %K smoothed with a simple moving average over `k_smoothing` rows, and `stochastic_d` is a further simple moving average of `stochastic_k` over `d_length` rows. Passing `k_smoothing=1` yields the fast stochastic, while the conventional 14/3/3 defaults yield the slow stochastic. Both series are bounded to `[0, 100]`, a window whose highest high equals its lowest low has no range and is left missing, and the warm-up rows of each series remain missing until every rolling window is full.
 
@@ -121,7 +128,7 @@ Inside `add_momentum_features`, `stochastic_oscillator` is calculated from the r
 
 `mfi`, like `stochastic_oscillator`, consumes several price columns at once, so it takes a dataframe with `high`, `low`, `close`, and `volume` columns rather than a single series. Each row's typical price is `(high + low + close) / 3` and its raw money flow is the typical price times `volume`. A row's money flow counts as positive when its typical price rose from the prior row and negative when it fell; a row whose typical price is unchanged contributes to neither. MFI is `100 * positive_flow / (positive_flow + negative_flow)` over the trailing `length` rows, so it is often described as a volume-weighted RSI: a window with no negative flow returns 100, a window with no positive flow returns 0, and a window whose typical price never changes has neither positive nor negative flow and is left missing. The first `length` rows of each series remain missing until the trailing window is full, because the first row has no prior typical price to compare against, so MFI warms up one row later than a plain rolling window.
 
-Inside `add_momentum_features`, `mfi` is calculated from the raw `high`, `low`, `close`, and `volume` because the money flow needs the intraday extremes, the close, and the traded volume together, matching the stochastic, ADX, and ATR calculations. `mfi_percent_b` then reuses the volatility module's `bollinger_percent_b` on the `mfi` line, locating it within its own recent range as a scale-invariant feature, mirroring `rsi_percent_b`. The default length is the conventional 14 rows, calibratable through the `mfi_length` argument on `add_momentum_features` and the `length` argument on `mfi`, and the MFI Bollinger bands default to 20 rows with 2 standard deviations, calibratable through `mfi_bollinger_length` and `mfi_bollinger_num_std`.
+Inside `add_momentum_features`, `mfi` is calculated from the raw `high`, `low`, `close`, and `volume` because the money flow needs the intraday extremes, the close, and the traded volume together, matching the stochastic, ADX, and ATR calculations. `mfi_percent_b` then reuses the `bollinger_percent_b` indicator on the `mfi` line, locating it within its own recent range as a scale-invariant feature, mirroring `rsi_percent_b`. The default length is the conventional 14 rows, calibratable through the `mfi_length` argument on `add_momentum_features` and the `length` argument on `mfi`, and the MFI Bollinger bands default to 20 rows with 2 standard deviations, calibratable through `mfi_bollinger_length` and `mfi_bollinger_num_std`.
 
 `lazybear_squeeze_momentum` is a pandas port of the open-source [Squeeze Momentum Indicator [LazyBear]](https://www.tradingview.com/script/nqQ1DT5a-Squeeze-Momentum-Indicator-LazyBear/), itself a derivative of John Carter's TTM Squeeze. Like `stochastic_oscillator` and `mfi` it consumes several price columns at once, so it takes a dataframe with `high`, `low`, and `close` columns; it computes True Range and ATR internally rather than requiring the caller to precompute them. The squeeze compares two volatility envelopes built from `close`: the Bollinger Bands are the `bb_length`-row simple moving average plus and minus `bb_mult` population standard deviations, and the Keltner Channels are the `kc_length`-row simple moving average plus and minus `kc_mult` times the `kc_length`-row average True Range. A squeeze is on (`squeeze_on`) while both Bollinger Bands sit inside the Keltner Channels, signalling low volatility and a coiled market, and off (`squeeze_off`) once they expand back outside them.
 
@@ -139,7 +146,7 @@ With the default settings, the orchestrator adds:
 - `bollinger_bandwidth`, the width between the upper and lower Bollinger bands relative to the middle band, calculated from `adjusted_close`;
 - `bollinger_percent_b`, the position of `adjusted_close` within its Bollinger bands.
 
-The public numerical volatility indicators are:
+The public numerical volatility indicators, importable from `swingtrader.indicators`, are:
 
 - `true_range`, which returns a series with the greatest of the current high-low range, the absolute gap between the current high and the previous close, and the absolute gap between the current low and the previous close;
 - `atr`, which returns a series with Wilder's smoothed moving average of `true_range` in the input price units;
@@ -159,6 +166,10 @@ Wilder's smoothing here is the recursive exponential form seeded from the first 
 The default Bollinger length is 20 rows with 2 standard deviations, both calibratable through the `bollinger_length` and `bollinger_num_std` arguments on `add_volatility_features` and the `length` and `num_std` arguments on the Bollinger indicators. The middle band is the simple moving average, and the outer bands sit `num_std` rolling standard deviations away, leaving the first `length - 1` rows of each series missing until the window is full. The rolling standard deviation is the population standard deviation (`ddof=0`), matching John Bollinger's original definition and most charting platforms; implementations that use the sample standard deviation (`ddof=1`) produce slightly wider bands for the same `length`.
 
 Raw `true_range`, `atr`, and `bollinger_bands` are expressed in the input price units and are not comparable across tickers, so `add_volatility_features` only appends the scale-invariant `atr_percent`, `bollinger_bandwidth`, and `bollinger_percent_b` columns. `true_range`, `atr`, and `bollinger_bands` are exposed as standalone indicators, analogous to `macd`, so consumers such as exploratory analysis and the frontend application can obtain absolute price-unit values directly. The volatility module is intended to later host additional range and dispersion measures.
+
+## Default Feature Pipeline
+
+`swingtrader.data.features.pipeline.add_default_features` runs the standard feature families in a fixed order: returns, then trend, then momentum, then volatility. Each family receives the dataframe produced by the previous step, so the result is identical to calling `add_return_features`, `add_trend_features`, `add_momentum_features`, and `add_volatility_features` in that sequence with their default arguments. It provides a single entry point for producing the full default feature set while leaving the individual builders available for callers that need custom arguments or a subset of families.
 
 ## Future Feature Ideas
 
