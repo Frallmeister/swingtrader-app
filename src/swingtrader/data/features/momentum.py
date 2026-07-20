@@ -94,8 +94,7 @@ def add_momentum_features(
     data[ppo_block.columns] = ppo_block
 
     data["ppo_percentile"] = ppo_percentile(
-        data.loc[:, "ppo"],
-        min_history=ppo_percentile_min_history
+        data.loc[:, "ppo"], min_history=ppo_percentile_min_history
     ).rename("ppo_percentile")
 
     data["rsi"] = rsi(data.loc[:, "adjusted_close"], length=rsi_length)
