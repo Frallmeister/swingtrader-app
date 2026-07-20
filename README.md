@@ -1,5 +1,14 @@
 # Swingtrader
 
+
+[![CI](https://github.com/Frallmeister/swingtrader-app/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Frallmeister/swingtrader-app/actions/workflows/ci.yml)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![pytest](https://img.shields.io/badge/tests-pytest-blue.svg)](https://docs.pytest.org/)
+[![Ruff](https://img.shields.io/badge/lint%20%26%20format-ruff-black.svg)](https://docs.astral.sh/ruff/)
+[![uv](https://img.shields.io/badge/environment-uv-purple.svg)](https://docs.astral.sh/uv/)
+
+That is enough to communicate:
+
 Swingtrader is a personal swing-trading decision-support application built around reproducible market data ingestion, bronze storage, ticker readiness checks, feature generation, model training, and eventually ranked trade candidates for manual review.
 
 The long-term goal is to support disciplined manual trading decisions, not automatic order placement.
