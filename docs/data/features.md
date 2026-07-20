@@ -103,16 +103,17 @@ The orchestrator also appends the LazyBear squeeze momentum features:
 The public numerical momentum indicators, importable from `swingtrader.indicators`, are:
 
 - `ppo`, which has three natural outputs and returns a dataframe with `ppo`, `ppo_signal`, and `ppo_histogram` columns;
-- `ppo_percentile`, which has one natural output and returns a series;
 - `rsi`, which has one natural output and returns a bounded `[0, 100]` oscillator series;
 - `stochastic_oscillator`, which has two natural outputs and returns a dataframe with `stochastic_k` and `stochastic_d` columns bounded to `[0, 100]`, and which consumes a dataframe with `high`, `low`, and `close` columns rather than a single series;
 - `mfi`, which has one natural output and returns a bounded `[0, 100]` oscillator series, and which consumes a dataframe with `high`, `low`, `close`, and `volume` columns rather than a single series;
 - `macd`, which has three natural outputs and returns a dataframe with `macd`, `macd_signal`, and `macd_histogram` columns expressed in the input price units;
 - `lazybear_squeeze_momentum`, which consumes a dataframe with `high`, `low`, and `close` columns and returns a dataframe with the squeeze state and momentum columns, computing True Range and ATR internally.
 
-Each indicator accepts either one ordered series for a single ticker or a multi-ticker series that carries the canonical `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker series does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved. A partial or wrongly ordered MultiIndex, such as `["ticker", "trading_date"]`, is rejected.
+Each indicator accepts either one ordered series or DataFrame, as appropriate for that indicator for a single ticker or a multi-ticker series that carries the canonical `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker series does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved. A partial or wrongly ordered MultiIndex, such as `["ticker", "trading_date"]`, is rejected.
 
 The default PPO lengths are 12, 26, and 9 rows, and `add_momentum_features` requires 100 prior valid PPO observations before `ppo_percentile` is populated by default. Calculations are grouped by `provider` and `ticker`, and warm-up rows remain missing until each exponential or expanding-history calculation has enough observations. The momentum module is intended to later host additional oscillators such as rate-of-change.
+
+`ppo_percentile` is a public model-oriented feature transform rather than a technical indicator. It is available from `swingtrader.data.features.momentum`. It calculates the expanding, point-in-time percentile rank of a PPO series while preserving provider/ticker isolation.
 
 PPO and PPO percentile validate their local parameters. A standalone single-ticker series is rejected only when its datetime or period index is visibly unordered. A multi-ticker series must satisfy the canonical market-price index contract, and the calculation stays within each provider/ticker group. They do not perform dataframe-level column validation and do not sort input values. PPO signal and histogram are part of the cohesive `ppo` output rather than separate public functions.
 

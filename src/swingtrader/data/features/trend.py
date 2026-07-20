@@ -47,6 +47,10 @@ def add_trend_features(
     validate_market_price_index(data)
     validate_required_columns(data, required_columns={"high", "low", "close", "adjusted_close"})
 
+    for length in ma_lengths:
+        if isinstance(length, bool) or not isinstance(length, int) or length <= 0:
+            raise ValueError(f"Length must be a positive integer; got {length!r}")
+
     fast, mid, slow = ma_lengths
     if not fast < mid < slow:
         raise ValueError(
