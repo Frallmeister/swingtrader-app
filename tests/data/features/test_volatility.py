@@ -3,6 +3,7 @@ import pytest
 
 from swingtrader.data.features.volatility import add_volatility_features
 from swingtrader.indicators.volatility import (
+    adr,
     atr_percent,
     bollinger_bandwidth,
     bollinger_percent_b,
@@ -13,10 +14,11 @@ def test_add_volatility_features_preserves_source_columns_and_adds_final_feature
     prices = _indexed_prices()
     original = prices.copy(deep=True)
 
-    result = add_volatility_features(prices, atr_length=2, bollinger_length=3)
+    result = add_volatility_features(prices, adr_length=2, atr_length=2, bollinger_length=3)
 
     expected_columns = [
         *prices.columns,
+        "adr_percent",
         "atr_percent",
         "bollinger_bandwidth",
         "bollinger_percent_b",
@@ -24,6 +26,9 @@ def test_add_volatility_features_preserves_source_columns_and_adds_final_feature
     assert list(result.columns) == expected_columns
     pd.testing.assert_index_equal(result.index, prices.index)
     pd.testing.assert_frame_equal(prices, original)
+
+    expected_adr = adr(prices, length=2)["adr_percent"]
+    pd.testing.assert_series_equal(result["adr_percent"], expected_adr, check_exact=False)
 
     expected = atr_percent(prices, length=2).rename("atr_percent")
     pd.testing.assert_series_equal(result["atr_percent"], expected, check_exact=False)
@@ -41,6 +46,22 @@ def test_add_volatility_features_preserves_source_columns_and_adds_final_feature
     )
 
 
+def test_add_volatility_features_uses_custom_adr_length() -> None:
+    prices = _indexed_prices()
+
+    default_length = add_volatility_features(prices, atr_length=2)
+    custom_length = add_volatility_features(
+        prices,
+        adr_length=2,
+        atr_length=2,
+    )
+
+    # The default 20-row window never warms up on this short history, while the
+    # short custom window produces populated ADR-percent values.
+    assert default_length["adr_percent"].notna().sum() == 0
+    assert custom_length["adr_percent"].notna().sum() > 0
+
+
 def test_add_volatility_features_uses_custom_atr_length() -> None:
     prices = _indexed_prices()
 
@@ -56,13 +77,15 @@ def test_add_volatility_features_uses_custom_atr_length() -> None:
 def test_add_volatility_features_preserves_multiindex_and_calculates_each_ticker() -> None:
     prices = _indexed_prices()
 
-    result = add_volatility_features(prices, atr_length=2)
+    result = add_volatility_features(prices, adr_length=2, atr_length=2)
 
     pd.testing.assert_index_equal(result.index, prices.index)
-    # A constant BBB.ST price yields a zero ATR percent after warm-up, isolated
-    # from AAA.ST.
-    bbb_atr_percent = result.loc[("yfinance", "BBB.ST"), "atr_percent"]
-    assert (bbb_atr_percent.dropna() == 0.0).all()
+    # A constant BBB.ST price yields a zero ATR percent after warm-up, isolated from AAA.ST.
+    bbb = result.loc[("yfinance", "BBB.ST")]
+    assert (bbb["adr_percent"].dropna() == 0.0).all()
+    assert (bbb["atr_percent"].dropna() == 0.0).all()
+    assert result.loc[("yfinance", "AAA.ST"), "adr_percent"].notna().sum() == 3
+    assert result.loc[("yfinance", "BBB.ST"), "adr_percent"].notna().sum() == 3
     assert result.loc[("yfinance", "AAA.ST"), "atr_percent"].notna().sum() == 3
     assert result.loc[("yfinance", "BBB.ST"), "atr_percent"].notna().sum() == 3
 
@@ -97,6 +120,9 @@ def test_add_volatility_features_requires_adjusted_close() -> None:
 
 def test_add_volatility_features_rejects_invalid_configuration() -> None:
     prices = _indexed_prices()
+
+    with pytest.raises(ValueError, match="positive integer"):
+        add_volatility_features(prices, adr_length=0)
 
     with pytest.raises(ValueError, match="positive integer"):
         add_volatility_features(prices, atr_length=0)
