@@ -19,7 +19,9 @@ oscillator, and a standalone MACD indicator.
 import pandas as pd
 
 from swingtrader.data.features._numerical import (
+    consecutive_true_count,
     exponential_moving_average,
+    linreg,
     safe_divide,
     wilder_moving_average,
 )
@@ -29,7 +31,12 @@ from swingtrader.data.features._validation import (
     validate_market_price_index,
     validate_required_columns,
 )
-from swingtrader.data.features.volatility import bollinger_percent_b
+from swingtrader.data.features.trends import sma
+from swingtrader.data.features.volatility import (
+    atr,
+    bollinger_percent_b,
+    true_range,
+)
 
 
 def add_momentum_features(
@@ -110,6 +117,14 @@ def add_momentum_features(
         length=mfi_bollinger_length,
         num_std=mfi_bollinger_num_std,
     ).rename("mfi_percent_b")
+
+    data["atr"] = atr(data)
+    data["true_range"] = true_range(data)
+    lazybear_sqz_momentum_block = lazybear_squeeze_momentum(data)
+    lazybear_sqz_momentum_block = lazybear_sqz_momentum_block.drop(columns=["squeeze_momentum"])
+    data[lazybear_sqz_momentum_block.columns] = lazybear_sqz_momentum_block
+
+    data.drop(columns=["atr", "true_range"], inplace=True)
     return data
 
 
@@ -289,6 +304,143 @@ def ppo_percentile(
     _validate_min_history(min_history)
     return apply_by_ticker(
         values, lambda group: _expanding_percentile(group, min_history=min_history)
+    )
+
+
+def lazybear_squeeze_momentum(
+    data: pd.DataFrame,
+    *,
+    bb_length: int = 20,
+    bb_mult: float = 2.0,
+    kc_length: int = 20,
+    kc_mult: float = 1.5,
+) -> pd.DataFrame:
+    """Calculate squeeze momentum signals for one or multiple tickers.
+
+    The script is based on the open-source indicator published by LazyBear on TradingView.
+    """
+    _validate_min_history(bb_length)
+    _validate_min_history(kc_length)
+    validate_required_columns(
+        data,
+        required_columns={"high", "low", "close", "true_range", "atr"},
+    )
+    kwargs = {
+        "bb_length": bb_length,
+        "bb_mult": bb_mult,
+        "kc_length": kc_length,
+        "kc_mult": kc_mult,
+    }
+    return apply_by_ticker(data, lambda group: _lazybear_squeeze_momentum(group, **kwargs))
+
+
+def _lazybear_squeeze_momentum(
+    data: pd.DataFrame,
+    *,
+    bb_length: int = 20,
+    bb_mult: float = 2.0,
+    kc_length: int = 20,
+    kc_mult: float = 1.5,
+) -> pd.DataFrame:
+    """Calculate LazyBear-style squeeze states and momentum.
+
+    Parameters
+    ----------
+    data
+        Chronologically ordered OHLC data containing ``high``, ``low``,
+        ``close``, and ``true_range``.
+    bb_length
+        Bollinger Band lookback length.
+    bb_mult
+        Bollinger Band standard-deviation multiplier.
+    kc_length
+        Keltner Channel lookback length.
+    kc_mult
+        Keltner Channel range multiplier.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing the squeeze state and momentum value.
+
+    Notes
+    -----
+    Source: https://www.tradingview.com/script/nqQ1DT5a-Squeeze-Momentum-Indicator-LazyBear/
+
+    """
+    close = data["close"]
+    high = data["high"]
+    low = data["low"]
+    true_range_ = data["true_range"]
+    atr_ = data["atr"]
+
+    # Bollinger Bands
+    bb_basis = sma(close, length=bb_length)
+    bb_deviation = (
+        bb_mult  # The original LazyBear script uses kc_mult here, most likely a mistake.
+        * close.rolling(
+            window=bb_length,
+            min_periods=bb_length,
+        ).std(ddof=0)
+    )
+
+    upper_bb = bb_basis + bb_deviation
+    lower_bb = bb_basis - bb_deviation
+
+    # Keltner Channels
+    kc_basis = sma(close, length=kc_length)
+    range_ma = sma(true_range_, length=kc_length)
+
+    upper_kc = kc_basis + kc_mult * range_ma
+    lower_kc = kc_basis - kc_mult * range_ma
+
+    squeeze_ready = (
+        pd.concat(
+            [upper_bb, lower_bb, upper_kc, lower_kc],
+            axis=1,
+        )
+        .notna()
+        .all(axis=1)
+    )
+
+    squeeze_on = (
+        ((lower_bb > lower_kc) & (upper_bb < upper_kc)).astype("boolean").where(squeeze_ready)
+    )
+
+    squeeze_off = (
+        ((lower_bb < lower_kc) & (upper_bb > upper_kc)).astype("boolean").where(squeeze_ready)
+    )
+
+    squeeze_width_ratio = safe_divide(upper_bb - lower_bb, upper_kc - lower_kc)
+    squeeze_released = squeeze_on.shift(1, fill_value=False) & squeeze_on.eq(False)
+    squeeze_duration = consecutive_true_count(squeeze_on)
+    squeeze_release_duration = squeeze_duration.shift(1).where(squeeze_released)
+
+    # Calculate momentum
+    highest_high = high.rolling(window=kc_length, min_periods=kc_length).max()
+    lowest_low = low.rolling(window=kc_length, min_periods=kc_length).min()
+
+    range_midpoint = (highest_high + lowest_low) / 2.0
+    reference_level = (range_midpoint + kc_basis) / 2.0
+    detrended_close = close - reference_level
+
+    momentum = linreg(detrended_close, length=kc_length, offset=0)
+    momentum_atr = safe_divide(momentum, atr_)
+    momentum_atr_change = momentum_atr.diff()
+
+    return pd.DataFrame(
+        {
+            "squeeze_on": squeeze_on,
+            "squeeze_off": squeeze_off,
+            "squeeze_released": squeeze_released,
+            "squeeze_width_ratio": squeeze_width_ratio,
+            "squeeze_momentum": momentum,
+            "squeeze_momentum_atr": momentum_atr,
+            "squeeze_momentum_atr_change": momentum_atr_change,
+            "squeeze_duration": squeeze_duration,
+            "squeeze_release_duration": squeeze_release_duration,
+        },
+        index=data.index,
     )
 
 
