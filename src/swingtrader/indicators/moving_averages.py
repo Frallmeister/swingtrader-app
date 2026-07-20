@@ -73,8 +73,9 @@ def rolling_vwap(data: pd.DataFrame, *, length: int) -> pd.Series:
         invalid.
 
     Raises:
-        ValueError: If ``length`` is not positive.
-        KeyError: If a required column is missing.
+        ValueError: If ``length`` is not a positive integer, a required
+            column is missing, or the input index violates the indicator
+            ordering contract.
     """
     validate_length(length)
     validate_required_columns(data, required_columns={"high", "low", "close", "volume"})
