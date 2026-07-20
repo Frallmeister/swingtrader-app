@@ -93,14 +93,10 @@ def add_momentum_features(
     ppo_block = ppo(data.loc[:, "adjusted_close"], lengths=ppo_lengths, use_percent=False)
     data[ppo_block.columns] = ppo_block
 
-    _validate_min_history(ppo_percentile_min_history)
-    ppo_by_ticker = data.loc[:, "ppo"].groupby(
-        level=["provider", "ticker"],
-        sort=False,
-    )
-    data["ppo_percentile"] = ppo_by_ticker.transform(
-        lambda values: _expanding_percentile(values, min_history=ppo_percentile_min_history)
-    )
+    data["ppo_percentile"] = ppo_percentile(
+        data.loc[:, "ppo"],
+        min_history=ppo_percentile_min_history
+    ).rename("ppo_percentile")
 
     data["rsi"] = rsi(data.loc[:, "adjusted_close"], length=rsi_length)
     data["rsi_percent_b"] = bollinger_percent_b(
