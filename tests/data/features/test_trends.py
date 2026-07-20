@@ -12,22 +12,25 @@ def test_add_trend_features_preserves_source_columns_and_adds_final_features() -
 
     result = add_trend_features(
         prices,
-        fast_slow_lengths=(2, 3),
+        ma_lengths=(1, 2, 3),
     )
 
     expected_columns = [
         *prices.columns,
-        "sma_fast_to_sma_slow",
-        "ema_fast_to_ema_slow",
-        "ema_fast_to_sma_fast",
+        "ema_fast_to_ema_mid",
+        "ema_mid_to_ema_slow",
+        "ema_mid_to_sma_mid",
+        "close_to_ema_fast",
+        "close_to_ema_mid",
+        "close_to_ema_slow",
         "adx",
         "plus_di",
         "minus_di",
     ]
     assert list(result.columns) == expected_columns
-    assert "sma_fast" not in result.columns
-    assert "sma_slow" not in result.columns
+    assert "sma_mid" not in result.columns
     assert "ema_fast" not in result.columns
+    assert "ema_mid" not in result.columns
     assert "ema_slow" not in result.columns
     assert "ppo" not in result.columns
     assert "ppo_signal" not in result.columns
@@ -37,15 +40,15 @@ def test_add_trend_features_preserves_source_columns_and_adds_final_features() -
     pd.testing.assert_frame_equal(prices, original)
 
     pd.testing.assert_series_equal(
-        result["sma_fast_to_sma_slow"].reset_index(drop=True),
+        result["close_to_ema_slow"].reset_index(drop=True),
         pd.Series(
-            [np.nan, np.nan, 13.0 / 12.0 - 1.0, 15.0 / 14.0 - 1.0, np.nan, np.nan, 0.0, 0.0],
-            name="sma_fast_to_sma_slow",
+            [np.nan, np.nan, 14.0 / 12.5 - 1.0, 16.0 / 14.25 - 1.0, np.nan, np.nan, 0.0, 0.0],
+            name="close_to_ema_slow",
         ),
         check_exact=False,
     )
     pd.testing.assert_series_equal(
-        result["ema_fast_to_sma_fast"].reset_index(drop=True),
+        result["ema_mid_to_sma_mid"].reset_index(drop=True),
         pd.Series(
             [
                 np.nan,
@@ -57,7 +60,7 @@ def test_add_trend_features_preserves_source_columns_and_adds_final_features() -
                 0.0,
                 0.0,
             ],
-            name="ema_fast_to_sma_fast",
+            name="ema_mid_to_sma_mid",
         ),
         check_exact=False,
     )
@@ -68,26 +71,26 @@ def test_add_trend_features_preserves_multiindex_and_calculates_each_ticker() ->
 
     result = add_trend_features(
         prices,
-        fast_slow_lengths=(2, 3),
+        ma_lengths=(1, 2, 3),
     )
 
     pd.testing.assert_index_equal(result.index, prices.index)
-    assert result.loc[("yfinance", "AAA.ST"), "sma_fast_to_sma_slow"].notna().sum() == 2
-    assert result.loc[("yfinance", "BBB.ST"), "sma_fast_to_sma_slow"].notna().sum() == 2
+    assert result.loc[("yfinance", "AAA.ST"), "close_to_ema_slow"].notna().sum() == 2
+    assert result.loc[("yfinance", "BBB.ST"), "close_to_ema_slow"].notna().sum() == 2
 
 
 def test_add_trend_features_rejects_identifiers_as_columns() -> None:
     prices = _prices()
 
     with pytest.raises(ValueError, match="MultiIndex with levels"):
-        add_trend_features(prices, fast_slow_lengths=(2, 3))
+        add_trend_features(prices, ma_lengths=(1, 2, 3))
 
 
 def test_add_trend_features_rejects_unsorted_input() -> None:
     prices = _indexed_prices().iloc[[1, 0, 2, 3, 4, 5, 6, 7]]
 
     with pytest.raises(ValueError, match="must be sorted"):
-        add_trend_features(prices, fast_slow_lengths=(2, 3))
+        add_trend_features(prices, ma_lengths=(1, 2, 3))
 
 
 def test_sma_and_ema_calculate_one_sequence() -> None:
@@ -196,8 +199,8 @@ def test_sma_and_ema_allow_non_temporal_index_and_preserve_row_order() -> None:
 def test_trend_helpers_reject_invalid_inputs() -> None:
     prices = _indexed_prices()
 
-    with pytest.raises(ValueError, match="fast length"):
-        add_trend_features(prices, fast_slow_lengths=(3, 2))
+    with pytest.raises(ValueError, match="ascending order"):
+        add_trend_features(prices, ma_lengths=(3, 2, 1))
 
     with pytest.raises(ValueError, match="positive integer"):
         sma(prices["adjusted_close"], length=0)
@@ -333,7 +336,7 @@ def test_add_trend_features_requires_high_low_close() -> None:
     prices = _indexed_prices().drop(columns="high")
 
     with pytest.raises(ValueError, match="Missing required columns"):
-        add_trend_features(prices, fast_slow_lengths=(2, 3))
+        add_trend_features(prices, ma_lengths=(1, 2, 3))
 
 
 def test_adx_returns_expected_columns_and_values() -> None:
