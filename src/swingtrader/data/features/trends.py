@@ -34,7 +34,7 @@ from swingtrader.data.features._validation import (
 def add_trend_features(
     data: pd.DataFrame,
     *,
-    fast_slow_lengths: tuple[int, int] = (20, 50),
+    ma_lengths: tuple[int, int, int] = (10, 20, 50),
     adx_length: int = 14,
 ) -> pd.DataFrame:
     """Return a copy of data with the default trend feature set added.
@@ -55,12 +55,13 @@ def add_trend_features(
     validate_market_price_index(data)
     validate_required_columns(data, required_columns={"high", "low", "close", "adjusted_close"})
 
-    fast, slow = fast_slow_lengths
+    fast, mid, slow = ma_lengths
     validate_length(fast)
+    validate_length(mid)
     validate_length(slow)
-    if fast >= slow:
+    if not fast < mid < slow:
         raise ValueError(
-            f"The fast length must be lower than the slow length; got fast={fast!r}, slow={slow!r}"
+            f"The MA lengths must be in ascending order; got ({fast!r}, {mid!r}, {slow!r})"
         )
     validate_length(adx_length)
 
@@ -70,14 +71,18 @@ def add_trend_features(
         sort=False,
     )
 
-    sma_fast = adjusted_close_by_ticker.transform(lambda values: _sma(values, length=fast))
-    sma_slow = adjusted_close_by_ticker.transform(lambda values: _sma(values, length=slow))
+    adjusted_close = data.loc[:, "adjusted_close"]
+    sma_mid = adjusted_close_by_ticker.transform(lambda values: _sma(values, length=mid))
     ema_fast = adjusted_close_by_ticker.transform(lambda values: _ema(values, length=fast))
+    ema_mid = adjusted_close_by_ticker.transform(lambda values: _ema(values, length=mid))
     ema_slow = adjusted_close_by_ticker.transform(lambda values: _ema(values, length=slow))
 
-    data["sma_fast_to_sma_slow"] = safe_divide(sma_fast, sma_slow).sub(1)
-    data["ema_fast_to_ema_slow"] = safe_divide(ema_fast, ema_slow).sub(1)
-    data["ema_fast_to_sma_fast"] = safe_divide(ema_fast, sma_fast).sub(1)
+    data["ema_fast_to_ema_mid"] = safe_divide(ema_fast, ema_mid).sub(1)
+    data["ema_mid_to_ema_slow"] = safe_divide(ema_mid, ema_slow).sub(1)
+    data["ema_mid_to_sma_mid"] = safe_divide(ema_mid, sma_mid).sub(1)
+    data["close_to_ema_fast"] = safe_divide(adjusted_close, ema_fast).sub(1)
+    data["close_to_ema_mid"] = safe_divide(adjusted_close, ema_mid).sub(1)
+    data["close_to_ema_slow"] = safe_divide(adjusted_close, ema_slow).sub(1)
 
     adx_block = adx(data.loc[:, ["high", "low", "close"]], length=adx_length)
     data[adx_block.columns] = adx_block
