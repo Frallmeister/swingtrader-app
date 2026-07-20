@@ -89,7 +89,7 @@ def add_trend_features(
     adx_block = adx(data.loc[:, ["high", "low", "close"]], length=adx_length)
     data[adx_block.columns] = adx_block
 
-    vwap_distance = data["close"] / rolling_vwap(data, length=vwap_length) - 1
+    vwap_distance = safe_divide(data["close"], rolling_vwap(data, length=vwap_length)).sub(1)
     data["vwap_distance"] = vwap_distance
     data["vwap_distance_percent_b"] = bollinger_percent_b(
         vwap_distance,
