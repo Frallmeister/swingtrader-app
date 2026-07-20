@@ -3,6 +3,7 @@ import pytest
 
 from swingtrader.indicators._smoothing import wilder_moving_average
 from swingtrader.indicators.volatility import (
+    adr,
     atr,
     atr_percent,
     bollinger_bands,
@@ -64,6 +65,122 @@ def test_true_range_groups_by_ticker_index_levels() -> None:
         pd.Series([2.0, 3.0, 3.0, 1.0], name="true_range"),
         check_exact=False,
     )
+
+
+def test_adr_returns_expected_values() -> None:
+    frame = _prices().iloc[:4]
+
+    result = adr(frame, length=2)
+
+    expected = pd.DataFrame(
+        {
+            "adr": [float("nan"), 2.5, 3.0, 2.0],
+            "adr_percent": [
+                float("nan"),
+                100 * 2.5 / 12.0,
+                100 * 3.0 / 14.0,
+                100 * 2.0 / 13.0,
+            ],
+        },
+        index=frame.index,
+    )
+
+    assert isinstance(result, pd.DataFrame)
+    assert list(result.columns) == ["adr", "adr_percent"]
+    pd.testing.assert_index_equal(result.index, frame.index)
+    pd.testing.assert_frame_equal(result, expected, check_exact=False)
+
+
+def test_adr_ignores_overnight_gaps() -> None:
+    frame = pd.DataFrame(
+        {
+            "high": [11.0, 20.0, 21.0],
+            "low": [9.0, 18.0, 19.0],
+            "close": [10.0, 19.0, 20.0],
+        }
+    )
+
+    result = adr(frame, length=2)
+
+    # Each daily high-low range is 2.0. The gap from the first close to the
+    # second day's prices must not affect ADR.
+    pd.testing.assert_series_equal(
+        result["adr"],
+        pd.Series([float("nan"), 2.0, 2.0], name="adr"),
+        check_exact=False,
+    )
+
+
+def test_adr_allows_non_temporal_index_and_preserves_row_order() -> None:
+    frame = _prices().iloc[:3].set_axis(pd.Index([2, 0, 1]))
+
+    result = adr(frame, length=2)
+
+    pd.testing.assert_index_equal(result.index, frame.index)
+    pd.testing.assert_series_equal(
+        result["adr"],
+        pd.Series(
+            [float("nan"), 2.5, 3.0],
+            index=frame.index,
+            name="adr",
+        ),
+        check_exact=False,
+    )
+
+
+@pytest.mark.parametrize("length", [0, -1, True, 1.5])
+def test_adr_rejects_invalid_length(length: object) -> None:
+    with pytest.raises(ValueError, match="positive integer"):
+        adr(_prices().iloc[:4], length=length)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("column", ["high", "low", "close"])
+def test_adr_requires_high_low_close(column: str) -> None:
+    frame = _prices().iloc[:4].drop(columns=column)
+
+    with pytest.raises(ValueError, match="Missing required columns"):
+        adr(frame, length=2)
+
+
+def test_adr_groups_by_ticker_index_levels() -> None:
+    prices = _indexed_prices()
+
+    result = adr(prices, length=2)
+
+    pd.testing.assert_index_equal(result.index, prices.index)
+
+    aaa = result.loc[("yfinance", "AAA.ST")].reset_index(drop=True)
+    expected_aaa = pd.DataFrame(
+        {
+            "adr": [float("nan"), 2.5, 3.0, 2.0],
+            "adr_percent": [
+                float("nan"),
+                100 * 2.5 / 12.0,
+                100 * 3.0 / 14.0,
+                100 * 2.0 / 13.0,
+            ],
+        }
+    )
+    pd.testing.assert_frame_equal(aaa, expected_aaa, check_exact=False)
+
+    # BBB.ST has a constant price and must start a fresh rolling window rather
+    # than receiving history from AAA.ST.
+    bbb = result.loc[("yfinance", "BBB.ST")]
+    assert bbb.isna().sum().to_dict() == {
+        "adr": 1,
+        "adr_percent": 1,
+    }
+    assert (bbb.dropna() == 0.0).all().all()
+
+
+def test_adr_percent_is_missing_when_close_is_zero() -> None:
+    frame = _prices().iloc[:2].copy()
+    frame.loc[frame.index[-1], "close"] = 0.0
+
+    result = adr(frame, length=1)
+
+    assert result["adr"].iloc[-1] == 3.0
+    assert pd.isna(result["adr_percent"].iloc[-1])
 
 
 def test_atr_returns_wilder_smoothed_true_range() -> None:

@@ -24,6 +24,7 @@ from swingtrader.indicators.moving_averages import ema, sma
 from swingtrader.indicators.oscillators import rsi, stochastic_oscillator
 from swingtrader.indicators.squeeze_momentum import lazybear_squeeze_momentum
 from swingtrader.indicators.volatility import (
+    adr,
     atr,
     atr_percent,
     bollinger_bands,
@@ -34,6 +35,7 @@ from swingtrader.indicators.volatility import (
 from swingtrader.indicators.volume import mfi
 
 __all__ = [
+    "adr",
     "adx",
     "atr",
     "atr_percent",

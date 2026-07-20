@@ -14,6 +14,7 @@ import pandas as pd
 
 from swingtrader.core.numerical import safe_divide
 from swingtrader.data.market_frame import apply_by_ticker, validate_required_columns
+from swingtrader.indicators import sma
 from swingtrader.indicators._smoothing import wilder_moving_average
 from swingtrader.indicators._validation import validate_length, validate_num_std
 
@@ -75,6 +76,43 @@ def atr_percent(data: pd.DataFrame, *, length: int = 14) -> pd.Series:
     validate_length(length)
     validate_required_columns(data, required_columns={"high", "low", "close"})
     return apply_by_ticker(data, lambda group: _atr_percent(group, length=length))
+
+
+def adr(data: pd.DataFrame, *, length: int = 20) -> pd.DataFrame:
+    """Calculate Average Daily Range and Average Daily Range Percentage.
+
+    Average Daily Range (ADR) is the simple moving average of each session's
+    high-low range. Unlike Average True Range (ATR), ADR does not account for
+    gaps between the previous close and the current session.
+
+    ADR percentage normalizes ADR relative to the current closing price:
+
+        adr_percent = 100 * adr / close
+
+    Calculations are performed independently for each ticker when ticker
+    identifiers are present in the input.
+
+    Args:
+        data: Price data containing ``high``, ``low``, and ``close`` columns.
+        length: Number of observations used in the rolling average.
+
+    Returns:
+        A DataFrame indexed like ``data`` with the following columns:
+
+        - ``adr``: Average daily high-low range.
+        - ``adr_percent``: ADR as a percentage of the current closing price.
+
+        The first ``length - 1`` observations for each ticker are missing
+        because the rolling window is incomplete. ``adr_percent`` is also
+        missing when the closing price is zero or non-finite.
+
+    Raises:
+        ValueError: If ``length`` is not a positive integer or if a required
+            input column is missing.
+    """
+    validate_length(length)
+    validate_required_columns(data, required_columns={"high", "low", "close"})
+    return apply_by_ticker(data, lambda group: _adr(group, length=length))
 
 
 def bollinger_bands(
@@ -173,6 +211,19 @@ def _atr(data: pd.DataFrame, *, length: int) -> pd.Series:
 def _atr_percent(data: pd.DataFrame, *, length: int) -> pd.Series:
     atr_values = _atr(data, length=length)
     return (100 * safe_divide(atr_values, data.loc[:, "close"])).rename("atr_percent")
+
+
+def _adr(data: pd.DataFrame, length: int) -> pd.DataFrame:
+    daily_range = data["high"] - data["low"]
+    average_daily_range = sma(daily_range, length=length)
+    average_daily_range_percent = 100 * safe_divide(average_daily_range, data["close"])
+    return pd.DataFrame(
+        {
+            "adr": average_daily_range,
+            "adr_percent": average_daily_range_percent,
+        },
+        index=data.index,
+    )
 
 
 def _bollinger_bands(values: pd.Series, *, length: int, num_std: float) -> pd.DataFrame:
