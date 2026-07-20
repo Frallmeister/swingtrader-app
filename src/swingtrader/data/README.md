@@ -15,9 +15,10 @@ See the main documentation for details:
 The intended local package boundaries remain:
 
 ```text
-clients/    Provider-specific API clients and HTTP wrappers.
-ingestion/  Retrieval and normalization workflows.
-bronze/     Source-oriented schemas and writers.
-features/   Model-ready in-memory transformations.
-jobs/       Thin runnable entrypoints for local data workflows.
+clients/        Provider-specific API clients and HTTP wrappers.
+ingestion/      Retrieval and normalization workflows.
+bronze/         Source-oriented schemas and writers.
+market_frame.py Canonical market-frame index contract and per-ticker helpers.
+features/       Model-ready in-memory transformations.
+jobs/           Thin runnable entrypoints for local data workflows.
 ```
