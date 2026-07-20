@@ -20,7 +20,7 @@ Indicators return new index-aligned outputs and never mutate their input objects
 
 from swingtrader.indicators.directional_movement import adx
 from swingtrader.indicators.macd import macd, ppo
-from swingtrader.indicators.moving_averages import ema, sma
+from swingtrader.indicators.moving_averages import ema, rolling_vwap, sma
 from swingtrader.indicators.oscillators import rsi, stochastic_oscillator
 from swingtrader.indicators.squeeze_momentum import lazybear_squeeze_momentum
 from swingtrader.indicators.volatility import (
@@ -47,6 +47,7 @@ __all__ = [
     "macd",
     "mfi",
     "ppo",
+    "rolling_vwap",
     "rsi",
     "sma",
     "stochastic_oscillator",
