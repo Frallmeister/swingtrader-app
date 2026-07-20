@@ -91,7 +91,7 @@ def _ema(values: pd.Series, *, length: int) -> pd.Series:
 
 
 def _rolling_vwap(data: pd.DataFrame, length: int) -> pd.Series:
-    typical_price = data[["high", "low", "close"]].mean(axis=1)
+    typical_price = (data["high"] + data["low"] + data["close"]) / 3.0
     volume = data["volume"]
     price_volume = typical_price * volume
     return safe_divide(

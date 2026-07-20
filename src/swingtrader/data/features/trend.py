@@ -19,8 +19,9 @@ from swingtrader.data.market_frame import (
     validate_market_price_index,
     validate_required_columns,
 )
+from swingtrader.indicators import bollinger_percent_b
 from swingtrader.indicators.directional_movement import adx
-from swingtrader.indicators.moving_averages import ema, sma
+from swingtrader.indicators.moving_averages import ema, rolling_vwap, sma
 
 
 def add_trend_features(
@@ -28,6 +29,7 @@ def add_trend_features(
     *,
     ma_lengths: tuple[int, int, int] = (10, 20, 50),
     adx_length: int = 14,
+    vwap_length: int = 14,
 ) -> pd.DataFrame:
     """Return a copy of data with the default trend feature set added.
 
@@ -45,7 +47,10 @@ def add_trend_features(
     extremes together, matching the ATR calculation in the volatility module.
     """
     validate_market_price_index(data)
-    validate_required_columns(data, required_columns={"high", "low", "close", "adjusted_close"})
+    validate_required_columns(
+        data,
+        required_columns={"high", "low", "close", "volume", "adjusted_close"},
+    )
 
     for length in ma_lengths:
         if isinstance(length, bool) or not isinstance(length, int) or length <= 0:
@@ -75,4 +80,7 @@ def add_trend_features(
     adx_block = adx(data.loc[:, ["high", "low", "close"]], length=adx_length)
     data[adx_block.columns] = adx_block
 
+    vwap_distance = data["close"] / rolling_vwap(data, length=vwap_length) - 1
+    data["vwap_distance"] = vwap_distance
+    data["vwap_distance_percent_b"] = bollinger_percent_b(vwap_distance)
     return data
