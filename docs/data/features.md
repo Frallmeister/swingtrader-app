@@ -64,7 +64,7 @@ Inside `add_trend_features`, ADX, `plus_di`, and `minus_di` are calculated from 
 
 ## Momentum Features
 
-The momentum feature orchestrator is `swingtrader.data.features.momentum.add_momentum_features`. It validates the source prices once, copies them, calculates the PPO and RSI features from `adjusted_close`, the stochastic oscillator from the raw `high`, `low`, and `close`, and the Money Flow Index from the raw `high`, `low`, `close`, and `volume`, and appends those columns while preserving input row alignment.
+The momentum feature orchestrator is `swingtrader.data.features.momentum.add_momentum_features`. It validates the source prices once, copies them, calculates the PPO and RSI features from `adjusted_close`, the stochastic oscillator from the raw `high`, `low`, and `close`, the Money Flow Index from the raw `high`, `low`, `close`, and `volume`, and the LazyBear squeeze momentum features from the raw `high`, `low`, and `close`, and appends those columns while preserving input row alignment.
 
 With the default settings, the orchestrator adds:
 
@@ -79,6 +79,17 @@ With the default settings, the orchestrator adds:
 - `mfi`, the Money Flow Index, a volume-weighted momentum oscillator calculated from `high`, `low`, `close`, and `volume`;
 - `mfi_percent_b`, the position of the `mfi` line within its own Bollinger bands.
 
+The orchestrator also appends the LazyBear squeeze momentum features:
+
+- `squeeze_on`, true while the Bollinger Bands sit inside the Keltner Channels (a low-volatility squeeze);
+- `squeeze_off`, true while the Bollinger Bands sit outside the Keltner Channels;
+- `squeeze_released`, true on the first row after a squeeze that is no longer squeezed, marking the bar the squeeze fires;
+- `squeeze_width_ratio`, the Bollinger-band width relative to the Keltner-channel width;
+- `squeeze_momentum_atr`, the squeeze momentum histogram normalised by ATR;
+- `squeeze_momentum_atr_change`, the row-over-row change in `squeeze_momentum_atr`;
+- `squeeze_duration`, the number of consecutive rows the current squeeze has been on;
+- `squeeze_release_duration`, the length of the squeeze that fired, recorded on the release row.
+
 The public numerical momentum indicators are:
 
 - `ppo`, which has three natural outputs and returns a dataframe with `ppo`, `ppo_signal`, and `ppo_histogram` columns;
@@ -86,7 +97,8 @@ The public numerical momentum indicators are:
 - `rsi`, which has one natural output and returns a bounded `[0, 100]` oscillator series;
 - `stochastic_oscillator`, which has two natural outputs and returns a dataframe with `stochastic_k` and `stochastic_d` columns bounded to `[0, 100]`, and which consumes a dataframe with `high`, `low`, and `close` columns rather than a single series;
 - `mfi`, which has one natural output and returns a bounded `[0, 100]` oscillator series, and which consumes a dataframe with `high`, `low`, `close`, and `volume` columns rather than a single series;
-- `macd`, which has three natural outputs and returns a dataframe with `macd`, `macd_signal`, and `macd_histogram` columns expressed in the input price units.
+- `macd`, which has three natural outputs and returns a dataframe with `macd`, `macd_signal`, and `macd_histogram` columns expressed in the input price units;
+- `lazybear_squeeze_momentum`, which consumes a dataframe with `high`, `low`, and `close` columns and returns a dataframe with the squeeze state and momentum columns, computing True Range and ATR internally.
 
 Each indicator accepts either one ordered series for a single ticker or a multi-ticker series that carries the canonical `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker series does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved. A partial or wrongly ordered MultiIndex, such as `["ticker", "trading_date"]`, is rejected.
 
@@ -107,6 +119,12 @@ Inside `add_momentum_features`, `stochastic_oscillator` is calculated from the r
 `mfi`, like `stochastic_oscillator`, consumes several price columns at once, so it takes a dataframe with `high`, `low`, `close`, and `volume` columns rather than a single series. Each row's typical price is `(high + low + close) / 3` and its raw money flow is the typical price times `volume`. A row's money flow counts as positive when its typical price rose from the prior row and negative when it fell; a row whose typical price is unchanged contributes to neither. MFI is `100 * positive_flow / (positive_flow + negative_flow)` over the trailing `length` rows, so it is often described as a volume-weighted RSI: a window with no negative flow returns 100, a window with no positive flow returns 0, and a window whose typical price never changes has neither positive nor negative flow and is left missing. The first `length` rows of each series remain missing until the trailing window is full, because the first row has no prior typical price to compare against, so MFI warms up one row later than a plain rolling window.
 
 Inside `add_momentum_features`, `mfi` is calculated from the raw `high`, `low`, `close`, and `volume` because the money flow needs the intraday extremes, the close, and the traded volume together, matching the stochastic, ADX, and ATR calculations. `mfi_percent_b` then reuses the volatility module's `bollinger_percent_b` on the `mfi` line, locating it within its own recent range as a scale-invariant feature, mirroring `rsi_percent_b`. The default length is the conventional 14 rows, calibratable through the `mfi_length` argument on `add_momentum_features` and the `length` argument on `mfi`, and the MFI Bollinger bands default to 20 rows with 2 standard deviations, calibratable through `mfi_bollinger_length` and `mfi_bollinger_num_std`.
+
+`lazybear_squeeze_momentum` is a pandas port of the open-source [Squeeze Momentum Indicator [LazyBear]](https://www.tradingview.com/script/nqQ1DT5a-Squeeze-Momentum-Indicator-LazyBear/), itself a derivative of John Carter's TTM Squeeze. Like `stochastic_oscillator` and `mfi` it consumes several price columns at once, so it takes a dataframe with `high`, `low`, and `close` columns; it computes True Range and ATR internally rather than requiring the caller to precompute them. The squeeze compares two volatility envelopes built from `close`: the Bollinger Bands are the `bb_length`-row simple moving average plus and minus `bb_mult` population standard deviations, and the Keltner Channels are the `kc_length`-row simple moving average plus and minus `kc_mult` times the `kc_length`-row average True Range. A squeeze is on (`squeeze_on`) while both Bollinger Bands sit inside the Keltner Channels, signalling low volatility and a coiled market, and off (`squeeze_off`) once they expand back outside them.
+
+The original LazyBear script multiplied the Bollinger standard deviation by the Keltner multiplier (`kc_mult`); this port uses `bb_mult`, matching LazyBear's own September 2014 fix and the standard 2.0 Bollinger multiplier. The population standard deviation (`ddof=0`) matches the volatility module and most charting platforms. The momentum histogram is a rolling linear regression, over `kc_length` rows, of `close` detrended against the midpoint of its recent high/low range and its moving average; `squeeze_momentum` is the raw histogram in price units, and `squeeze_momentum_atr` divides it by the `atr_length`-row ATR to give a scale-invariant momentum measure comparable across tickers.
+
+Alongside the core state and momentum, the indicator derives modeling-oriented columns not present in the original script: `squeeze_released` flags the first row after a squeeze that is no longer squeezed, `squeeze_width_ratio` is the Bollinger-band width relative to the Keltner-channel width, `squeeze_duration` counts consecutive squeezed rows, `squeeze_release_duration` records the length of the squeeze that just fired, and `squeeze_momentum_atr_change` is the row-over-row change in `squeeze_momentum_atr`. The `bb_length`, `bb_mult`, `kc_length`, `kc_mult`, and `atr_length` defaults (20, 2.0, 20, 1.5, and 14) are calibratable through the matching arguments on `lazybear_squeeze_momentum` and the `squeeze_`-prefixed arguments on `add_momentum_features`. Warm-up rows remain missing until every rolling and smoothing window is full. Inside `add_momentum_features` the raw price-unit `squeeze_momentum` line is dropped so the persisted `squeeze_momentum_atr` feature stays comparable across tickers.
 
 ## Volatility Features
 

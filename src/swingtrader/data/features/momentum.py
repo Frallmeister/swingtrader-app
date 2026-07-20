@@ -13,7 +13,8 @@ preserved. Indicators return either one series or, for naturally multi-output
 indicators, one dataframe. The family orchestrator returns a copy of the input
 dataframe with final model feature columns appended. The module currently
 implements PPO-based, RSI-based, and Money Flow Index features, the stochastic
-oscillator, and a standalone MACD indicator.
+oscillator, the LazyBear squeeze momentum indicator, and a standalone MACD
+indicator.
 """
 
 import pandas as pd
@@ -33,9 +34,9 @@ from swingtrader.data.features._validation import (
 )
 from swingtrader.data.features.trends import sma
 from swingtrader.data.features.volatility import (
-    atr,
+    _atr,
+    _true_range,
     bollinger_percent_b,
-    true_range,
 )
 
 
@@ -53,6 +54,11 @@ def add_momentum_features(
     mfi_length: int = 14,
     mfi_bollinger_length: int = 20,
     mfi_bollinger_num_std: float = 2.0,
+    squeeze_bb_length: int = 20,
+    squeeze_bb_mult: float = 2.0,
+    squeeze_kc_length: int = 20,
+    squeeze_kc_mult: float = 1.5,
+    squeeze_atr_length: int = 14,
 ) -> pd.DataFrame:
     """Return a copy of data with the default momentum feature set added.
 
@@ -61,7 +67,8 @@ def add_momentum_features(
     ``high``, ``low``, ``close``, ``adjusted_close``, and ``volume`` columns. The
     index must be unique and sorted. The returned dataframe preserves the input
     rows and appends the final PPO, PPO signal, PPO histogram, PPO percentile,
-    RSI, RSI %B, stochastic %K and %D, MFI, and MFI %B feature columns.
+    RSI, RSI %B, stochastic %K and %D, MFI, MFI %B, and LazyBear squeeze momentum
+    feature columns.
 
     PPO, RSI, and ``rsi_percent_b`` are calculated from ``adjusted_close`` so they
     are not distorted by split and dividend discontinuities in the raw close.
@@ -73,6 +80,16 @@ def add_momentum_features(
     and ATR calculations in the trend and volatility modules. ``mfi_percent_b``
     locates the MFI line within its own Bollinger Bands, mirroring
     ``rsi_percent_b``.
+
+    The LazyBear squeeze momentum features (``squeeze_on``, ``squeeze_off``,
+    ``squeeze_released``, ``squeeze_width_ratio``, ``squeeze_momentum_atr``,
+    ``squeeze_momentum_atr_change``, ``squeeze_duration``, and
+    ``squeeze_release_duration``) are calculated from the raw ``high``, ``low``,
+    and ``close``, with True Range and ATR computed internally, because the
+    squeeze compares Bollinger Bands against Keltner Channels and normalises the
+    momentum histogram by ATR. The raw price-unit ``squeeze_momentum`` line is
+    dropped so the persisted ``squeeze_momentum_atr`` feature stays comparable
+    across tickers. See :func:`lazybear_squeeze_momentum` for the full definition.
     """
     validate_market_price_index(data)
     validate_required_columns(
@@ -118,13 +135,16 @@ def add_momentum_features(
         num_std=mfi_bollinger_num_std,
     ).rename("mfi_percent_b")
 
-    data["atr"] = atr(data)
-    data["true_range"] = true_range(data)
-    lazybear_sqz_momentum_block = lazybear_squeeze_momentum(data)
-    lazybear_sqz_momentum_block = lazybear_sqz_momentum_block.drop(columns=["squeeze_momentum"])
-    data[lazybear_sqz_momentum_block.columns] = lazybear_sqz_momentum_block
+    squeeze_block = lazybear_squeeze_momentum(
+        data.loc[:, ["high", "low", "close"]],
+        bb_length=squeeze_bb_length,
+        bb_mult=squeeze_bb_mult,
+        kc_length=squeeze_kc_length,
+        kc_mult=squeeze_kc_mult,
+        atr_length=squeeze_atr_length,
+    ).drop(columns=["squeeze_momentum"])
+    data[squeeze_block.columns] = squeeze_block
 
-    data.drop(columns=["atr", "true_range"], inplace=True)
     return data
 
 
@@ -314,65 +334,104 @@ def lazybear_squeeze_momentum(
     bb_mult: float = 2.0,
     kc_length: int = 20,
     kc_mult: float = 1.5,
+    atr_length: int = 14,
 ) -> pd.DataFrame:
-    """Calculate squeeze momentum signals for one or multiple tickers.
+    """Calculate LazyBear's Squeeze Momentum indicator for one or many tickers.
 
-    The script is based on the open-source indicator published by LazyBear on TradingView.
+    This is a pandas port of the open-source "Squeeze Momentum Indicator
+    [LazyBear]" published on TradingView, itself a derivative of John Carter's TTM
+    Squeeze. The squeeze compares Bollinger Bands against Keltner Channels: a
+    squeeze is on while the Bollinger Bands sit inside the Keltner Channels (low
+    volatility, a coiled market) and off once they expand back outside them. A
+    separate linear-regression histogram measures the momentum building up while
+    the market is squeezed.
+
+    Returns a dataframe with the following columns:
+
+    - ``squeeze_on``: nullable boolean, true while both Bollinger Bands sit inside
+      the Keltner Channels;
+    - ``squeeze_off``: nullable boolean, true while both Bollinger Bands sit
+      outside the Keltner Channels;
+    - ``squeeze_released``: nullable boolean, true on the first row after a
+      ``squeeze_on`` row that is no longer squeezed, marking the bar the squeeze
+      fires;
+    - ``squeeze_width_ratio``: the Bollinger-band width divided by the
+      Keltner-channel width, a scale-invariant measure of how compressed the bands
+      are, where a value below one means the Bollinger Bands are inside the
+      channels;
+    - ``squeeze_momentum``: the raw linear-regression momentum histogram in the
+      input price units;
+    - ``squeeze_momentum_atr``: ``squeeze_momentum`` divided by ATR, a
+      scale-invariant momentum measure comparable across tickers;
+    - ``squeeze_momentum_atr_change``: the row-over-row change in
+      ``squeeze_momentum_atr``, capturing whether momentum is building or fading;
+    - ``squeeze_duration``: the number of consecutive rows the current squeeze has
+      been on, resetting to zero while it is off;
+    - ``squeeze_release_duration``: on each ``squeeze_released`` row, how many rows
+      the squeeze that just fired had lasted.
+
+    The Bollinger Bands are the ``bb_length``-row simple moving average of
+    ``close`` plus and minus ``bb_mult`` population standard deviations. The
+    Keltner Channels are the ``kc_length``-row simple moving average of ``close``
+    plus and minus ``kc_mult`` times the ``kc_length``-row average True Range. The
+    momentum histogram is a rolling linear regression of ``close`` detrended
+    against the midpoint of its recent high/low range and moving average, and it
+    is normalised by the ``atr_length``-row ATR. True Range and ATR are computed
+    internally from ``high``, ``low``, and ``close``, so the caller does not supply
+    them, matching the stochastic and Money Flow Index indicators.
+
+    ``data`` must contain ``high``, ``low``, and ``close`` columns in
+    chronological order. When ``data`` carries the canonical ``provider``,
+    ``ticker``, and ``trading_date`` index levels the calculation is isolated
+    within each group, so one ticker's history cannot leak into another's, and the
+    original index and row order are preserved. Warm-up rows remain missing until
+    every rolling and smoothing window is full. The squeeze state becomes defined
+    once the band windows fill, while the momentum histogram warms up later
+    because its detrended input is itself a ``kc_length`` calculation that the
+    linear regression then windows again.
+
+    This indicator is included in :func:`add_momentum_features`, which appends all
+    of these columns except the price-unit ``squeeze_momentum`` line.
+
+    Notes
+    -----
+    Source: https://www.tradingview.com/script/nqQ1DT5a-Squeeze-Momentum-Indicator-LazyBear/
     """
-    _validate_min_history(bb_length)
-    _validate_min_history(kc_length)
-    validate_required_columns(
+    validate_length(bb_length)
+    validate_length(kc_length)
+    validate_length(atr_length)
+    _validate_multiplier(bb_mult)
+    _validate_multiplier(kc_mult)
+    validate_required_columns(data, required_columns={"high", "low", "close"})
+    return apply_by_ticker(
         data,
-        required_columns={"high", "low", "close", "true_range", "atr"},
+        lambda group: _lazybear_squeeze_momentum(
+            group,
+            bb_length=bb_length,
+            bb_mult=bb_mult,
+            kc_length=kc_length,
+            kc_mult=kc_mult,
+            atr_length=atr_length,
+        ),
     )
-    kwargs = {
-        "bb_length": bb_length,
-        "bb_mult": bb_mult,
-        "kc_length": kc_length,
-        "kc_mult": kc_mult,
-    }
-    return apply_by_ticker(data, lambda group: _lazybear_squeeze_momentum(group, **kwargs))
 
 
 def _lazybear_squeeze_momentum(
     data: pd.DataFrame,
     *,
-    bb_length: int = 20,
-    bb_mult: float = 2.0,
-    kc_length: int = 20,
-    kc_mult: float = 1.5,
+    bb_length: int,
+    bb_mult: float,
+    kc_length: int,
+    kc_mult: float,
+    atr_length: int,
 ) -> pd.DataFrame:
-    """Calculate LazyBear-style squeeze states and momentum.
-
-    Parameters
-    ----------
-    data
-        Chronologically ordered OHLC data containing ``high``, ``low``,
-        ``close``, and ``true_range``.
-    bb_length
-        Bollinger Band lookback length.
-    bb_mult
-        Bollinger Band standard-deviation multiplier.
-    kc_length
-        Keltner Channel lookback length.
-    kc_mult
-        Keltner Channel range multiplier.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame containing the squeeze state and momentum value.
-
-    Notes
-    -----
-    Source: https://www.tradingview.com/script/nqQ1DT5a-Squeeze-Momentum-Indicator-LazyBear/
-
-    """
+    # Port of the open-source Squeeze Momentum Indicator [LazyBear]:
+    # https://www.tradingview.com/script/nqQ1DT5a-Squeeze-Momentum-Indicator-LazyBear/
     close = data["close"]
     high = data["high"]
     low = data["low"]
-    true_range_ = data["true_range"]
-    atr_ = data["atr"]
+    true_range_ = _true_range(data)
+    atr_ = _atr(data, length=atr_length)
 
     # Bollinger Bands
     bb_basis = sma(close, length=bb_length)
@@ -562,6 +621,11 @@ def _validate_min_history(min_history: int) -> None:
         raise ValueError(
             f"min_history must be a positive integer greater than 0; got {min_history!r}"
         )
+
+
+def _validate_multiplier(multiplier: float) -> None:
+    if isinstance(multiplier, bool) or not isinstance(multiplier, int | float) or multiplier <= 0:
+        raise ValueError(f"Multiplier must be a positive number; got {multiplier!r}")
 
 
 def _expanding_percentile(
