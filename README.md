@@ -7,8 +7,6 @@
 [![Ruff](https://img.shields.io/badge/lint%20%26%20format-ruff-black.svg)](https://docs.astral.sh/ruff/)
 [![uv](https://img.shields.io/badge/environment-uv-purple.svg)](https://docs.astral.sh/uv/)
 
-That is enough to communicate:
-
 Swingtrader is a personal swing-trading decision-support application built around reproducible market data ingestion, bronze storage, ticker readiness checks, feature generation, model training, and eventually ranked trade candidates for manual review.
 
 The long-term goal is to support disciplined manual trading decisions, not automatic order placement.
