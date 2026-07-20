@@ -1,15 +1,14 @@
 """Trend-following feature transformations for adjusted-close price histories.
 
-This module builds row-aligned, point-in-time trend features from ordered daily
-price observations. It composes reusable indicators from
-:mod:`swingtrader.indicators` into model-facing feature columns, deciding which
-source columns each indicator uses, how the moving averages are combined into
-normalized ratios, and what the final feature columns are named. Calculations are
-isolated by provider/ticker groups and leave warm-up periods as missing values
-until each underlying window has enough prior observations. The family
-orchestrator returns a copy of the input dataframe with the final model feature
-columns appended and does not mutate its input. The module currently implements
-moving-average trend features and the ADX directional-movement system.
+This module builds row-aligned, point-in-time trend features from ordered daily price observations.
+It composes reusable indicators from :mod:`swingtrader.indicators` into model-facing feature
+columns, deciding which source columns each indicator uses, how the moving averages are combined
+into normalized ratios, and what the final feature columns are named. Calculations are isolated by
+provider/ticker groups and leave warm-up periods as missing values until each underlying window has
+enough prior observations. The family orchestrator returns a copy of the input dataframe with the
+final model feature columns appended and does not mutate its input. The module currently implements
+moving-average trend features, the ADX directional-movement system, and rolling VWAP displacement
+features.
 """
 
 import pandas as pd
@@ -29,22 +28,32 @@ def add_trend_features(
     *,
     ma_lengths: tuple[int, int, int] = (10, 20, 50),
     adx_length: int = 14,
-    vwap_length: int = 14,
+    vwap_length: int = 20,
+    vwap_bollinger_length: int = 20,
+    vwap_bollinger_num_std: float = 2.0,
 ) -> pd.DataFrame:
     """Return a copy of data with the default trend feature set added.
 
     The input must use the canonical market-price MultiIndex with levels
     ``provider``, ``ticker``, and ``trading_date``, in that exact order, plus
-    ``high``, ``low``, ``close``, and ``adjusted_close`` columns. The index must
-    be unique and sorted. The returned dataframe preserves the input rows and
-    appends the final moving-average ratio and directional-movement feature
-    columns.
+    ``high``, ``low``, ``close``, ``volume``, and ``adjusted_close`` columns.
+    The index must be unique and sorted. The returned dataframe preserves the
+    input rows and appends the final moving-average ratio, directional-movement,
+    and rolling-VWAP feature columns.
 
     The moving-average ratios are calculated from ``adjusted_close`` so they are
-    not distorted by split and dividend discontinuities in the raw close. ADX,
-    ``plus_di``, and ``minus_di`` are calculated from the raw ``high``, ``low``,
-    and ``close`` because the directional-movement system needs the intraday
-    extremes together, matching the ATR calculation in the volatility module.
+    not distorted by split and dividend discontinuities in raw close. ADX,
+    ``plus_di``, and ``minus_di`` are calculated from raw ``high``, ``low``, and
+    ``close`` because the directional-movement system needs the intraday
+    extremes together.
+
+    Rolling VWAP is calculated from raw ``high``, ``low``, ``close``, and
+    ``volume`` using typical price ``(high + low + close) / 3``.
+    ``vwap_distance`` is the current raw close divided by rolling VWAP minus one,
+    so positive values indicate that close is above VWAP and negative values
+    indicate that it is below VWAP. ``vwap_distance_percent_b`` locates that
+    distance within its own rolling Bollinger Bands, indicating how unusual the
+    current displacement is relative to its recent history.
     """
     validate_market_price_index(data)
     validate_required_columns(
@@ -82,5 +91,9 @@ def add_trend_features(
 
     vwap_distance = data["close"] / rolling_vwap(data, length=vwap_length) - 1
     data["vwap_distance"] = vwap_distance
-    data["vwap_distance_percent_b"] = bollinger_percent_b(vwap_distance)
+    data["vwap_distance_percent_b"] = bollinger_percent_b(
+        vwap_distance,
+        length=vwap_bollinger_length,
+        num_std=vwap_bollinger_num_std,
+    ).rename("vwap_distance_percent_b")
     return data

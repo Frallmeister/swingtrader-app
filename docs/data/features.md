@@ -54,13 +54,16 @@ With the default settings, the orchestrator adds:
 - `close_to_ema_slow`, the adjusted close divided by the slow EMA minus one;
 - `adx`, Wilder's Average Directional Index measuring trend strength;
 - `plus_di`, the positive directional indicator measuring upward directional movement;
-- `minus_di`, the negative directional indicator measuring downward directional movement.
+- `minus_di`, the negative directional indicator measuring downward directional movement;
+- `vwap_distance`, the raw close divided by rolling VWAP minus one;
+- `vwap_distance_percent_b`, the position of `vwap_distance` within its own Bollinger bands.
 
 The public numerical trend indicators, importable from `swingtrader.indicators`, are:
 
 - `sma`, which has one natural output and returns a series;
 - `ema`, which has one natural output and returns a series;
 - `adx`, which has three natural outputs and returns a dataframe with `adx`, `plus_di`, and `minus_di` columns.
+- `rolling_vwap`, which consumes `high`, `low`, `close`, and `volume` and returns the trailing volume-weighted average typical price;
 
 Each indicator accepts either one ordered series for a single ticker or a multi-ticker series that carries the canonical `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker series does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved. A partial or wrongly ordered MultiIndex, such as `["ticker", "trading_date"]`, is rejected.
 
@@ -71,6 +74,14 @@ SMA and EMA validate their local parameters. A standalone single-ticker series i
 `adx` implements Wilder's directional-movement system and, unlike the moving-average ratios, consumes several price columns at once, so it takes a dataframe with `high`, `low`, and `close` columns rather than a single series. It returns the `adx`, `plus_di`, and `minus_di` columns together as one cohesive output, analogous to `macd` and `bollinger_bands`. The positive and negative directional indicators measure the share of smoothed True Range attributable to upward and downward directional movement over `length` rows, and ADX is Wilder's smoothed moving average of the directional index `DX` over the same `length`. All three are bounded to `[0, 100]`: `plus_di` and `minus_di` gauge direction while `adx` gauges strength regardless of direction.
 
 Inside `add_trend_features`, ADX, `plus_di`, and `minus_di` are calculated from the raw `high`, `low`, and `close` because the directional-movement system needs the intraday extremes together, matching the ATR calculation in the volatility module, whereas the moving-average ratios use `adjusted_close`. The smoothing length is the conventional 14 rows by default and is calibratable through the `adx_length` argument on `add_trend_features` and the `length` argument on `adx`. Both the directional indicators and ADX use Wilder's recursive smoothing seeded from the first observation rather than the canonical definition that seeds from the simple average of the first `length` observations, so early values differ slightly before converging, matching the ATR and RSI behavior elsewhere. Because ADX smooths `DX` a second time, its warm-up spans roughly `2 * length` rows before values become populated.
+
+Rolling VWAP uses each row's typical price, `(high + low + close) / 3`, and weights it by that row's volume. Over a trailing window it is calculated as the rolling sum of typical price times volume divided by the rolling sum of volume. This is a moving VWAP over daily observations, not an intraday session VWAP that resets at each market open.
+
+Inside `add_trend_features`, `vwap_distance` is calculated as `close / rolling_vwap - 1`. Positive values mean that the current close is above the recent volume-weighted price level, negative values mean that it is below, and zero means that it is equal to VWAP. The feature uses raw `high`, `low`, `close`, and `volume` together rather than combining adjusted close with unadjusted intraday prices.
+
+`vwap_distance_percent_b` applies `bollinger_percent_b` to the VWAP-distance series itself. A value of 0 marks the lower Bollinger band, 1 marks the upper band, and values outside `[0, 1]` lie beyond the bands. This provides historical context for the raw distance: the same absolute displacement can be ordinary for one ticker or unusually stretched for another.
+
+The default rolling VWAP length is 20 rows. The Bollinger transformation over VWAP distance also defaults to 20 rows and 2 population standard deviations. These values are calibratable through `vwap_length`, `vwap_bollinger_length`, and `vwap_bollinger_num_std`. Warm-up observations remain missing until the underlying VWAP and Bollinger windows have enough valid history.
 
 ## Momentum Features
 

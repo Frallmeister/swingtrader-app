@@ -1,11 +1,10 @@
-"""Simple and exponential moving-average indicators.
+"""Moving-average indicators for ordered price and volume histories.
 
-These reusable moving averages accept either one ordered series for a single
-instrument or a multi-instrument series carrying the canonical ``provider``,
-``ticker``, and ``trading_date`` index levels. In the latter case the calculation
-is applied independently within each provider/ticker group and the input row
-order is preserved. Each function returns one index-aligned series and does not
-mutate its input.
+The module provides simple, exponential, and rolling volume-weighted moving
+averages. Each indicator supports either one ordered instrument or a canonical
+multi-instrument input indexed by ``provider``, ``ticker``, and
+``trading_date``. Multi-instrument calculations are isolated within each
+provider/ticker group, preserve row alignment, and do not mutate their input.
 """
 
 import pandas as pd
@@ -79,7 +78,10 @@ def rolling_vwap(data: pd.DataFrame, *, length: int) -> pd.Series:
     """
     validate_length(length)
     validate_required_columns(data, required_columns={"high", "low", "close", "volume"})
-    return apply_by_ticker(data, lambda group: _rolling_vwap(group, length=length))
+    return apply_by_ticker(
+        data,
+        lambda group: _rolling_vwap(group, length=length),
+    ).rename("rolling_vwap")
 
 
 def _sma(values: pd.Series, *, length: int) -> pd.Series:

@@ -3,7 +3,8 @@ import pandas as pd
 import pytest
 
 from swingtrader.data.features.trend import add_trend_features
-from swingtrader.indicators.moving_averages import sma
+from swingtrader.indicators.moving_averages import rolling_vwap, sma
+from swingtrader.indicators.volatility import bollinger_percent_b
 
 
 def test_add_trend_features_preserves_source_columns_and_adds_final_features() -> None:
@@ -26,6 +27,8 @@ def test_add_trend_features_preserves_source_columns_and_adds_final_features() -
         "adx",
         "plus_di",
         "minus_di",
+        "vwap_distance",
+        "vwap_distance_percent_b",
     ]
     assert list(result.columns) == expected_columns
     assert "sma_mid" not in result.columns
@@ -125,6 +128,105 @@ def test_add_trend_features_requires_high_low_close() -> None:
         add_trend_features(prices, ma_lengths=(1, 2, 3))
 
 
+def test_add_trend_features_adds_vwap_distance_and_percent_b() -> None:
+    prices = _indexed_prices()
+
+    result = add_trend_features(
+        prices,
+        ma_lengths=(1, 2, 3),
+        vwap_length=2,
+        vwap_bollinger_length=2,
+        vwap_bollinger_num_std=2.0,
+    )
+
+    expected_vwap = rolling_vwap(
+        prices[["high", "low", "close", "volume"]],
+        length=2,
+    )
+
+    expected_distance = prices["close"].div(expected_vwap).sub(1).rename("vwap_distance")
+
+    expected_percent_b = bollinger_percent_b(
+        expected_distance,
+        length=2,
+        num_std=2.0,
+    ).rename("vwap_distance_percent_b")
+
+    pd.testing.assert_series_equal(
+        result["vwap_distance"],
+        expected_distance,
+        check_exact=False,
+    )
+    pd.testing.assert_series_equal(
+        result["vwap_distance_percent_b"],
+        expected_percent_b,
+        check_exact=False,
+    )
+
+    # A constant BBB.ST price remains exactly on its rolling VWAP.
+    bbb_distance = result.loc[
+        ("yfinance", "BBB.ST"),
+        "vwap_distance",
+    ]
+    assert (bbb_distance.dropna() == 0.0).all()
+
+    # Its distance has zero rolling dispersion, so %B is undefined.
+    assert result.loc[("yfinance", "BBB.ST"), "vwap_distance_percent_b"].isna().all()
+
+
+def test_add_trend_features_uses_custom_vwap_lengths() -> None:
+    prices = _indexed_prices()
+
+    default_lengths = add_trend_features(
+        prices,
+        ma_lengths=(1, 2, 3),
+    )
+    custom_lengths = add_trend_features(
+        prices,
+        ma_lengths=(1, 2, 3),
+        vwap_length=2,
+        vwap_bollinger_length=2,
+    )
+
+    assert default_lengths["vwap_distance"].notna().sum() == 0
+    assert custom_lengths["vwap_distance"].notna().sum() > 0
+
+    assert default_lengths["vwap_distance_percent_b"].notna().sum() == 0
+    assert custom_lengths["vwap_distance_percent_b"].notna().sum() > 0
+
+
+def test_add_trend_features_requires_volume() -> None:
+    prices = _indexed_prices().drop(columns="volume")
+
+    with pytest.raises(ValueError, match="Missing required columns"):
+        add_trend_features(prices, ma_lengths=(1, 2, 3))
+
+
+def test_add_trend_features_rejects_invalid_vwap_configuration() -> None:
+    prices = _indexed_prices()
+
+    with pytest.raises(ValueError, match="positive integer"):
+        add_trend_features(
+            prices,
+            ma_lengths=(1, 2, 3),
+            vwap_length=0,
+        )
+
+    with pytest.raises(ValueError, match="positive integer"):
+        add_trend_features(
+            prices,
+            ma_lengths=(1, 2, 3),
+            vwap_bollinger_length=0,
+        )
+
+    with pytest.raises(ValueError, match="positive number"):
+        add_trend_features(
+            prices,
+            ma_lengths=(1, 2, 3),
+            vwap_bollinger_num_std=0,
+        )
+
+
 def _indexed_prices() -> pd.DataFrame:
     return _prices().set_index(["provider", "ticker", "trading_date"])
 
@@ -159,5 +261,6 @@ def _prices() -> pd.DataFrame:
             "low": [9.0, 11.0, 13.0, 15.0, 100.0, 100.0, 100.0, 100.0],
             "close": [10.0, 12.0, 14.0, 16.0, 100.0, 100.0, 100.0, 100.0],
             "adjusted_close": [10.0, 12.0, 14.0, 16.0, 100.0, 100.0, 100.0, 100.0],
+            "volume": [1.0, 3.0, 1.0, 3.0, 1.0, 1.0, 1.0, 1.0],
         }
     )
