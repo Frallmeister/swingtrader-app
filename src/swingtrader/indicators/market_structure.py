@@ -136,7 +136,7 @@ def _pivot_points_high_low(
     low_left: int = 10,
     low_right: int = 10,
     kind: Literal["high_low", "balanced"] = "high_low",
-    rank_output: Literal["rank", "strength"] = "rank"
+    rank_output: Literal["rank", "strength"] = "rank",
 ) -> pd.DataFrame:
     """Calculate pivot outputs for one ordered instrument.
 
