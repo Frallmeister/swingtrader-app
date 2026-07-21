@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from swingtrader.data.features import (
+    add_market_structure_features,
     add_momentum_features,
     add_return_features,
     add_trend_features,
@@ -17,9 +18,10 @@ def test_add_default_features_includes_all_family_columns_without_duplicates() -
 
     returns_columns = set(add_return_features(data).columns)
     trend_columns = set(add_trend_features(data).columns)
+    market_structure_columns = set(add_market_structure_features(data).columns)
     momentum_columns = set(add_momentum_features(data).columns)
     volatility_columns = set(add_volatility_features(data).columns)
-    expected_columns = returns_columns | trend_columns | momentum_columns | volatility_columns
+    expected_columns = returns_columns | trend_columns | momentum_columns | volatility_columns | market_structure_columns
 
     assert set(result.columns) == expected_columns
     assert result.columns.is_unique
@@ -46,8 +48,10 @@ def test_add_default_features_matches_manual_family_chain() -> None:
     data = _prices()
 
     result = add_default_features(data)
-    manual = add_volatility_features(
-        add_momentum_features(add_trend_features(add_return_features(data)))
+    manual = add_market_structure_features(
+        add_volatility_features(
+            add_momentum_features(add_trend_features(add_return_features(data)))
+        )
     )
 
     pd.testing.assert_frame_equal(result, manual, check_exact=False)
