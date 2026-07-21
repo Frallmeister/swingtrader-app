@@ -208,6 +208,13 @@ def zigzag(
     pandas.DataFrame
         Retrospective Zig Zag pivots and retained-swing measurements, aligned
         with the input index.
+
+    Warnings
+    -------
+    This indicator is retrospective. Its pivot-aligned outputs depend on later
+    observations and must not be used directly as row-aligned machine-learning
+    features. Use ``zigzag_features`` or ``add_market_structure_features`` for
+    point-in-time-safe predictor columns.
     """
     validate_required_columns(data, required_columns={"high", "low"})
     deviation_ratio, legs = _validate_zigzag_parameters(
@@ -395,6 +402,14 @@ def _confirmed_zigzag_state(
     last_direction = [math.nan] * len(data)
     last_position = [math.nan] * len(data)
     previous_position = [math.nan] * len(data)
+    last_high_price = [math.nan] * len(data)
+    previous_high_price = [math.nan] * len(data)
+    last_high_position = [math.nan] * len(data)
+    previous_high_position = [math.nan] * len(data)
+    last_low_price = [math.nan] * len(data)
+    previous_low_price = [math.nan] * len(data)
+    last_low_position = [math.nan] * len(data)
+    previous_low_position = [math.nan] * len(data)
     pivots: list[_ZigZagPivot] = []
 
     for current_position in range(len(data)):
@@ -421,6 +436,22 @@ def _confirmed_zigzag_state(
             previous_price[current_position] = previous.price
             previous_position[current_position] = float(previous.position)
 
+        latest_high, earlier_high = _last_two_zigzag_pivots(pivots, direction=1)
+        if latest_high is not None:
+            last_high_price[current_position] = latest_high.price
+            last_high_position[current_position] = float(latest_high.position)
+        if earlier_high is not None:
+            previous_high_price[current_position] = earlier_high.price
+            previous_high_position[current_position] = float(earlier_high.position)
+
+        latest_low, earlier_low = _last_two_zigzag_pivots(pivots, direction=-1)
+        if latest_low is not None:
+            last_low_price[current_position] = latest_low.price
+            last_low_position[current_position] = float(latest_low.position)
+        if earlier_low is not None:
+            previous_low_price[current_position] = earlier_low.price
+            previous_low_position[current_position] = float(earlier_low.position)
+
     return pd.DataFrame(
         {
             "_zigzag_last_price": last_price,
@@ -432,9 +463,29 @@ def _confirmed_zigzag_state(
             ),
             "_zigzag_last_position": last_position,
             "_zigzag_previous_position": previous_position,
+            "_zigzag_last_high_price": last_high_price,
+            "_zigzag_previous_high_price": previous_high_price,
+            "_zigzag_last_high_position": last_high_position,
+            "_zigzag_previous_high_position": previous_high_position,
+            "_zigzag_last_low_price": last_low_price,
+            "_zigzag_previous_low_price": previous_low_price,
+            "_zigzag_last_low_position": last_low_position,
+            "_zigzag_previous_low_position": previous_low_position,
         },
         index=data.index,
     )
+
+
+def _last_two_zigzag_pivots(
+    pivots: list[_ZigZagPivot],
+    *,
+    direction: int,
+) -> tuple[_ZigZagPivot | None, _ZigZagPivot | None]:
+    """Return the latest two retained pivots in one direction."""
+    matching = [pivot for pivot in reversed(pivots[-4:]) if pivot.direction == direction]
+    latest = matching[0] if matching else None
+    previous = matching[1] if len(matching) >= 2 else None
+    return latest, previous
 
 
 def _zigzag_candidate_prices(

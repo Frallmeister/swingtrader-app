@@ -7,6 +7,7 @@ be confirmed. Intermediate endpoints remain visible until a later confirmed,
 more-extreme endpoint replaces them.
 """
 
+import numpy as np
 import pandas as pd
 
 from swingtrader.core.numerical import safe_divide
@@ -25,6 +26,10 @@ _MARKET_STRUCTURE_FEATURE_COLUMNS = (
     "zigzag_swing_return_per_bar",
     "zigzag_bars_since_pivot",
     "zigzag_retracement",
+    "market_structure_high_change",
+    "market_structure_low_change",
+    "market_structure_high_rate",
+    "market_structure_low_rate",
 )
 
 
@@ -81,9 +86,23 @@ def zigzag_features(
     - ``zigzag_retracement``: direction-normalized movement away from the latest
       pivot, calculated as ``-(close - last) / (last - previous)``. Zero is the
       latest pivot price, one is the preceding pivot price, positive values are
-      retracements, and negative values extend the latest swing.
+      retracements, and negative values extend the latest swing;
+    - ``market_structure_high_change`` and ``market_structure_low_change``:
+      logarithmic price changes between the latest two confirmed swing highs and
+      latest two confirmed swing lows, respectively;
+    - ``market_structure_high_rate`` and ``market_structure_low_rate``: the
+      corresponding logarithmic changes divided by the number of input rows
+      between the two historical pivot positions.
 
-    The output preserves the canonical input index and does not mutate ``data``.
+    The structural changes and rates remain missing until two confirmed pivots of
+    the corresponding direction are available. The output preserves the canonical
+    input index and does not mutate ``data``.
+
+    Notes
+    -----
+    All returned columns are point-in-time safe for row-aligned modeling. Pivot
+    information first appears on its confirmation row; future rows never revise
+    previously emitted feature values.
     """
     validate_market_price_index(data)
     validate_required_columns(data, required_columns={"high", "low", "close"})
@@ -140,6 +159,23 @@ def _zigzag_features(
         last_price - previous_price,
     )
 
+    high_change, high_rate = _structural_change_and_rate(
+        state["_zigzag_last_high_price"],
+        state["_zigzag_previous_high_price"],
+        state["_zigzag_last_high_position"],
+        state["_zigzag_previous_high_position"],
+        change_name="market_structure_high_change",
+        rate_name="market_structure_high_rate",
+    )
+    low_change, low_rate = _structural_change_and_rate(
+        state["_zigzag_last_low_price"],
+        state["_zigzag_previous_low_price"],
+        state["_zigzag_last_low_position"],
+        state["_zigzag_previous_low_position"],
+        change_name="market_structure_low_change",
+        rate_name="market_structure_low_rate",
+    )
+
     return pd.DataFrame(
         {
             "zigzag_last_direction": state["_zigzag_last_direction"],
@@ -148,6 +184,27 @@ def _zigzag_features(
             "zigzag_swing_return_per_bar": return_per_bar,
             "zigzag_bars_since_pivot": bars_since_pivot,
             "zigzag_retracement": retracement,
+            "market_structure_high_change": high_change,
+            "market_structure_low_change": low_change,
+            "market_structure_high_rate": high_rate,
+            "market_structure_low_rate": low_rate,
         },
         index=data.index,
     )
+
+
+def _structural_change_and_rate(
+    last_price: pd.Series,
+    previous_price: pd.Series,
+    last_position: pd.Series,
+    previous_position: pd.Series,
+    *,
+    change_name: str,
+    rate_name: str,
+) -> tuple[pd.Series, pd.Series]:
+    """Calculate log displacement and average log displacement per row."""
+    price_ratio = safe_divide(last_price, previous_price)
+    change = np.log(price_ratio.where(price_ratio.gt(0))).rename(change_name)
+    bars = last_position.sub(previous_position)
+    rate = safe_divide(change, bars.where(bars.gt(0))).rename(rate_name)
+    return change, rate
