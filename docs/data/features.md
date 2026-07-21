@@ -183,6 +183,24 @@ The default Bollinger length is 20 rows with 2 standard deviations, both calibra
 
 Raw `true_range`, `atr`, `bollinger_bands`, and the price-unit `adr` column are expressed in the input price units and are not comparable across tickers, so `add_volatility_features` only appends the scale-invariant `adr_percent`, `atr_percent`, `bollinger_bandwidth`, and `bollinger_percent_b` columns. `true_range`, `atr`, `adr`, and `bollinger_bands` are exposed as standalone indicators, analogous to `macd`, so consumers such as exploratory analysis and the frontend application can obtain absolute price-unit values directly. The volatility module is intended to later host additional range and dispersion measures.
 
+## Market Structure
+
+Market-structure indicators describe the local geometry of a price series rather than its smoothing or oscillator dynamics. The first such indicator identifies swing highs and swing lows. There is no market-structure feature orchestrator yet; the indicator is exposed as a standalone calculation, analogous to `macd`.
+
+The public numerical market-structure indicator, importable from `swingtrader.indicators`, is:
+
+- `pivot_points_high_low`, which consumes a dataframe with `high` and `low` columns (or, when `kind="balanced"`, `open`, `high`, `low`, and `close`) and returns a dataframe of pivot flags together with either ordinal ranks or normalised strengths.
+
+Like the other multi-column indicators it accepts either one ordered single-instrument input or a canonical multi-instrument input carrying the `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker input does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is isolated per provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved.
+
+A row is a **pivot high** (swing high) when its selected high value is the most extreme within a window made up of the candidate row, the preceding `high_left` rows, and the following `high_right` rows; a row is a **pivot low** (swing low) when its selected low value is the most extreme within the corresponding `low_left`/`low_right` window. Equal extreme values share the best rank and are therefore all marked as pivots. The default window is 10 rows on each side, calibratable through the `high_left`, `high_right`, `low_left`, and `low_right` arguments, which must each be a positive integer.
+
+`kind` selects the price representation used for ranking. `"high_low"`, the default, ranks the raw `high` and `low` values. `"balanced"` pulls each extreme toward the candle body using `balanced_high = (2 * high + max(open, close)) / 3` and `balanced_low = (2 * low + min(open, close)) / 3`, so a long wick counts for less than a decisive close near the extreme.
+
+`rank_output` selects what is returned alongside the nullable Boolean `pivot_high` and `pivot_low` flags. `"rank"`, the default, returns `pivot_high_rank` and `pivot_low_rank`, ordinal ranks beginning at one, where a pivot is any row of rank one. `"strength"` returns `pivot_high_strength` and `pivot_low_strength` instead, rescaling those ranks to the interval from zero to one, where one is the strongest possible pivot candidate. Rows without a complete surrounding window remain missing.
+
+Because each pivot is evaluated from observations on both sides of the candidate row, the outputs are aligned with the candidate row but are only knowable `high_right` (or `low_right`) rows later. `pivot_points_high_low` is therefore a lookahead-aware standalone indicator: its outputs must be shifted to their confirmation rows before being used as point-in-time model features. It is exposed for exploratory analysis and future API or frontend charting rather than included in a feature orchestrator.
+
 ## Default Feature Pipeline
 
 `swingtrader.data.features.pipeline.add_default_features` runs the standard feature families in a fixed order: returns, then trend, then momentum, then volatility. Each family receives the dataframe produced by the previous step, so the result is identical to calling `add_return_features`, `add_trend_features`, `add_momentum_features`, and `add_volatility_features` in that sequence with their default arguments. It provides a single entry point for producing the full default feature set while leaving the individual builders available for callers that need custom arguments or a subset of families.

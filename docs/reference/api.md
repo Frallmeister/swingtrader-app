@@ -83,6 +83,10 @@ and frontend charting functionality.
 
 ::: swingtrader.indicators.squeeze_momentum
 
+### Market Structure
+
+::: swingtrader.indicators.market_structure
+
 ## Return Features
 
 ::: swingtrader.data.features.returns
