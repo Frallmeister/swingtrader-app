@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-The indicators area holds reusable technical-indicator calculations such as moving averages, directional movement, volatility measures, MACD and PPO, oscillators, volume indicators, and squeeze momentum. Indicators calculate reusable technical quantities; features transform raw data and indicators into model inputs. Because indicators know nothing about the model feature set, they can be reused by feature builders, notebooks, tests, and future API and frontend charting functionality.
+The indicators area holds reusable technical-indicator calculations such as moving averages, directional movement, volatility measures, MACD and PPO, oscillators, volume indicators, squeeze momentum, and market-structure pivots. Indicators calculate reusable technical quantities; features transform raw data and indicators into model inputs. Because indicators know nothing about the model feature set, they can be reused by feature builders, notebooks, tests, and future API and frontend charting functionality.
 
 ## Design principles
 
