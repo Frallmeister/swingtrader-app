@@ -16,14 +16,24 @@ def pivot_points_high_low(
     low_left: int = 10,
     low_right: int = 10,
     kind: Literal["high_low", "balanced"] = "high_low",
-    normalize_rank: bool = False,
+    rank_output: Literal["rank", "strength"] = "rank"
 ) -> pd.DataFrame:
     """ADD DOCSTRING HERE."""
     validate_length(high_left)
     validate_length(high_right)
     validate_length(low_left)
     validate_length(low_right)
-    validate_required_columns(data, required_columns={"open", "high", "low", "close"})
+
+    if kind == "high_low":
+        required_columns = {"high", "low"}
+    elif kind == "balanced":
+        required_columns = {"open", "high", "low", "close"}
+    else:
+        raise ValueError(f"kind must be either 'high_low' or 'balanced'; got {kind!r}.")
+    validate_required_columns(data, required_columns=required_columns)
+    if rank_output not in ("rank", "strength"):
+        raise ValueError(f"Rank output must be either 'rank' or 'strength'; got {rank_output!r}")
+
     return apply_by_ticker(
         data,
         lambda group: _pivot_points_high_low(
@@ -33,7 +43,7 @@ def pivot_points_high_low(
             low_left=low_left,
             low_right=low_right,
             kind=kind,
-            normalize_rank=normalize_rank,
+            rank_output=rank_output,
         ),
     )
 
@@ -47,6 +57,7 @@ def _pivot_points_high_low(
     low_right: int = 10,
     kind: Literal["high_low", "balanced"] = "high_low",
     normalize_rank: bool = False,
+    rank_output: Literal["rank", "strength"] = "rank"
 ) -> pd.DataFrame:
     """ADD DOCSTRING HERE."""
     if kind == "high_low":
@@ -80,7 +91,7 @@ def _pivot_points_high_low(
         pivot_low_rank.eq(1).where(pivot_low_rank.notna()).astype("boolean").rename("pivot_low")
     )
 
-    if normalize_rank:
+    if rank_output == "strength":
         pivot_high_rank = (1.0 - (pivot_high_rank - 1.0) / (high_left + high_right)).rename(
             "pivot_high_strength"
         )
