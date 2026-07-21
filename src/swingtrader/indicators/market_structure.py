@@ -209,7 +209,7 @@ def zigzag(
         Retrospective Zig Zag pivots and retained-swing measurements, aligned
         with the input index.
 
-    Warning
+    Warnings
     -------
     This indicator is retrospective. Its pivot-aligned outputs depend on later
     observations and must not be used directly as row-aligned machine-learning

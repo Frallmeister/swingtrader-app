@@ -208,7 +208,7 @@ Unlike the retrospective `zigzag` indicator, these features are point-in-time: a
 
 !!! warning "Do not use retrospective Zig Zag outputs as model features"
 
-    The columns returned by the public `zigzag()` indicator — `zigzag_price`, `zigzag_direction`, `zigzag_return`, and `zigzag_bars`—are retrospective analytical  outputs. Final pivots are written on their historical extreme rows only after later observations confirm and potentially revise the Zig Zag sequence. These columns therefore contain future information relative to their row dates and must not be used as row-aligned machine-learning predictors.
+    The columns returned by the public `zigzag()` indicator — `zigzag_price`, `zigzag_direction`, `zigzag_return`, and `zigzag_bars` — are retrospective analytical  outputs. Final pivots are written on their historical extreme rows only after later observations confirm and potentially revise the Zig Zag sequence. These columns therefore contain future information relative to their row dates and must not be used as row-aligned machine-learning predictors.
 
     Use the columns produced by `zigzag_features()` or `add_market_structure_features()` for model training. Those outputs are point-in-time safe: confirmed pivot information first appears on the confirmation row, and appending future observations does not change previously emitted values.
 
