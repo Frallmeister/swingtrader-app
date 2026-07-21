@@ -26,7 +26,16 @@ from swingtrader.indicators._validation import validate_length
 
 @dataclass(frozen=True, slots=True)
 class _ZigZagPivot:
-    """One candidate or retained Zig Zag pivot for a single instrument."""
+    """Represent one Zig Zag pivot candidate or retained turning point.
+
+    Attributes:
+        position: Zero-based row position within one instrument's ordered price
+            history.
+        price: Pivot price, taken from ``high`` for swing highs and ``low`` for
+            swing lows.
+        direction: Pivot direction, where ``1`` denotes a swing high and ``-1``
+            denotes a swing low.
+    """
 
     position: int
     price: float
@@ -306,7 +315,17 @@ def _zigzag(
     deviation_ratio: float,
     legs: int,
 ) -> pd.DataFrame:
-    """Calculate retrospective Zig Zag outputs for one ordered instrument."""
+    """Calculate retrospective Zig Zag pivots for one ordered instrument.
+
+    Local pivot-high and pivot-low candidates are detected from the configured
+    number of bars on each side, then processed chronologically into an
+    alternating sequence of retained pivots. More extreme candidates replace
+    the current endpoint, while opposite-direction candidates are accepted only
+    when they satisfy the minimum reversal deviation.
+
+    The returned dataframe is aligned to the input rows. Pivot prices, signed
+    returns, and bar counts are populated only on retained pivot rows.
+    """
     high_candidates, low_candidates = _zigzag_candidate_prices(data, legs=legs)
     pivots: list[_ZigZagPivot] = []
 
@@ -328,7 +347,7 @@ def _zigzag(
         prices[pivot.position] = pivot.price
         directions[pivot.position] = pivot.direction
 
-    for previous, current in zip(pivots, pivots[1:]):
+    for previous, current in zip(pivots, pivots[1:], strict=False):
         returns[current.position] = current.price / previous.price - 1.0
         bars[current.position] = float(current.position - previous.position)
 
@@ -439,7 +458,23 @@ def _update_zigzag_from_candidates(
     low_candidates: pd.Series,
     deviation_ratio: float,
 ) -> None:
-    """Apply at most one high-first Zig Zag update from one candidate row."""
+    """Update the retained Zig Zag sequence from one row of pivot candidates.
+
+    The high candidate is evaluated before the low candidate. Processing stops
+    after the first candidate that appends a new pivot or replaces the current
+    endpoint, ensuring that at most one structural Zig Zag update is applied for
+    the row.
+
+    Args:
+        pivots: Mutable sequence of retained Zig Zag pivots for one instrument.
+        position: Zero-based row position of the candidate values.
+        high_candidates: Row-aligned candidate prices for pivot highs, with
+            missing values on rows that are not high candidates.
+        low_candidates: Row-aligned candidate prices for pivot lows, with
+            missing values on rows that are not low candidates.
+        deviation_ratio: Minimum absolute relative price change required to
+            accept an opposite-direction reversal.
+    """
     high_price = high_candidates.iloc[position]
     if pd.notna(high_price) and _update_zigzag(
         pivots,
@@ -463,7 +498,15 @@ def _update_zigzag(
     *,
     deviation_ratio: float,
 ) -> bool:
-    """Update retained pivots from one candidate and report whether it changed."""
+    """Update the retained Zig Zag sequence from one pivot candidate.
+
+    A more extreme candidate in the current direction replaces the latest
+    endpoint, while an opposite-direction candidate is appended only when it
+    satisfies the minimum reversal deviation.
+
+    Returns:
+        ``True`` if the retained pivot sequence changed, otherwise ``False``.
+    """
     if not pivots:
         pivots.append(candidate)
         return True
