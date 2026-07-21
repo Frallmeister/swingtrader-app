@@ -25,9 +25,7 @@ def test_zigzag_features_are_emitted_only_after_pivot_confirmation() -> None:
     assert aaa.loc[4, "zigzag_last_direction"] == 1
 
 
-def test_zigzag_features_keep_intermediate_endpoint_until_replacement_is_confirmed() -> (
-    None
-):
+def test_zigzag_features_keep_intermediate_endpoint_until_replacement_is_confirmed() -> None:
     result = zigzag_features(
         _indexed_prices(),
         deviation=5.0,
@@ -52,9 +50,7 @@ def test_zigzag_features_calculate_return_per_bar_and_retracement() -> None:
     )
     aaa = result.loc[("yfinance", "AAA.ST")].reset_index(drop=True)
 
-    assert aaa.loc[8, "zigzag_swing_return_per_bar"] == pytest.approx(
-        1.15 ** (1.0 / 6.0) - 1.0
-    )
+    assert aaa.loc[8, "zigzag_swing_return_per_bar"] == pytest.approx(1.15 ** (1.0 / 6.0) - 1.0)
     assert aaa.loc[8, "zigzag_retracement"] == pytest.approx(7.0 / 15.0)
 
     # At position 10 the last confirmed swing is 115 -> 100 and close is 103.

@@ -124,9 +124,7 @@ def pivot_points_high_low(
         raise ValueError(f"kind must be either 'high_low' or 'balanced'; got {kind!r}.")
     validate_required_columns(data, required_columns=required_columns)
     if rank_output not in ("rank", "strength"):
-        raise ValueError(
-            f"rank_output must be either 'rank' or 'strength'; got {rank_output!r}."
-        )
+        raise ValueError(f"rank_output must be either 'rank' or 'strength'; got {rank_output!r}.")
 
     return apply_by_ticker(
         data,
@@ -280,17 +278,11 @@ def _pivot_points_high_low(
     ).rename("pivot_low_rank")
 
     pivot_high = (
-        pivot_high_rank.eq(1)
-        .where(pivot_high_rank.notna())
-        .astype("boolean")
-        .rename("pivot_high")
+        pivot_high_rank.eq(1).where(pivot_high_rank.notna()).astype("boolean").rename("pivot_high")
     )
 
     pivot_low = (
-        pivot_low_rank.eq(1)
-        .where(pivot_low_rank.notna())
-        .astype("boolean")
-        .rename("pivot_low")
+        pivot_low_rank.eq(1).where(pivot_low_rank.notna()).astype("boolean").rename("pivot_low")
     )
 
     if rank_output == "strength":
@@ -543,18 +535,11 @@ def _validate_zigzag_parameters(
         or not math.isfinite(deviation)
         or deviation < 0
     ):
-        raise ValueError(
-            f"deviation must be a non-negative finite number; got {deviation!r}."
-        )
+        raise ValueError(f"deviation must be a non-negative finite number; got {deviation!r}.")
 
-    if (
-        isinstance(pivot_legs, bool)
-        or not isinstance(pivot_legs, int)
-        or pivot_legs < 2
-    ):
+    if isinstance(pivot_legs, bool) or not isinstance(pivot_legs, int) or pivot_legs < 2:
         raise ValueError(
-            "pivot_legs must be an integer greater than or equal to 2; "
-            f"got {pivot_legs!r}."
+            f"pivot_legs must be an integer greater than or equal to 2; got {pivot_legs!r}."
         )
 
     return deviation / 100.0, pivot_legs // 2
