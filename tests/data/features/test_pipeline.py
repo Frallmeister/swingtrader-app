@@ -54,10 +54,12 @@ def test_add_default_features_matches_manual_family_chain() -> None:
     data = _prices()
 
     result = add_default_features(data)
-    manual = add_market_structure_features(
-        add_volatility_features(
-            add_momentum_features(add_trend_features(add_return_features(data)))
-        )
+    manual = (
+        data.pipe(add_return_features)
+        .pipe(add_trend_features)
+        .pipe(add_momentum_features)
+        .pipe(add_volatility_features)
+        .pipe(add_market_structure_features)
     )
 
     pd.testing.assert_frame_equal(result, manual, check_exact=False)
