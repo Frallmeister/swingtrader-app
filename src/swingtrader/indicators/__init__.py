@@ -20,7 +20,7 @@ Indicators return new index-aligned outputs and never mutate their input objects
 
 from swingtrader.indicators.directional_movement import adx
 from swingtrader.indicators.macd import macd, ppo
-from swingtrader.indicators.market_structure import pivot_points_high_low
+from swingtrader.indicators.market_structure import pivot_points_high_low, zigzag
 from swingtrader.indicators.moving_averages import ema, rolling_vwap, sma
 from swingtrader.indicators.oscillators import rsi, stochastic_oscillator
 from swingtrader.indicators.squeeze_momentum import lazybear_squeeze_momentum
@@ -54,4 +54,5 @@ __all__ = [
     "sma",
     "stochastic_oscillator",
     "true_range",
+    "zigzag",
 ]

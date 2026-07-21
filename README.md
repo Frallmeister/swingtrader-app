@@ -21,7 +21,7 @@ The project currently implements the data foundation:
 * initial market data onboarding for active tickers with no bronze rows
 * daily market data updates for already-onboarded tickers
 * inference-readiness and training-eligibility checks based on bronze data quality
-* in-memory adjusted-close return, trend, and momentum feature generation, plus high/low/close volatility features
+* in-memory adjusted-close return, trend, and momentum feature generation, plus high/low/close volatility and Zig Zag market-structure features
 * local SQLite support and configurable SQLAlchemy database URLs
 * MkDocs-based project documentation
 * pytest/ruff-based local quality checks
@@ -145,6 +145,7 @@ Feature helpers currently run in memory on ordered pandas dataframes. Inputs mus
 
 ```python
 from swingtrader.data.features import (
+    add_market_structure_features,
     add_momentum_features,
     add_return_features,
     add_trend_features,
@@ -162,16 +163,17 @@ features = add_return_features(prices, horizons=(1, 5, 10, 20))
 features = add_trend_features(features)
 features = add_momentum_features(features)
 features = add_volatility_features(features)
+features = add_market_structure_features(features)
 ```
 
-The codebase separates two responsibilities. **Indicators** in `swingtrader.indicators` calculate reusable technical quantities (moving averages, ADX, ATR, ADR, RSI, MACD, PPO, MFI, Bollinger Bands, squeeze momentum, pivot points) that are meaningful outside any particular model. **Features** in `swingtrader.data.features` transform raw data and indicators into model inputs, deciding which source columns to use, how to combine and normalize them, and what the model-facing columns are named.
+The codebase separates two responsibilities. **Indicators** in `swingtrader.indicators` calculate reusable technical quantities (moving averages, ADX, ATR, ADR, RSI, MACD, PPO, MFI, Bollinger Bands, squeeze momentum, pivot points, Zig Zag) that are meaningful outside any particular model. **Features** in `swingtrader.data.features` transform raw data and indicators into model inputs, deciding which source columns to use, how to combine and normalize them, and what the model-facing columns are named.
 
-Return features add trailing adjusted-close returns. Trend features add moving-average ratios. Momentum features add PPO, PPO signal, PPO histogram, PPO percentile, RSI, stochastic, MFI, and squeeze momentum columns. Volatility features add `adr_percent` (Average Daily Range as a percentage of close), `atr_percent` (Average True Range as a percentage of close), `bollinger_bandwidth`, and `bollinger_percent_b` columns. `add_default_features` runs the four families in a fixed order and is equivalent to applying them manually. All features are grouped by provider and ticker, leaving warm-up rows missing until the relevant windows are available. External consumers that need identifiers as columns convert back explicitly with `features.reset_index()`.
+Return features add trailing adjusted-close returns. Trend features add moving-average ratios. Momentum features add PPO, PPO signal, PPO histogram, PPO percentile, RSI, stochastic, MFI, and squeeze momentum columns. Volatility features add `adr_percent` (Average Daily Range as a percentage of close), `atr_percent` (Average True Range as a percentage of close), `bollinger_bandwidth`, and `bollinger_percent_b` columns. Market-structure features add point-in-time Zig Zag swing columns (`zigzag_last_direction`, `zigzag_last_swing_return`, `zigzag_last_swing_bars`, `zigzag_swing_return_per_bar`, `zigzag_bars_since_pivot`, and `zigzag_retracement`). `add_default_features` runs the five families in a fixed order and is equivalent to applying them manually. All features are grouped by provider and ticker, leaving warm-up rows missing until the relevant windows are available. External consumers that need identifiers as columns convert back explicitly with `features.reset_index()`.
 
 Standalone indicators can be imported directly for notebooks, tests, and future API or frontend charting:
 
 ```python
-from swingtrader.indicators import adx, atr, ema, macd, pivot_points_high_low, rsi
+from swingtrader.indicators import adx, atr, ema, macd, pivot_points_high_low, rsi, zigzag
 ```
 
 Each public indicator accepts either a single ordered instrument or a canonical multi-instrument market frame, and preserves the input index and row order.
