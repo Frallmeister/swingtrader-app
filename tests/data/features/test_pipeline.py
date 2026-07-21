@@ -21,7 +21,13 @@ def test_add_default_features_includes_all_family_columns_without_duplicates() -
     market_structure_columns = set(add_market_structure_features(data).columns)
     momentum_columns = set(add_momentum_features(data).columns)
     volatility_columns = set(add_volatility_features(data).columns)
-    expected_columns = returns_columns | trend_columns | momentum_columns | volatility_columns | market_structure_columns
+    expected_columns = (
+        returns_columns
+        | trend_columns
+        | momentum_columns
+        | volatility_columns
+        | market_structure_columns
+    )
 
     assert set(result.columns) == expected_columns
     assert result.columns.is_unique
