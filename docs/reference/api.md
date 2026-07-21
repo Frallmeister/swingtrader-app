@@ -103,6 +103,10 @@ and frontend charting functionality.
 
 ::: swingtrader.data.features.volatility
 
+## Market Structure Features
+
+::: swingtrader.data.features.market_structure
+
 ## Default Feature Pipeline
 
 ::: swingtrader.data.features.pipeline

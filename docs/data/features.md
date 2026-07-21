@@ -1,6 +1,6 @@
 # Features
 
-Feature generation currently supports in-memory historical return, trend, momentum, and volatility features for exploratory analysis and baseline modeling. Persistent feature tables and versioned feature pipelines are still future work.
+Feature generation currently supports in-memory historical return, trend, momentum, volatility, and market-structure features for exploratory analysis and baseline modeling. Persistent feature tables and versioned feature pipelines are still future work.
 
 ## Intended Role
 
@@ -32,7 +32,7 @@ In short: indicators calculate reusable technical quantities, and features trans
 Feature functions follow two contracts:
 
 - public numerical indicators in `swingtrader.indicators` operate per ticker and return either one index-aligned `pd.Series` or, for naturally multi-output indicators, one index-aligned `pd.DataFrame`. Most indicators take a single ordered `pd.Series`; indicators that need several price columns at once, such as the volatility indicators consuming `high`, `low`, and `close`, take a `pd.DataFrame` instead. Every indicator supports two input forms: a single ordered instrument (only required to be chronologically ordered), or a canonical multi-instrument market frame with a `provider`/`ticker`/`trading_date` MultiIndex, in which case calculations are isolated per group and the input index and row order are preserved;
-- application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, and `add_volatility_features` return a copy of the input dataframe with final model feature columns added. They are importable from `swingtrader.data.features`, and `swingtrader.data.features.pipeline.add_default_features` runs the standard families in a fixed order.
+- application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, `add_volatility_features`, and `add_market_structure_features` return a copy of the input dataframe with final model feature columns added. They are importable from `swingtrader.data.features`, and `swingtrader.data.features.pipeline.add_default_features` runs the standard families in a fixed order.
 
 ## Return Features
 
@@ -185,13 +185,29 @@ Raw `true_range`, `atr`, `bollinger_bands`, and the price-unit `adr` column are 
 
 ## Market Structure
 
-Market-structure indicators describe the local geometry of a price series rather than its smoothing or oscillator dynamics. The first such indicator identifies swing highs and swing lows. There is no market-structure feature orchestrator yet; the indicator is exposed as a standalone calculation, analogous to `macd`.
+Market-structure indicators describe the local geometry of a price series rather than its smoothing or oscillator dynamics. They identify swing highs and swing lows and summarise the alternating swings between them.
 
-The public numerical market-structure indicator, importable from `swingtrader.indicators`, is:
+The market-structure feature orchestrator is `swingtrader.data.features.market_structure.add_market_structure_features`. It validates the source prices once, rejects any input that already carries the generated feature names, copies the input, calculates the point-in-time Zig Zag feature block from `high`, `low`, and `close`, and appends those columns while preserving input row alignment. `swingtrader.data.features.zigzag_features` returns just the feature block for callers, such as a frontend endpoint, that do not need every family.
 
-- `pivot_points_high_low`, which consumes a dataframe with `high` and `low` columns (or, when `kind="balanced"`, `open`, `high`, `low`, and `close`) and returns a dataframe of pivot flags together with either ordinal ranks or normalised strengths.
+With the default settings, the orchestrator adds:
 
-Like the other multi-column indicators it accepts either one ordered single-instrument input or a canonical multi-instrument input carrying the `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker input does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is isolated per provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved.
+- `zigzag_last_direction`, `1` when the latest confirmed endpoint is a swing high and `-1` when it is a swing low, missing before the first endpoint is confirmed;
+- `zigzag_last_swing_return`, the latest endpoint divided by the preceding endpoint minus one;
+- `zigzag_last_swing_bars`, the number of observations between the latest two pivot rows;
+- `zigzag_swing_return_per_bar`, the geometric mean return per observation over the latest retained swing;
+- `zigzag_bars_since_pivot`, the number of observations from the latest pivot row to the current row; because the feature is emitted on confirmation, its first populated value is at least `pivot_legs // 2`;
+- `zigzag_retracement`, direction-normalised movement away from the latest pivot, calculated as `-(close - last) / (last - previous)`, where zero is the latest pivot price, one is the preceding pivot price, positive values are retracements, and negative values extend the latest swing.
+
+Unlike the retrospective `zigzag` indicator, these features are point-in-time: a pivot updates the output only on and after its confirmation row, and an intermediate endpoint stays visible until a later, more extreme, confirmed endpoint replaces it. Appending future rows therefore never changes an already-emitted value. The `zigzag_deviation` and `zigzag_pivot_legs` arguments default to 5.0 percent and 10 bars and are forwarded to the underlying Zig Zag calculation.
+
+The public numerical market-structure indicators, importable from `swingtrader.indicators`, are:
+
+- `pivot_points_high_low`, which consumes a dataframe with `high` and `low` columns (or, when `kind="balanced"`, `open`, `high`, `low`, and `close`) and returns a dataframe of pivot flags together with either ordinal ranks or normalised strengths;
+- `zigzag`, which consumes a dataframe with `high` and `low` columns and returns the retained alternating swing highs and lows with their signed returns and bar counts.
+
+Like the other multi-column indicators they accept either one ordered single-instrument input or a canonical multi-instrument input carrying the `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker input does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is isolated per provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved.
+
+### Pivot Points
 
 A row is a **pivot high** (swing high) when its selected high value is the most extreme within a window made up of the candidate row, the preceding `high_left` rows, and the following `high_right` rows; a row is a **pivot low** (swing low) when its selected low value is the most extreme within the corresponding `low_left`/`low_right` window. Equal extreme values share the best rank and are therefore all marked as pivots. The default window is 10 rows on each side, calibratable through the `high_left`, `high_right`, `low_left`, and `low_right` arguments, which must each be a positive integer.
 
@@ -201,9 +217,17 @@ A row is a **pivot high** (swing high) when its selected high value is the most 
 
 Because each pivot is evaluated from observations on both sides of the candidate row, the outputs are aligned with the candidate row but are only knowable `high_right` (or `low_right`) rows later. `pivot_points_high_low` is therefore a lookahead-aware standalone indicator: its outputs must be shifted to their confirmation rows before being used as point-in-time model features. It is exposed for exploratory analysis and future API or frontend charting rather than included in a feature orchestrator.
 
+### Zig Zag
+
+`zigzag` filters confirmed local extrema into an alternating sequence of swing highs and lows that each meet a minimum percentage reversal. It first detects confirmed pivot candidates from the raw `high` and `low`: `pivot_legs` is the total confirmation width, matching the TradingView input, and is divided by two with floor division to require that many observations on both sides of each candidate. A pivot high must be strictly greater than every value to its left and greater than or equal to every value to its right, with the inverse comparisons for a pivot low, so the first value in a run of equal extrema is retained.
+
+Candidate pivots are processed chronologically. An opposite-direction pivot is retained only when its reversal from the last retained pivot is at least `deviation` percent, while a same-direction candidate replaces the current endpoint when it is more extreme, so the retained sequence always alternates between highs and lows. The result contains `zigzag_price` (the raw high or low of each retained pivot), `zigzag_direction` (`1` for a high, `-1` for a low, `0` elsewhere), `zigzag_return` (`current_price / previous_price - 1` on retained pivots), and `zigzag_bars` (observations between consecutive retained pivots). `deviation` and `pivot_legs` default to 5.0 percent and 10 bars; `deviation` must be a non-negative finite number and `pivot_legs` an integer of at least two.
+
+Like `pivot_points_high_low`, `zigzag` is retrospective and lookahead-aware: each pivot is first knowable `pivot_legs // 2` observations later, and the latest retained endpoint can still be replaced by a later, more extreme same-direction pivot. The point-in-time `add_market_structure_features` block above wraps the identical pivot logic but delays every update to its confirmation row, so it can be used as a leakage-free model feature while `zigzag` itself remains a charting- and analysis-oriented indicator.
+
 ## Default Feature Pipeline
 
-`swingtrader.data.features.pipeline.add_default_features` runs the standard feature families in a fixed order: returns, then trend, then momentum, then volatility. Each family receives the dataframe produced by the previous step, so the result is identical to calling `add_return_features`, `add_trend_features`, `add_momentum_features`, and `add_volatility_features` in that sequence with their default arguments. It provides a single entry point for producing the full default feature set while leaving the individual builders available for callers that need custom arguments or a subset of families.
+`swingtrader.data.features.pipeline.add_default_features` runs the standard feature families in a fixed order: returns, then trend, then momentum, then volatility, then market structure. Each family receives the dataframe produced by the previous step, so the result is identical to calling `add_return_features`, `add_trend_features`, `add_momentum_features`, `add_volatility_features`, and `add_market_structure_features` in that sequence with their default arguments. It provides a single entry point for producing the full default feature set while leaving the individual builders available for callers that need custom arguments or a subset of families.
 
 ## Future Feature Ideas
 
