@@ -208,6 +208,13 @@ def zigzag(
     pandas.DataFrame
         Retrospective Zig Zag pivots and retained-swing measurements, aligned
         with the input index.
+
+    Warning
+    -------
+    This indicator is retrospective. Its pivot-aligned outputs depend on later
+    observations and must not be used directly as row-aligned machine-learning
+    features. Use ``zigzag_features`` or ``add_market_structure_features`` for
+    point-in-time-safe predictor columns.
     """
     validate_required_columns(data, required_columns={"high", "low"})
     deviation_ratio, legs = _validate_zigzag_parameters(

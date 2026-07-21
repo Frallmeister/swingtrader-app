@@ -97,6 +97,12 @@ def zigzag_features(
     The structural changes and rates remain missing until two confirmed pivots of
     the corresponding direction are available. The output preserves the canonical
     input index and does not mutate ``data``.
+
+    Notes
+    -----
+    All returned columns are point-in-time safe for row-aligned modeling. Pivot
+    information first appears on its confirmation row; future rows never revise
+    previously emitted feature values.
     """
     validate_market_price_index(data)
     validate_required_columns(data, required_columns={"high", "low", "close"})

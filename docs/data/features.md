@@ -206,6 +206,12 @@ The high and low changes preserve both direction and magnitude. Positive values 
 
 Unlike the retrospective `zigzag` indicator, these features are point-in-time: a pivot updates the output only on and after its confirmation row, and an intermediate endpoint stays visible until a later, more extreme, confirmed endpoint replaces it. Appending future rows therefore never changes an already-emitted value. The structural changes and rates remain missing until two confirmed pivots of the corresponding direction exist. Their bar counts use the historical pivot positions rather than the later confirmation rows. The `zigzag_deviation` and `zigzag_pivot_legs` arguments default to 5.0 percent and 10 bars and are forwarded to the underlying Zig Zag calculation.
 
+!!! warning "Do not use retrospective Zig Zag outputs as model features"
+
+    The columns returned by the public `zigzag()` indicator — `zigzag_price`, `zigzag_direction`, `zigzag_return`, and `zigzag_bars`—are retrospective analytical  outputs. Final pivots are written on their historical extreme rows only after later observations confirm and potentially revise the Zig Zag sequence. These columns therefore contain future information relative to their row dates and must not be used as row-aligned machine-learning predictors.
+
+    Use the columns produced by `zigzag_features()` or `add_market_structure_features()` for model training. Those outputs are point-in-time safe: confirmed pivot information first appears on the confirmation row, and appending future observations does not change previously emitted values.
+
 The public numerical market-structure indicators, importable from `swingtrader.indicators`, are:
 
 - `pivot_points_high_low`, which consumes a dataframe with `high` and `low` columns (or, when `kind="balanced"`, `open`, `high`, `low`, and `close`) and returns a dataframe of pivot flags together with either ordinal ranks or normalised strengths;
