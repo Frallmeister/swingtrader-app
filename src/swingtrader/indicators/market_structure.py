@@ -307,12 +307,15 @@ def _zigzag(
     legs: int,
 ) -> pd.DataFrame:
     """Calculate retrospective Zig Zag outputs for one ordered instrument."""
+    high_candidates, low_candidates = _zigzag_candidate_prices(data, legs=legs)
     pivots: list[_ZigZagPivot] = []
 
-    for candidates in _zigzag_candidates(data, legs=legs):
-        _process_zigzag_candidates(
+    for position in range(len(data)):
+        _update_zigzag_from_candidates(
             pivots,
-            candidates,
+            position=position,
+            high_candidates=high_candidates,
+            low_candidates=low_candidates,
             deviation_ratio=deviation_ratio,
         )
 
@@ -321,16 +324,13 @@ def _zigzag(
     returns = [math.nan] * len(data)
     bars = [math.nan] * len(data)
 
-    previous: _ZigZagPivot | None = None
     for pivot in pivots:
         prices[pivot.position] = pivot.price
         directions[pivot.position] = pivot.direction
 
-        if previous is not None:
-            returns[pivot.position] = pivot.price / previous.price - 1.0
-            bars[pivot.position] = float(pivot.position - previous.position)
-
-        previous = pivot
+    for previous, current in zip(pivots, pivots[1:]):
+        returns[current.position] = current.price / previous.price - 1.0
+        bars[current.position] = float(current.position - previous.position)
 
     return pd.DataFrame(
         {
@@ -364,22 +364,23 @@ def _confirmed_zigzag_state(
         deviation=deviation,
         pivot_legs=pivot_legs,
     )
-    candidate_groups = _zigzag_candidates(data, legs=legs)
+    high_candidates, low_candidates = _zigzag_candidate_prices(data, legs=legs)
 
     last_price = [math.nan] * len(data)
     previous_price = [math.nan] * len(data)
     last_direction = [math.nan] * len(data)
     last_position = [math.nan] * len(data)
     previous_position = [math.nan] * len(data)
-
     pivots: list[_ZigZagPivot] = []
 
     for current_position in range(len(data)):
         candidate_position = current_position - legs
         if candidate_position >= 0:
-            _process_zigzag_candidates(
+            _update_zigzag_from_candidates(
                 pivots,
-                candidate_groups[candidate_position],
+                position=candidate_position,
+                high_candidates=high_candidates,
+                low_candidates=low_candidates,
                 deviation_ratio=deviation_ratio,
             )
 
@@ -412,82 +413,48 @@ def _confirmed_zigzag_state(
     )
 
 
-def _zigzag_candidates(
+def _zigzag_candidate_prices(
     data: pd.DataFrame,
     *,
     legs: int,
-) -> list[list[_ZigZagPivot]]:
-    """Return confirmed high/low candidates grouped by pivot position."""
+) -> tuple[pd.Series, pd.Series]:
+    """Return high and low prices only where a row is a pivot candidate."""
     high = data["high"]
     low = data["low"]
-
     pivot_high = high.notna()
     pivot_low = low.notna()
-    complete_high_window = high.notna()
-    complete_low_window = low.notna()
 
     for distance in range(1, legs + 1):
-        left_high = high.shift(distance)
-        right_high = high.shift(-distance)
-        left_low = low.shift(distance)
-        right_low = low.shift(-distance)
+        pivot_high &= high.gt(high.shift(distance)) & high.ge(high.shift(-distance))
+        pivot_low &= low.lt(low.shift(distance)) & low.le(low.shift(-distance))
 
-        pivot_high &= high.gt(left_high) & high.ge(right_high)
-        pivot_low &= low.lt(left_low) & low.le(right_low)
-
-        complete_high_window &= left_high.notna() & right_high.notna()
-        complete_low_window &= left_low.notna() & right_low.notna()
-
-    pivot_high &= complete_high_window
-    pivot_low &= complete_low_window
-
-    grouped: list[list[_ZigZagPivot]] = []
-    for position in range(len(data)):
-        candidates: list[_ZigZagPivot] = []
-
-        if bool(pivot_high.iloc[position]):
-            candidates.append(
-                _ZigZagPivot(
-                    position=position,
-                    price=float(high.iloc[position]),
-                    direction=1,
-                )
-            )
-
-        if bool(pivot_low.iloc[position]):
-            candidates.append(
-                _ZigZagPivot(
-                    position=position,
-                    price=float(low.iloc[position]),
-                    direction=-1,
-                )
-            )
-
-        grouped.append(candidates)
-
-    return grouped
+    return high.where(pivot_high), low.where(pivot_low)
 
 
-def _process_zigzag_candidates(
+def _update_zigzag_from_candidates(
     pivots: list[_ZigZagPivot],
-    candidates: list[_ZigZagPivot],
     *,
+    position: int,
+    high_candidates: pd.Series,
+    low_candidates: pd.Series,
     deviation_ratio: float,
 ) -> None:
-    """Process at most one structural update from one candidate row."""
-    if not candidates:
+    """Apply at most one high-first Zig Zag update from one candidate row."""
+    high_price = high_candidates.iloc[position]
+    if pd.notna(high_price) and _update_zigzag(
+        pivots,
+        _ZigZagPivot(position=position, price=float(high_price), direction=1),
+        deviation_ratio=deviation_ratio,
+    ):
         return
 
-    # Candidates are ordered high first and low second. Stop after the first
-    # structural update, matching TradingView's default single-pivot-per-bar
-    # behaviour when a candle qualifies as both a pivot high and pivot low.
-    for candidate in candidates:
-        if _update_zigzag(
+    low_price = low_candidates.iloc[position]
+    if pd.notna(low_price):
+        _update_zigzag(
             pivots,
-            candidate,
+            _ZigZagPivot(position=position, price=float(low_price), direction=-1),
             deviation_ratio=deviation_ratio,
-        ):
-            return
+        )
 
 
 def _update_zigzag(

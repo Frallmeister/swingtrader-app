@@ -4,8 +4,6 @@ import pytest
 from swingtrader.data.features.market_structure import (
     add_market_structure_features,
     zigzag_features,
-    zigzag_retracement,
-    zigzag_swing_return_per_bar,
 )
 
 
@@ -76,20 +74,6 @@ def test_zigzag_features_do_not_change_when_future_rows_are_appended() -> None:
             full_result.iloc[stop - 1],
             check_names=False,
         )
-
-
-def test_public_single_feature_helpers_match_feature_block() -> None:
-    prices = _indexed_prices()
-    block = zigzag_features(prices, deviation=5.0, pivot_legs=2)
-
-    pd.testing.assert_series_equal(
-        zigzag_retracement(prices, deviation=5.0, pivot_legs=2),
-        block["zigzag_retracement"],
-    )
-    pd.testing.assert_series_equal(
-        zigzag_swing_return_per_bar(prices, deviation=5.0, pivot_legs=2),
-        block["zigzag_swing_return_per_bar"],
-    )
 
 
 def test_add_market_structure_features_preserves_input_and_appends_block() -> None:

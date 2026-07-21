@@ -17,15 +17,6 @@ from swingtrader.data.market_frame import (
 )
 from swingtrader.indicators.market_structure import _confirmed_zigzag_state
 
-_ZIGZAG_FEATURE_COLUMNS = [
-    "zigzag_last_direction",
-    "zigzag_last_swing_return",
-    "zigzag_last_swing_bars",
-    "zigzag_swing_return_per_bar",
-    "zigzag_bars_since_pivot",
-    "zigzag_retracement",
-]
-
 
 def add_market_structure_features(
     data: pd.DataFrame,
@@ -95,34 +86,6 @@ def zigzag_features(
     )
 
 
-def zigzag_retracement(
-    data: pd.DataFrame,
-    *,
-    deviation: float = 5.0,
-    pivot_legs: int = 10,
-) -> pd.Series:
-    """Return only the point-in-time direction-normalized Zig Zag retracement."""
-    return zigzag_features(
-        data,
-        deviation=deviation,
-        pivot_legs=pivot_legs,
-    )["zigzag_retracement"]
-
-
-def zigzag_swing_return_per_bar(
-    data: pd.DataFrame,
-    *,
-    deviation: float = 5.0,
-    pivot_legs: int = 10,
-) -> pd.Series:
-    """Return only the geometric mean return per bar of the latest Zig Zag swing."""
-    return zigzag_features(
-        data,
-        deviation=deviation,
-        pivot_legs=pivot_legs,
-    )["zigzag_swing_return_per_bar"]
-
-
 def _zigzag_features(
     data: pd.DataFrame,
     *,
@@ -175,4 +138,4 @@ def _zigzag_features(
             "zigzag_retracement": retracement,
         },
         index=data.index,
-    )[_ZIGZAG_FEATURE_COLUMNS]
+    )
