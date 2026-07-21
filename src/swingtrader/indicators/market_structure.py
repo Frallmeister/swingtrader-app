@@ -56,7 +56,6 @@ def _pivot_points_high_low(
     low_left: int = 10,
     low_right: int = 10,
     kind: Literal["high_low", "balanced"] = "high_low",
-    normalize_rank: bool = False,
     rank_output: Literal["rank", "strength"] = "rank"
 ) -> pd.DataFrame:
     """ADD DOCSTRING HERE."""
@@ -92,15 +91,18 @@ def _pivot_points_high_low(
     )
 
     if rank_output == "strength":
-        pivot_high_rank = (1.0 - (pivot_high_rank - 1.0) / (high_left + high_right)).rename(
+        high_output = (1.0 - (pivot_high_rank - 1.0) / (high_left + high_right)).rename(
             "pivot_high_strength"
         )
 
-        pivot_low_rank = (1.0 - (pivot_low_rank - 1.0) / (low_left + low_right)).rename(
+        low_output = (1.0 - (pivot_low_rank - 1.0) / (low_left + low_right)).rename(
             "pivot_low_strength"
         )
+    else:
+        high_output = pivot_high_rank
+        low_output = pivot_low_rank
 
-    return pd.concat([pivot_high, pivot_low, pivot_high_rank, pivot_low_rank], axis=1)
+    return pd.concat([pivot_high, pivot_low, high_output, low_output], axis=1)
 
 
 def _centered_rank(

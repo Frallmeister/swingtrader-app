@@ -50,7 +50,7 @@ def test_pivot_points_high_low_returns_expected_pivots_and_ranks() -> None:
     pd.testing.assert_frame_equal(result, expected)
 
 
-def test_pivot_points_high_low_returns_expected_normalized_strengths() -> None:
+def test_pivot_points_high_low_returns_expected_strengths() -> None:
     prices = _prices()
 
     result = pivot_points_high_low(
@@ -326,6 +326,21 @@ def test_pivot_points_high_low_requires_price_columns_when_kind_is_balanced(colu
             low_left=1,
             low_right=1,
             kind="balanced",
+        )
+
+
+def test_pivot_points_high_low_rejects_invalid_rank_output() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Rank output must be either 'rank' or 'strength'",
+    ):
+        pivot_points_high_low(
+            _prices(),
+            high_left=1,
+            high_right=1,
+            low_left=1,
+            low_right=1,
+            rank_output="invalid",  # type: ignore[arg-type]
         )
 
 
