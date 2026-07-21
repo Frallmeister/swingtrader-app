@@ -10,10 +10,7 @@ def test_validate_new_columns_rejects_existing_columns_in_sorted_order() -> None
 
     with pytest.raises(
         ValueError,
-        match=(
-            "Generated columns already exist in input data: "
-            "feature_a, feature_b\\."
-        ),
+        match=("Generated columns already exist in input data: feature_a, feature_b\\."),
     ):
         validate_new_columns(
             data,
