@@ -196,9 +196,15 @@ With the default settings, the orchestrator adds:
 - `zigzag_last_swing_bars`, the number of observations between the latest two pivot rows;
 - `zigzag_swing_return_per_bar`, the geometric mean return per observation over the latest retained swing;
 - `zigzag_bars_since_pivot`, the number of observations from the latest pivot row to the current row; because the feature is emitted on confirmation, its first populated value is at least `pivot_legs // 2`;
-- `zigzag_retracement`, direction-normalised movement away from the latest pivot, calculated as `-(close - last) / (last - previous)`, where zero is the latest pivot price, one is the preceding pivot price, positive values are retracements, and negative values extend the latest swing.
+- `zigzag_retracement`, direction-normalised movement away from the latest pivot, calculated as `-(close - last) / (last - previous)`, where zero is the latest pivot price, one is the preceding pivot price, positive values are retracements, and negative values extend the latest swing;
+- `market_structure_high_change`, the logarithmic price change between the latest two confirmed swing highs;
+- `market_structure_low_change`, the logarithmic price change between the latest two confirmed swing lows;
+- `market_structure_high_rate`, `market_structure_high_change` divided by the number of observations between the two swing-high positions;
+- `market_structure_low_rate`, `market_structure_low_change` divided by the number of observations between the two swing-low positions.
 
-Unlike the retrospective `zigzag` indicator, these features are point-in-time: a pivot updates the output only on and after its confirmation row, and an intermediate endpoint stays visible until a later, more extreme, confirmed endpoint replaces it. Appending future rows therefore never changes an already-emitted value. The `zigzag_deviation` and `zigzag_pivot_legs` arguments default to 5.0 percent and 10 bars and are forwarded to the underlying Zig Zag calculation.
+The high and low changes preserve both direction and magnitude. Positive values mean that the corresponding structural boundary moved upward, while negative values mean that it moved downward. Taken together, their signs distinguish higher-high/higher-low, lower-high/lower-low, broadening, and contracting structures without adding a redundant categorical state. The rate features retain the same direction but also distinguish an equal structural displacement completed over a few bars from one completed over a much longer period. Drift and width are documented analytical interpretations of the high/low pair rather than additional default columns: `(high_change + low_change) / 2` describes common structural drift and `(high_change - low_change) / 2` describes expansion or contraction.
+
+Unlike the retrospective `zigzag` indicator, these features are point-in-time: a pivot updates the output only on and after its confirmation row, and an intermediate endpoint stays visible until a later, more extreme, confirmed endpoint replaces it. Appending future rows therefore never changes an already-emitted value. The structural changes and rates remain missing until two confirmed pivots of the corresponding direction exist. Their bar counts use the historical pivot positions rather than the later confirmation rows. The `zigzag_deviation` and `zigzag_pivot_legs` arguments default to 5.0 percent and 10 bars and are forwarded to the underlying Zig Zag calculation.
 
 The public numerical market-structure indicators, importable from `swingtrader.indicators`, are:
 
