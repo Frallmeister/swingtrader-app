@@ -10,14 +10,24 @@ Feature builders are organized by family and remain independently usable. The
 the standard families in a fixed order.
 """
 
+from swingtrader.data.features.market_structure import (
+    add_market_structure_features,
+    zigzag_features,
+    zigzag_retracement,
+    zigzag_swing_return_per_bar,
+)
 from swingtrader.data.features.momentum import add_momentum_features
 from swingtrader.data.features.returns import add_return_features
 from swingtrader.data.features.trend import add_trend_features
 from swingtrader.data.features.volatility import add_volatility_features
 
 __all__ = [
+    "add_market_structure_features",
     "add_momentum_features",
     "add_return_features",
     "add_trend_features",
     "add_volatility_features",
+    "zigzag_features",
+    "zigzag_retracement",
+    "zigzag_swing_return_per_bar",
 ]
