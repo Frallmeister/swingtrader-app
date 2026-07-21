@@ -332,7 +332,7 @@ def test_pivot_points_high_low_requires_price_columns_when_kind_is_balanced(colu
 def test_pivot_points_high_low_rejects_invalid_rank_output() -> None:
     with pytest.raises(
         ValueError,
-        match="Rank output must be either 'rank' or 'strength'",
+        match="rank_output must be either 'rank' or 'strength'",
     ):
         pivot_points_high_low(
             _prices(),
