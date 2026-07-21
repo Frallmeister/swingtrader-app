@@ -10,27 +10,17 @@ def test_zigzag_features_calculate_structural_log_changes_and_rates() -> None:
     result = zigzag_features(_market_prices(), deviation=5.0, pivot_legs=2)
     bullish = result.loc[("yfinance", "BULL.ST")].reset_index(drop=True)
 
-    assert bullish.loc[8, "market_structure_low_change"] == pytest.approx(
-        math.log(94.0 / 89.0)
-    )
-    assert bullish.loc[8, "market_structure_low_rate"] == pytest.approx(
-        math.log(94.0 / 89.0) / 6.0
-    )
-    assert bullish.loc[11, "market_structure_high_change"] == pytest.approx(
-        math.log(122.0 / 111.0)
-    )
+    assert bullish.loc[8, "market_structure_low_change"] == pytest.approx(math.log(94.0 / 89.0))
+    assert bullish.loc[8, "market_structure_low_rate"] == pytest.approx(math.log(94.0 / 89.0) / 6.0)
+    assert bullish.loc[11, "market_structure_high_change"] == pytest.approx(math.log(122.0 / 111.0))
     assert bullish.loc[11, "market_structure_high_rate"] == pytest.approx(
         math.log(122.0 / 111.0) / 6.0
     )
-    assert bullish.loc[13, "market_structure_low_change"] == pytest.approx(
-        math.log(99.0 / 94.0)
-    )
+    assert bullish.loc[13, "market_structure_low_change"] == pytest.approx(math.log(99.0 / 94.0))
     assert bullish.loc[13, "market_structure_low_rate"] == pytest.approx(
         math.log(99.0 / 94.0) / 5.0
     )
-    assert bullish.loc[16, "market_structure_high_change"] == pytest.approx(
-        math.log(134.0 / 122.0)
-    )
+    assert bullish.loc[16, "market_structure_high_change"] == pytest.approx(math.log(134.0 / 122.0))
     assert bullish.loc[16, "market_structure_high_rate"] == pytest.approx(
         math.log(134.0 / 122.0) / 5.0
     )
@@ -67,13 +57,9 @@ def test_structural_changes_are_negative_for_lower_highs_and_lower_lows() -> Non
     result = zigzag_features(_market_prices(), deviation=5.0, pivot_legs=2)
     bearish = result.loc[("yfinance", "BEAR.ST")].reset_index(drop=True)
 
-    assert bearish.loc[8, "market_structure_low_change"] == pytest.approx(
-        math.log(119.0 / 129.0)
-    )
+    assert bearish.loc[8, "market_structure_low_change"] == pytest.approx(math.log(119.0 / 129.0))
     assert bearish.loc[8, "market_structure_low_rate"] < 0.0
-    assert bearish.loc[11, "market_structure_high_change"] == pytest.approx(
-        math.log(136.0 / 146.0)
-    )
+    assert bearish.loc[11, "market_structure_high_change"] == pytest.approx(math.log(136.0 / 146.0))
     assert bearish.loc[11, "market_structure_high_rate"] < 0.0
 
 
