@@ -112,7 +112,7 @@ def pivot_points_high_low(
         raise ValueError(f"kind must be either 'high_low' or 'balanced'; got {kind!r}.")
     validate_required_columns(data, required_columns=required_columns)
     if rank_output not in ("rank", "strength"):
-        raise ValueError(f"rank_output must be either 'rank' or 'strength'; got {rank_output!r}")
+        raise ValueError(f"rank_output must be either 'rank' or 'strength'; got {rank_output!r}.")
 
     return apply_by_ticker(
         data,
@@ -131,12 +131,12 @@ def pivot_points_high_low(
 def _pivot_points_high_low(
     data: pd.DataFrame,
     *,
-    high_left: int = 10,
-    high_right: int = 10,
-    low_left: int = 10,
-    low_right: int = 10,
-    kind: Literal["high_low", "balanced"] = "high_low",
-    rank_output: Literal["rank", "strength"] = "rank",
+    high_left: int,
+    high_right: int,
+    low_left: int,
+    low_right: int,
+    kind: Literal["high_low", "balanced"],
+    rank_output: Literal["rank", "strength"],
 ) -> pd.DataFrame:
     """Calculate pivot outputs for one ordered instrument.
 
