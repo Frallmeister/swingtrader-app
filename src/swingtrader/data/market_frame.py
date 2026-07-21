@@ -70,6 +70,23 @@ def validate_required_columns(
         raise ValueError(f"Missing required columns: {missing}.")
 
 
+def validate_new_columns(
+    data: pd.DataFrame,
+    *,
+    new_columns: Collection[str],
+) -> None:
+    """Validate that generated columns do not already exist in the input.
+
+    Feature builders use this guard to avoid silently replacing existing input
+    columns when a feature family is applied twice or two families accidentally
+    produce the same column name.
+    """
+    existing_columns = set(new_columns).intersection(data.columns)
+    if existing_columns:
+        existing = ", ".join(sorted(existing_columns))
+        raise ValueError(f"Generated columns already exist in input data: {existing}.")
+
+
 def validate_temporal_order(values: pd.Series | pd.DataFrame) -> None:
     """Validate that a single-instrument input is chronologically ordered.
 

@@ -13,9 +13,19 @@ from swingtrader.core.numerical import safe_divide
 from swingtrader.data.market_frame import (
     apply_by_ticker,
     validate_market_price_index,
+    validate_new_columns,
     validate_required_columns,
 )
 from swingtrader.indicators.market_structure import _confirmed_zigzag_state
+
+_MARKET_STRUCTURE_FEATURE_COLUMNS = (
+    "zigzag_last_direction",
+    "zigzag_last_swing_return",
+    "zigzag_last_swing_bars",
+    "zigzag_swing_return_per_bar",
+    "zigzag_bars_since_pivot",
+    "zigzag_retracement",
+)
 
 
 def add_market_structure_features(
@@ -33,8 +43,10 @@ def add_market_structure_features(
 
     Use :func:`zigzag_features` directly when only the feature block is needed,
     for example for a frontend endpoint that should not calculate every feature
-    family.
+    family. Existing columns with the generated feature names are rejected rather
+    than silently overwritten.
     """
+    validate_new_columns(data, new_columns=_MARKET_STRUCTURE_FEATURE_COLUMNS)
     result = data.copy()
     feature_block = zigzag_features(
         data,

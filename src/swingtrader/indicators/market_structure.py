@@ -18,6 +18,7 @@ import math
 from dataclasses import dataclass
 from typing import Literal
 
+import numpy as np
 import pandas as pd
 
 from swingtrader.data.market_frame import apply_by_ticker, validate_required_columns
@@ -327,14 +328,16 @@ def _zigzag(
     returns, and bar counts are populated only on retained pivot rows.
     """
     high_candidates, low_candidates = _zigzag_candidate_prices(data, legs=legs)
+    high_candidate_values = high_candidates.to_numpy(dtype="float64")
+    low_candidate_values = low_candidates.to_numpy(dtype="float64")
     pivots: list[_ZigZagPivot] = []
 
     for position in range(len(data)):
         _update_zigzag_from_candidates(
             pivots,
             position=position,
-            high_candidates=high_candidates,
-            low_candidates=low_candidates,
+            high_candidates=high_candidate_values,
+            low_candidates=low_candidate_values,
             deviation_ratio=deviation_ratio,
         )
 
@@ -384,6 +387,8 @@ def _confirmed_zigzag_state(
         pivot_legs=pivot_legs,
     )
     high_candidates, low_candidates = _zigzag_candidate_prices(data, legs=legs)
+    high_candidate_values = high_candidates.to_numpy(dtype="float64")
+    low_candidate_values = low_candidates.to_numpy(dtype="float64")
 
     last_price = [math.nan] * len(data)
     previous_price = [math.nan] * len(data)
@@ -398,8 +403,8 @@ def _confirmed_zigzag_state(
             _update_zigzag_from_candidates(
                 pivots,
                 position=candidate_position,
-                high_candidates=high_candidates,
-                low_candidates=low_candidates,
+                high_candidates=high_candidate_values,
+                low_candidates=low_candidate_values,
                 deviation_ratio=deviation_ratio,
             )
 
@@ -454,8 +459,8 @@ def _update_zigzag_from_candidates(
     pivots: list[_ZigZagPivot],
     *,
     position: int,
-    high_candidates: pd.Series,
-    low_candidates: pd.Series,
+    high_candidates: np.ndarray,
+    low_candidates: np.ndarray,
     deviation_ratio: float,
 ) -> None:
     """Update the retained Zig Zag sequence from one row of pivot candidates.
@@ -469,13 +474,13 @@ def _update_zigzag_from_candidates(
         pivots: Mutable sequence of retained Zig Zag pivots for one instrument.
         position: Zero-based row position of the candidate values.
         high_candidates: Row-aligned candidate prices for pivot highs, with
-            missing values on rows that are not high candidates.
+            ``NaN`` on rows that are not high candidates.
         low_candidates: Row-aligned candidate prices for pivot lows, with
-            missing values on rows that are not low candidates.
+            ``NaN`` on rows that are not low candidates.
         deviation_ratio: Minimum absolute relative price change required to
             accept an opposite-direction reversal.
     """
-    high_price = high_candidates.iloc[position]
+    high_price = high_candidates[position]
     if pd.notna(high_price) and _update_zigzag(
         pivots,
         _ZigZagPivot(position=position, price=float(high_price), direction=1),
@@ -483,7 +488,7 @@ def _update_zigzag_from_candidates(
     ):
         return
 
-    low_price = low_candidates.iloc[position]
+    low_price = low_candidates[position]
     if pd.notna(low_price):
         _update_zigzag(
             pivots,
