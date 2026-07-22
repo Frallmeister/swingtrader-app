@@ -102,8 +102,11 @@ def test_add_volume_features_uses_custom_zscore_length() -> None:
         "turnover_zscore",
     ]
 
-    assert short_values.notna().sum() == 3
-    assert long_values.notna().sum() == 2
+    assert short_values.iloc[:2].isna().all()
+    assert short_values.iloc[2:].notna().all()
+
+    assert long_values.iloc[:3].isna().all()
+    assert long_values.iloc[3:].notna().all()
 
 
 def test_add_volume_features_calculates_each_ticker_independently() -> None:
