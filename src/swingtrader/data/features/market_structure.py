@@ -32,6 +32,8 @@ _MARKET_STRUCTURE_FEATURE_COLUMNS = (
     "market_structure_low_rate",
     "market_structure_high_consistency",
     "market_structure_low_consistency",
+    "market_structure_leg_balance",
+    "market_structure_efficiency",
 )
 
 
@@ -41,6 +43,7 @@ def add_market_structure_features(
     zigzag_deviation: float = 5.0,
     zigzag_pivot_legs: int = 10,
     zigzag_consistency_pivots: int = 4,
+    zigzag_dynamics_legs: int = 6,
 ) -> pd.DataFrame:
     """Return a copy of data with the default market-structure features added.
 
@@ -61,6 +64,7 @@ def add_market_structure_features(
         deviation=zigzag_deviation,
         pivot_legs=zigzag_pivot_legs,
         consistency_pivots=zigzag_consistency_pivots,
+        dynamics_legs=zigzag_dynamics_legs,
     )
     result[feature_block.columns] = feature_block
     return result
@@ -72,6 +76,7 @@ def zigzag_features(
     deviation: float = 5.0,
     pivot_legs: int = 10,
     consistency_pivots: int = 4,
+    dynamics_legs: int = 6,
 ) -> pd.DataFrame:
     """Calculate point-in-time features from the latest confirmed Zig Zag state.
 
@@ -102,19 +107,30 @@ def zigzag_features(
       ``market_structure_low_consistency``: Kendall's tau-b between chronological
       order and the prices of the latest ``consistency_pivots`` confirmed swing
       highs or lows. Values range from ``-1`` for consistently falling pivots to
-      ``1`` for consistently rising pivots.
+      ``1`` for consistently rising pivots;
+    - ``market_structure_leg_balance``: median upward completed-leg magnitude
+      minus median downward magnitude, divided by their sum. Values range from
+      ``-1`` when downward legs dominate to ``1`` when upward legs dominate;
+    - ``market_structure_efficiency``: signed net log displacement divided by
+      total absolute log path length over the latest ``dynamics_legs`` completed
+      legs. Values near zero indicate substantial movement with little net
+      progress.
 
     The structural changes and rates remain missing until two confirmed pivots of
     the corresponding direction are available. Consistency remains missing until
     ``consistency_pivots`` same-direction pivots are available, and is also missing
-    when all selected prices are equal. The output preserves the canonical
-    input index and does not mutate ``data``.
+    when all selected prices are equal. Leg balance and efficiency remain
+    missing until ``dynamics_legs`` completed legs are available. The dynamics
+    window must be even so it contains equal numbers of upward and downward legs.
+    The output preserves the canonical input index and does not mutate ``data``.
 
     Notes
     -----
     All returned columns are point-in-time safe for row-aligned modeling. Pivot
     information first appears on its confirmation row; future rows never revise
-    previously emitted feature values.
+    previously emitted feature values. Leg dynamics use only adjacent confirmed
+    endpoints and exclude movement from the latest endpoint toward the current
+    close or an interpolated active leg.
     """
     validate_market_price_index(data)
     validate_required_columns(data, required_columns={"high", "low", "close"})
@@ -126,6 +142,7 @@ def zigzag_features(
             deviation=deviation,
             pivot_legs=pivot_legs,
             consistency_pivots=consistency_pivots,
+            dynamics_legs=dynamics_legs,
         ),
     )
 
@@ -136,6 +153,7 @@ def _zigzag_features(
     deviation: float,
     pivot_legs: int,
     consistency_pivots: int,
+    dynamics_legs: int,
 ) -> pd.DataFrame:
     """Calculate point-in-time Zig Zag features for one ordered instrument."""
     state = _confirmed_zigzag_state(
@@ -143,6 +161,7 @@ def _zigzag_features(
         deviation=deviation,
         pivot_legs=pivot_legs,
         consistency_pivots=consistency_pivots,
+        dynamics_legs=dynamics_legs,
     )
 
     last_price = state["_zigzag_last_price"]
@@ -205,6 +224,8 @@ def _zigzag_features(
             "market_structure_low_rate": low_rate,
             "market_structure_high_consistency": state["_zigzag_high_consistency"],
             "market_structure_low_consistency": state["_zigzag_low_consistency"],
+            "market_structure_leg_balance": state["_zigzag_leg_balance"],
+            "market_structure_efficiency": state["_zigzag_efficiency"],
         },
         index=data.index,
     )
