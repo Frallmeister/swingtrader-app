@@ -383,19 +383,22 @@ def _confirmed_zigzag_state(
     deviation: float,
     pivot_legs: int,
     consistency_pivots: int = 4,
+    dynamics_legs: int = 6,
 ) -> pd.DataFrame:
     """Return point-in-time Zig Zag state for one ordered instrument.
 
     This private lower-layer helper is used by the market-structure feature
     family. Candidate pivots update the state only on their confirmation rows,
     so the returned history does not backfill final pivots into periods where
-    they were not yet known.
+    they were not yet known. Completed-leg metrics use adjacent retained pivots
+    and exclude movement after the latest confirmed endpoint.
     """
     deviation_ratio, legs = _validate_zigzag_parameters(
         deviation=deviation,
         pivot_legs=pivot_legs,
     )
     _validate_consistency_pivots(consistency_pivots)
+    _validate_dynamics_legs(dynamics_legs)
     high_candidates, low_candidates = _zigzag_candidate_prices(data, legs=legs)
     high_candidate_values = high_candidates.to_numpy(dtype="float64")
     low_candidate_values = low_candidates.to_numpy(dtype="float64")
@@ -415,6 +418,8 @@ def _confirmed_zigzag_state(
     previous_low_position = [math.nan] * len(data)
     high_consistency = [math.nan] * len(data)
     low_consistency = [math.nan] * len(data)
+    leg_balance = [math.nan] * len(data)
+    efficiency = [math.nan] * len(data)
     pivots: list[_ZigZagPivot] = []
 
     for current_position in range(len(data)):
@@ -467,6 +472,13 @@ def _confirmed_zigzag_state(
             direction=-1,
             count=consistency_pivots,
         )
+        (
+            leg_balance[current_position],
+            efficiency[current_position],
+        ) = _zigzag_leg_dynamics(
+            pivots,
+            leg_count=dynamics_legs,
+        )
 
     return pd.DataFrame(
         {
@@ -489,6 +501,8 @@ def _confirmed_zigzag_state(
             "_zigzag_previous_low_position": previous_low_position,
             "_zigzag_high_consistency": high_consistency,
             "_zigzag_low_consistency": low_consistency,
+            "_zigzag_leg_balance": leg_balance,
+            "_zigzag_efficiency": efficiency,
         },
         index=data.index,
     )
@@ -528,6 +542,65 @@ def _zigzag_pivot_consistency(
     )
 
     return float(result.statistic)
+
+
+def _zigzag_leg_dynamics(
+    pivots: list[_ZigZagPivot],
+    *,
+    leg_count: int,
+) -> tuple[float, float]:
+    """Calculate magnitude balance and signed efficiency for recent legs.
+
+    The latest ``leg_count`` completed legs are selected from the retained
+    point-in-time pivot sequence. Leg magnitude is the absolute logarithmic
+    price change. Low-to-high and high-to-low legs are classified from the
+    direction of their ending pivot, while efficiency retains the signed log
+    changes to compare net displacement with total path length.
+
+    Both outputs are missing until ``leg_count`` completed legs are available. The
+    caller validates that ``leg_count`` is even, so the alternating pivot sequence
+    contributes the same number of upward and downward legs.
+    """
+    if len(pivots) < leg_count + 1:
+        return math.nan, math.nan
+
+    selected = pivots[-(leg_count + 1) :]
+    prices = np.asarray([pivot.price for pivot in selected], dtype="float64")
+
+    if not np.isfinite(prices).all() or np.any(prices <= 0):
+        return math.nan, math.nan
+
+    log_returns = np.diff(np.log(prices))
+    if not np.isfinite(log_returns).all():
+        return math.nan, math.nan
+
+    magnitudes = np.abs(log_returns)
+    ending_directions = np.asarray(
+        [pivot.direction for pivot in selected[1:]],
+        dtype="int8",
+    )
+    upward_magnitudes = magnitudes[ending_directions == 1]
+    downward_magnitudes = magnitudes[ending_directions == -1]
+
+    if len(upward_magnitudes) == 0 or len(downward_magnitudes) == 0:
+        return math.nan, math.nan
+
+    upward_median = float(np.median(upward_magnitudes))
+    downward_median = float(np.median(downward_magnitudes))
+    balance_denominator = upward_median + downward_median
+    path_length = float(magnitudes.sum())
+
+    leg_balance = (
+        (upward_median - downward_median) / balance_denominator
+        if balance_denominator > 0 and math.isfinite(balance_denominator)
+        else math.nan
+    )
+    efficiency = (
+        float(log_returns.sum()) / path_length
+        if path_length > 0 and math.isfinite(path_length)
+        else math.nan
+    )
+    return leg_balance, efficiency
 
 
 def _last_two_zigzag_pivots(
@@ -675,6 +748,20 @@ def _validate_consistency_pivots(consistency_pivots: int) -> None:
         raise ValueError(
             "consistency_pivots must be an integer greater than or equal to 2; "
             f"got {consistency_pivots!r}."
+        )
+
+
+def _validate_dynamics_legs(dynamics_legs: int) -> None:
+    """Validate the completed-leg window used for structural dynamics."""
+    if (
+        isinstance(dynamics_legs, bool)
+        or not isinstance(dynamics_legs, int)
+        or dynamics_legs < 2
+        or dynamics_legs % 2 != 0
+    ):
+        raise ValueError(
+            "dynamics_legs must be an even integer greater than or equal to 2; "
+            f"got {dynamics_legs!r}."
         )
 
 
