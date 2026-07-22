@@ -25,11 +25,7 @@ def turnover(data: pd.DataFrame, *, log: bool = False) -> pd.Series:
     validate_required_columns(data, required_columns={"adjusted_close", "volume"})
     if not isinstance(log, bool):
         raise ValueError(f"The log parameter must be a boolean; got {log!r}")
-
-    turnover_ = (data["adjusted_close"] * data["volume"]).rename("turnover")
-    if log:
-        return np.log1p(turnover_)
-    return turnover_
+    return _turnover(data, log=log)
 
 
 def turnover_zscore(data: pd.DataFrame, *, length: int = 252, log: bool = False) -> pd.Series:
@@ -79,10 +75,17 @@ def mfi(
     return apply_by_ticker(data, lambda group: _mfi(group, length=length))
 
 
+def _turnover(data: pd.DataFrame, *, log: bool) -> pd.Series:
+    turnover_ = (data["adjusted_close"] * data["volume"]).rename("turnover")
+    if log:
+        return np.log1p(turnover_)
+    return turnover_
+
+
 def _turnover_zscore(data: pd.DataFrame, *, length: int = 252, log: bool = False) -> pd.Series:
     """ADD DOCSTRING HERE."""
     lookback_length = length - 1
-    turnover_ = turnover(data, log=log)
+    turnover_ = _turnover(data, log=log)
     rolling_turnover = turnover_.shift(1).rolling(
         window=lookback_length, min_periods=lookback_length
     )
