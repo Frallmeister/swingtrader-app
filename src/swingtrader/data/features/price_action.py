@@ -54,8 +54,8 @@ def add_price_action_features(
     The generated features are continuous rather than thresholded candlestick
     labels, making them suitable for model training, screening, API responses,
     and later trade or backtest analysis. Warm-up rows remain missing. The
-    candle-geometry features are also missing forzero-range candles, while the
-    range-context features follow their own ATR andhistory requirements. The
+    candle-geometry features are also missing for zero-range candles, while the
+    range-context features follow their own ATR and history requirements. The
     input dataframe is not mutated.
     """
     validate_market_price_index(data)
