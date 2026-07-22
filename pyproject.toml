@@ -1,12 +1,14 @@
 [project]
 name = "swingtrader-app"
 version = "0.1.0"
-description = "An application to do some swingtrading with."
+description = "Swing-trading research and decision-support application."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "numpy>=2.5.0",
+    "pandas>=3.0.3",
     "pyyaml>=6.0.3",
-    "tqdm[data]>=4.68.3",
+    "scipy>=1.18.0",
 ]
 
 [build-system]
@@ -18,29 +20,20 @@ packages = ["src/swingtrader"]
 
 [project.optional-dependencies]
 data = [
-    "pandas>=3.0.3",
     "pyarrow>=24.0.0",
     "requests>=2.34.2",
     "sqlalchemy>=2.0.51",
     "yfinance>=1.4.1",
 ]
-web = [
-    "dash>=4.3.0",
-    "pandas>=3.0.3",
-    "plotly>=6.8.0",
-    "sqlalchemy>=2.0.51",
-]
 postgres = [
     "psycopg[binary]>=3.3.4",
 ]
-modeling = [
-    "pandas>=3.0.3",
-    "pyarrow>=24.0.0",
-    "sqlalchemy>=2.0.51",
-]
+# Add a `modeling` extra when model training is introduced.
+# Add an `api` extra when the FastAPI backend is introduced.
 
 [dependency-groups]
 dev = [
+    "mypy>=2.3.0",
     "pytest>=9.1.1",
     "ruff>=0.15.18",
 ]
@@ -56,7 +49,6 @@ notebook = [
     "jupytext>=1.19.4",
     "matplotlib>=3.11.0",
     "nbstripout>=0.9.1",
-    "numpy>=2.5.0",
     "seaborn>=0.13.2",
     "tqdm>=4.68.3",
 ]
@@ -83,4 +75,8 @@ addopts = [
 ]
 
 [tool.mypy]
+python_version = "3.12"
+files = ["src"]
+warn_unused_configs = true
+check_untyped_defs = true
 disable_error_code = ["import-untyped"]

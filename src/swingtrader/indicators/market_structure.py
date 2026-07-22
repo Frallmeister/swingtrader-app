@@ -20,6 +20,7 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
+from scipy.stats import kendalltau
 
 from swingtrader.data.market_frame import apply_by_ticker, validate_required_columns
 from swingtrader.indicators._validation import validate_length
@@ -502,37 +503,31 @@ def _zigzag_pivot_consistency(
     """Calculate Kendall's tau-b for recent pivots in one direction.
 
     Pivot order is strictly chronological, so the first ranked variable has no
-    ties. Price ties are handled with the tau-b denominator. The result is
+    ties. Price ties are handled Kendall's tau-b. The result is
     missing until ``count`` pivots are available and when every selected pivot
     price is equal.
     """
     prices: list[float] = []
+
     for pivot in reversed(pivots):
         if pivot.direction == direction:
             prices.append(pivot.price)
-            if len(prices) == count:
-                break
+
+        if len(prices) == count:
+            break
 
     if len(prices) < count:
         return math.nan
 
     prices.reverse()
-    concordant = 0
-    discordant = 0
 
-    for earlier_position, earlier_price in enumerate(prices[:-1]):
-        for later_price in prices[earlier_position + 1 :]:
-            if later_price > earlier_price:
-                concordant += 1
-            elif later_price < earlier_price:
-                discordant += 1
+    result = kendalltau(
+        range(count),
+        prices,
+        variant="b",
+    )
 
-    untied_pairs = concordant + discordant
-    if untied_pairs == 0:
-        return math.nan
-
-    total_pairs = count * (count - 1) // 2
-    return (concordant - discordant) / math.sqrt(untied_pairs * total_pairs)
+    return float(result.statistic)
 
 
 def _last_two_zigzag_pivots(
