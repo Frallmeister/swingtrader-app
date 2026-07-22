@@ -113,6 +113,8 @@ def test_add_price_action_features_removes_split_discontinuity_from_gap() -> Non
 
     assert result["candle_gap_atr"].iloc[1] == pytest.approx(0.0)
     assert raw_context["gap_atr"].iloc[1] == pytest.approx(-10.0)
+    assert result["candle_range_atr"].iloc[1] == pytest.approx(1.2)
+    assert raw_context["range_atr"].iloc[1] == pytest.approx(10.2)
 
 
 def test_add_price_action_features_uses_length_in_percentile_column_name() -> None:

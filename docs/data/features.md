@@ -202,7 +202,7 @@ The public numerical candlestick indicators, importable from `swingtrader.indica
 - `candle_geometry`, which returns `signed_body_fraction`, `upper_wick_fraction`, `lower_wick_fraction`, and `close_location`;
 - `candle_range_context`, which returns `range_atr`, `gap_atr`, and `range_percentile`.
 
-Both indicators consume a dataframe containing `open`, `high`, `low`, and `close`. They support either one chronologically ordered instrument or the canonical multi-instrument index, and calculations are isolated within each provider/ticker group. Zero-range candles cannot be normalized and therefore remain missing rather than producing infinities.
+Both indicators consume a dataframe containing `open`, `high`, `low`, and `close`. They support either one chronologically ordered instrument or the canonical multi-instrument index, and calculations are isolated within each provider/ticker group. Zero-range candles cannot produce normalized geometry and therefore leave the four geometry outputs missing rather than producing infinities. Range-context outputs remain defined whenever their own ATR denominator and reference history are available.
 
 `candle_range_context` uses the ATR ending on the previous row for both current True Range and the opening gap. The current event therefore cannot increase its own denominator. Its range percentile is also point-in-time safe: it compares the current high-low range with the preceding `range_percentile_length` rows and excludes the current row from the reference sample. The feature column includes the configured history length in its name, so a length of 10 produces `range_percentile_10`.
 
