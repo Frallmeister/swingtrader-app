@@ -503,7 +503,7 @@ def _zigzag_pivot_consistency(
     """Calculate Kendall's tau-b for recent pivots in one direction.
 
     Pivot order is strictly chronological, so the first ranked variable has no
-    ties. Price ties are handled Kendall's tau-b. The result is
+    ties. Price ties are handled by Kendall's tau-b. The result is
     missing until ``count`` pivots are available and when every selected pivot
     price is equal.
     """
