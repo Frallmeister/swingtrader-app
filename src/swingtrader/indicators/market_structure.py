@@ -477,7 +477,7 @@ def _confirmed_zigzag_state(
             efficiency[current_position],
         ) = _zigzag_leg_dynamics(
             pivots,
-            count=dynamics_legs,
+            leg_count=dynamics_legs,
         )
 
     return pd.DataFrame(
@@ -547,24 +547,24 @@ def _zigzag_pivot_consistency(
 def _zigzag_leg_dynamics(
     pivots: list[_ZigZagPivot],
     *,
-    count: int,
+    leg_count: int,
 ) -> tuple[float, float]:
     """Calculate magnitude balance and signed efficiency for recent legs.
 
-    The latest ``count`` completed legs are selected from the retained
+    The latest ``leg_count`` completed legs are selected from the retained
     point-in-time pivot sequence. Leg magnitude is the absolute logarithmic
     price change. Low-to-high and high-to-low legs are classified from the
     direction of their ending pivot, while efficiency retains the signed log
     changes to compare net displacement with total path length.
 
-    Both outputs are missing until ``count`` completed legs are available. The
-    caller validates that ``count`` is even, so the alternating pivot sequence
+    Both outputs are missing until ``leg_count`` completed legs are available. The
+    caller validates that ``leg_count`` is even, so the alternating pivot sequence
     contributes the same number of upward and downward legs.
     """
-    if len(pivots) < count + 1:
+    if len(pivots) < leg_count + 1:
         return math.nan, math.nan
 
-    selected = pivots[-(count + 1) :]
+    selected = pivots[-(leg_count + 1) :]
     prices = np.asarray([pivot.price for pivot in selected], dtype="float64")
 
     if not np.isfinite(prices).all() or np.any(prices <= 0):

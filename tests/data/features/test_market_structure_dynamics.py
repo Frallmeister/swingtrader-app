@@ -72,28 +72,14 @@ def test_dynamics_update_only_when_endpoint_replacement_is_confirmed() -> None:
     ).reset_index(drop=True)
 
     initial_balance, initial_efficiency = _expected_dynamics(candidates[:7])
-    replaced_balance, replaced_efficiency = _expected_dynamics(
-        [*candidates[:6], candidates[-1]]
-    )
+    replaced_balance, replaced_efficiency = _expected_dynamics([*candidates[:6], candidates[-1]])
 
-    assert result.loc[14, "market_structure_leg_balance"] == pytest.approx(
-        initial_balance
-    )
-    assert result.loc[14, "market_structure_efficiency"] == pytest.approx(
-        initial_efficiency
-    )
-    assert result.loc[17, "market_structure_leg_balance"] == pytest.approx(
-        initial_balance
-    )
-    assert result.loc[17, "market_structure_efficiency"] == pytest.approx(
-        initial_efficiency
-    )
-    assert result.loc[18, "market_structure_leg_balance"] == pytest.approx(
-        replaced_balance
-    )
-    assert result.loc[18, "market_structure_efficiency"] == pytest.approx(
-        replaced_efficiency
-    )
+    assert result.loc[14, "market_structure_leg_balance"] == pytest.approx(initial_balance)
+    assert result.loc[14, "market_structure_efficiency"] == pytest.approx(initial_efficiency)
+    assert result.loc[17, "market_structure_leg_balance"] == pytest.approx(initial_balance)
+    assert result.loc[17, "market_structure_efficiency"] == pytest.approx(initial_efficiency)
+    assert result.loc[18, "market_structure_leg_balance"] == pytest.approx(replaced_balance)
+    assert result.loc[18, "market_structure_efficiency"] == pytest.approx(replaced_efficiency)
 
 
 def test_dynamics_are_scale_invariant_and_isolated_by_ticker() -> None:
@@ -210,8 +196,7 @@ def _prices_from_pivots(pivots: list[float], *, ticker: str) -> pd.DataFrame:
 
 def _expected_dynamics(pivots: list[float]) -> tuple[float, float]:
     log_returns = [
-        math.log(current / previous)
-        for previous, current in zip(pivots, pivots[1:], strict=False)
+        math.log(current / previous) for previous, current in zip(pivots, pivots[1:], strict=False)
     ]
     upward = sorted(abs(value) for value in log_returns[::2])
     downward = sorted(abs(value) for value in log_returns[1::2])
