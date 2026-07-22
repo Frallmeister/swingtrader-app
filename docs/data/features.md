@@ -185,7 +185,7 @@ Raw `true_range`, `atr`, `bollinger_bands`, and the price-unit `adr` column are 
 
 ## Price Action Features
 
-The price-action feature orchestrator is `swingtrader.data.features.price_action.add_price_action_features`. It adds continuous descriptions of the current candle and its short-horizon range context rather than assigning sparse textbook pattern labels. This preserves body, wick, close-location, gap, and range information so downstream models, screeners, APIs, and analysis code can apply their own thresholds or interactions.
+The price-action feature orchestrator is `swingtrader.data.features.price_action.add_price_action_features`. It combines continuous descriptions of the current candle and its short-horizon range context with a small set of direct local pattern signals. This preserves body, wick, close-location, gap, range, containment, engulfing, and rejection information without adding a large catalogue of thresholded textbook patterns.
 
 With the default settings, the orchestrator adds:
 
@@ -195,20 +195,29 @@ With the default settings, the orchestrator adds:
 - `candle_close_location`, `(close - low) / (high - low)`, where 0 is the session low and 1 is the session high;
 - `candle_range_atr`, the current True Range divided by the ATR available at the end of the previous row;
 - `candle_gap_atr`, the signed opening gap from the previous close divided by that same prior ATR;
-- `range_percentile_20`, the fraction of the preceding 20 high-low ranges that are less than or equal to the current high-low range.
+- `range_percentile_20`, the fraction of the preceding 20 high-low ranges that are less than or equal to the current high-low range;
+- `inside_bar`, true when the current high-low range is contained by the previous range;
+- `outside_bar`, true when the current high-low range contains the previous range;
+- `engulfing_strength`, the signed amount by which an opposite-direction real body exceeds the previous real body, divided by prior ATR;
+- `lower_rejection_strength`, the lower wick divided by prior ATR and weighted by the close's position toward the candle high;
+- `upper_rejection_strength`, the upper wick divided by prior ATR and weighted by the close's position toward the candle low;
+- `consecutive_inside_bars`, the number of consecutive inside bars ending on the current row.
 
 The public numerical candlestick indicators, importable from `swingtrader.indicators`, are:
 
 - `candle_geometry`, which returns `signed_body_fraction`, `upper_wick_fraction`, `lower_wick_fraction`, and `close_location`;
-- `candle_range_context`, which returns `range_atr`, `gap_atr`, and `range_percentile`.
+- `candle_range_context`, which returns `range_atr`, `gap_atr`, and `range_percentile`;
+- `candle_patterns`, which returns the containment, engulfing, rejection, and inside-bar streak outputs.
 
-Both indicators consume a dataframe containing `open`, `high`, `low`, and `close`. They support either one chronologically ordered instrument or the canonical multi-instrument index, and calculations are isolated within each provider/ticker group. Zero-range candles cannot produce normalized geometry and therefore leave the four geometry outputs missing rather than producing infinities. Range-context outputs remain defined whenever their own ATR denominator and reference history are available.
+All three indicators consume a dataframe containing `open`, `high`, `low`, and `close`. They support either one chronologically ordered instrument or the canonical multi-instrument index, and calculations are isolated within each provider/ticker group. Zero-range candles cannot produce normalized geometry and therefore leave the four geometry outputs missing rather than producing infinities. Range-context and pattern outputs follow their own history and denominator requirements.
 
 `candle_range_context` uses the ATR ending on the previous row for both current True Range and the opening gap. The current event therefore cannot increase its own denominator. Its range percentile is also point-in-time safe: it compares the current high-low range with the preceding `range_percentile_length` rows and excludes the current row from the reference sample. The feature column includes the configured history length in its name, so a length of 10 produces `range_percentile_10`.
 
+`candle_patterns` compares each candle only with information available on that row or earlier. Inside and outside bars allow equality at one boundary, while an unchanged high-low range is neither. The first comparison row and rows with incomplete candle pairs remain missing. `consecutive_inside_bars` resets to zero when the current candle is not inside the previous candle. An engulfing signal requires an opposite-direction real body that strictly exceeds and contains the previous real body; non-engulfing rows receive zero strength. Engulfing and rejection magnitudes use ATR from the previous row, so the current candle cannot inflate its own normalization denominator.
+
 Inside `add_price_action_features`, all four OHLC columns are placed on the `adjusted_close` scale with the row-wise factor `adjusted_close / close`. This leaves same-row geometry ratios unchanged but removes artificial cross-session gaps and True Range spikes caused by splits and dividend adjustments. The standalone indicators remain source-agnostic and operate on whichever OHLC representation the caller supplies.
 
-The default ATR length is 14 rows and the default range-percentile history is 20 preceding rows. Warm-up periods are kept as missing values. These continuous Phase 1 features form the base for later local pattern and level-interaction work without embedding arbitrary hammer, doji, or wide-range thresholds into the reusable indicator layer.
+The default ATR length is 14 rows and the default range-percentile history is 20 preceding rows. Warm-up periods are kept as missing values where the calculation requires prior ATR or history. Phase 1 provides continuous candle geometry and range context, while Phase 2 adds compact local pattern signals. Breakout and level-interaction features remain deferred to Phase 3.
 
 ## Volume Features
 
@@ -299,7 +308,6 @@ Like `pivot_points_high_low`, `zigzag` is retrospective and lookahead-aware: eac
 
 ## Future Feature Ideas
 
-- local multi-bar price-action patterns such as inside bars, outside bars, engulfing strength, and wick rejection;
 - breakout, failed-break, and confirmed swing-level interaction features;
 - later macro and market-context joins.
 

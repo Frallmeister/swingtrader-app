@@ -14,7 +14,7 @@ from swingtrader.data.market_frame import (
     validate_new_columns,
     validate_required_columns,
 )
-from swingtrader.indicators import candle_geometry, candle_range_context
+from swingtrader.indicators import candle_geometry, candle_patterns, candle_range_context
 
 _GEOMETRY_FEATURE_NAMES = {
     "signed_body_fraction": "candle_signed_body_fraction",
@@ -42,7 +42,9 @@ def add_price_action_features(
     the ATR known on the previous row, and ``candle_gap_atr`` measures the signed
     opening gap relative to the same prior ATR. ``range_percentile_{length}``
     ranks the current high-low range against the preceding ``length`` ranges,
-    excluding the current row from its reference history.
+    excluding the current row from its reference history. Local pattern outputs
+    identify inside and outside bars, count consecutive inside bars, and measure
+    engulfing and wick-rejection strength without applying textbook thresholds.
 
     The price columns are first placed on the ``adjusted_close`` scale by
     multiplying every OHLC value by ``adjusted_close / close``. Same-row geometry
@@ -51,12 +53,12 @@ def add_price_action_features(
     The standalone indicators remain source-agnostic and can be called directly
     when raw-price outputs are required.
 
-    The generated features are continuous rather than thresholded candlestick
-    labels, making them suitable for model training, screening, API responses,
-    and later trade or backtest analysis. Warm-up rows remain missing. The
-    candle-geometry features are also missing for zero-range candles, while the
-    range-context features follow their own ATR and history requirements. The
-    input dataframe is not mutated.
+    The feature set favors continuous measurements and direct containment flags
+    over thresholded textbook candle labels, making it suitable for model
+    training, screening, API responses, and later trade or backtest analysis.
+    Warm-up rows remain missing where a calculation needs prior history. The
+    candle-geometry features are also missing for zero-range candles. The input
+    dataframe is not mutated.
     """
     validate_market_price_index(data)
     validate_required_columns(
@@ -70,6 +72,12 @@ def add_price_action_features(
         "candle_range_atr",
         "candle_gap_atr",
         range_percentile_name,
+        "inside_bar",
+        "outside_bar",
+        "engulfing_strength",
+        "lower_rejection_strength",
+        "upper_rejection_strength",
+        "consecutive_inside_bars",
     ]
     validate_new_columns(data, new_columns=new_columns)
 
@@ -86,9 +94,10 @@ def add_price_action_features(
             "range_percentile": range_percentile_name,
         }
     )
+    patterns = candle_patterns(adjusted_ohlc, atr_length=atr_length)
 
     result = data.copy()
-    return result.join(geometry).join(range_context)
+    return result.join(geometry).join(range_context).join(patterns)
 
 
 def _adjusted_ohlc(data: pd.DataFrame) -> pd.DataFrame:
