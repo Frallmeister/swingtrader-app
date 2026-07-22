@@ -63,9 +63,7 @@ def test_candle_range_context_uses_atr_from_previous_row() -> None:
 
     expected_range_atr = pd.Series([np.nan, np.nan, 4.0 / 3.5, 5.0 / 3.75])
     expected_gap_atr = pd.Series([np.nan, np.nan, -4.0 / 3.5, 3.0 / 3.75])
-    pd.testing.assert_series_equal(
-        result["range_atr"], expected_range_atr, check_names=False
-    )
+    pd.testing.assert_series_equal(result["range_atr"], expected_range_atr, check_names=False)
     pd.testing.assert_series_equal(result["gap_atr"], expected_gap_atr, check_names=False)
 
 
@@ -163,9 +161,7 @@ def test_candlestick_indicators_require_ohlc_columns(function) -> None:
     ],
 )
 def test_candle_range_context_rejects_invalid_lengths(kwargs, invalid_value) -> None:
-    data = pd.DataFrame(
-        {"open": [1.0], "high": [2.0], "low": [0.0], "close": [1.0]}
-    )
+    data = pd.DataFrame({"open": [1.0], "high": [2.0], "low": [0.0], "close": [1.0]})
 
     with pytest.raises(ValueError, match=repr(invalid_value)):
         candle_range_context(data, **kwargs)
