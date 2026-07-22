@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from swingtrader.indicators.volume import mfi
+from swingtrader.indicators.volume import mfi, turnover, turnover_zscore
 
 
 def test_mfi_returns_expected_values_for_mixed_price_changes() -> None:
@@ -136,6 +136,264 @@ def test_mfi_groups_by_ticker_index_levels() -> None:
     assert aaa_mfi.isna().sum() == 2
     # BBB.ST is flat and isolated, so its typical price never changes.
     assert result.loc[("yfinance", "BBB.ST")].isna().all()
+
+
+def test_turnover_calculates_adjusted_close_times_volume() -> None:
+    frame = pd.DataFrame(
+        {
+            "adjusted_close": [10.0, 12.5, 8.0],
+            "volume": [100, 200, 50],
+        }
+    )
+
+    result = turnover(frame)
+
+    expected = pd.Series(
+        [1000.0, 2500.0, 400.0],
+        name="turnover",
+    )
+    pd.testing.assert_series_equal(result, expected)
+
+
+def test_turnover_applies_log1p_when_requested() -> None:
+    frame = pd.DataFrame(
+        {
+            "adjusted_close": [10.0, 12.5, 8.0],
+            "volume": [100, 200, 0],
+        }
+    )
+
+    result = turnover(frame, log=True)
+
+    expected = pd.Series(
+        np.log1p([1000.0, 2500.0, 0.0]),
+        name="turnover",
+    )
+    pd.testing.assert_series_equal(result, expected)
+
+
+def test_turnover_requires_adjusted_close_and_volume() -> None:
+    frame = pd.DataFrame(
+        {
+            "adjusted_close": [10.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="Missing required columns: volume"):
+        turnover(frame)
+
+
+@pytest.mark.parametrize("log", [0, 1, "true", None])
+def test_turnover_rejects_non_boolean_log(log: object) -> None:
+    with pytest.raises(ValueError, match="log parameter must be a boolean"):
+        turnover(
+            pd.DataFrame(
+                {
+                    "adjusted_close": [10.0],
+                    "volume": [100],
+                }
+            ),
+            log=log,  # type: ignore[arg-type]
+        )
+
+
+def test_turnover_zscore_uses_only_preceding_observations() -> None:
+    frame = pd.DataFrame(
+        {
+            "adjusted_close": [10.0, 10.0, 10.0, 10.0],
+            "volume": [10.0, 20.0, 30.0, 100.0],
+        }
+    )
+
+    result = turnover_zscore(frame, length=4)
+
+    prior_turnover = np.array([100.0, 200.0, 300.0])
+    expected_last = (1000.0 - np.median(prior_turnover)) / np.std(prior_turnover, ddof=0)
+
+    expected = pd.Series(
+        [np.nan, np.nan, np.nan, expected_last],
+        name="turnover_zscore",
+    )
+    pd.testing.assert_series_equal(
+        result,
+        expected,
+        check_exact=False,
+    )
+
+
+def test_turnover_zscore_applies_log_transform_before_normalization() -> None:
+    frame = pd.DataFrame(
+        {
+            "adjusted_close": [10.0, 10.0, 10.0, 10.0],
+            "volume": [10.0, 20.0, 30.0, 100.0],
+        }
+    )
+
+    result = turnover_zscore(frame, length=4, log=True)
+
+    transformed = np.log1p([100.0, 200.0, 300.0, 1000.0])
+    expected_last = (transformed[-1] - np.median(transformed[:-1])) / np.std(
+        transformed[:-1], ddof=0
+    )
+
+    expected = pd.Series(
+        [np.nan, np.nan, np.nan, expected_last],
+        name="turnover_zscore",
+    )
+    pd.testing.assert_series_equal(
+        result,
+        expected,
+        check_exact=False,
+    )
+
+
+def test_turnover_zscore_does_not_include_current_value_in_reference_window() -> None:
+    baseline = pd.DataFrame(
+        {
+            "adjusted_close": [10.0, 10.0, 10.0, 10.0],
+            "volume": [10.0, 20.0, 30.0, 40.0],
+        }
+    )
+    outlier = baseline.copy()
+    outlier.loc[3, "volume"] = 1_000_000.0
+
+    baseline_result = turnover_zscore(baseline, length=4)
+    outlier_result = turnover_zscore(outlier, length=4)
+
+    prior_turnover = np.array([100.0, 200.0, 300.0])
+    prior_std = np.std(prior_turnover, ddof=0)
+
+    baseline_expected = (400.0 - 200.0) / prior_std
+    outlier_expected = (10_000_000.0 - 200.0) / prior_std
+
+    assert baseline_result.iloc[-1] == pytest.approx(baseline_expected)
+    assert outlier_result.iloc[-1] == pytest.approx(outlier_expected)
+
+
+def test_turnover_zscore_requires_full_reference_window() -> None:
+    frame = pd.DataFrame(
+        {
+            "adjusted_close": [10.0, 10.0, 10.0, 10.0, 10.0],
+            "volume": [10.0, 20.0, 30.0, 40.0, 50.0],
+        }
+    )
+
+    result = turnover_zscore(frame, length=4)
+
+    assert result.iloc[:3].isna().all()
+    assert result.iloc[3:].notna().all()
+
+
+def test_turnover_zscore_leaves_zero_variance_reference_missing() -> None:
+    frame = pd.DataFrame(
+        {
+            "adjusted_close": [10.0, 10.0, 10.0, 10.0],
+            "volume": [100.0, 100.0, 100.0, 200.0],
+        }
+    )
+
+    result = turnover_zscore(frame, length=4)
+
+    assert result.isna().all()
+
+
+def test_turnover_zscore_allows_non_temporal_index_and_preserves_order() -> None:
+    frame = pd.DataFrame(
+        {
+            "adjusted_close": [10.0, 10.0, 10.0, 10.0],
+            "volume": [10.0, 20.0, 30.0, 40.0],
+        },
+        index=pd.Index([2, 0, 3, 1]),
+    )
+
+    result = turnover_zscore(frame, length=3)
+
+    pd.testing.assert_index_equal(result.index, frame.index)
+
+
+def test_turnover_zscore_groups_by_ticker_index_levels() -> None:
+    prices = _indexed_prices()
+
+    result = turnover_zscore(prices, length=3)
+
+    pd.testing.assert_index_equal(result.index, prices.index)
+
+    aaa = result.loc[("yfinance", "AAA.ST")]
+    bbb = result.loc[("yfinance", "BBB.ST")]
+
+    assert aaa.iloc[:2].isna().all()
+    assert aaa.iloc[2:].notna().all()
+
+    # BBB.ST has constant turnover. It must remain missing after warm-up rather
+    # than using turnover observations from AAA.ST at the ticker boundary.
+    assert bbb.isna().all()
+
+
+def test_turnover_zscore_requires_adjusted_close_and_volume() -> None:
+    frame = pd.DataFrame(
+        {
+            "adjusted_close": [10.0, 11.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="Missing required columns: volume"):
+        turnover_zscore(frame, length=2)
+
+
+@pytest.mark.parametrize("length", [0, -1, True, 1.5])
+def test_turnover_zscore_rejects_invalid_length(length: object) -> None:
+    with pytest.raises(ValueError, match="positive integer"):
+        turnover_zscore(
+            pd.DataFrame(
+                {
+                    "adjusted_close": [10.0, 11.0],
+                    "volume": [100, 200],
+                }
+            ),
+            length=length,  # type: ignore[arg-type]
+        )
+
+
+def test_turnover_zscore_rejects_length_below_two() -> None:
+    with pytest.raises(ValueError, match="must be at least 2"):
+        turnover_zscore(
+            pd.DataFrame(
+                {
+                    "adjusted_close": [10.0],
+                    "volume": [100],
+                }
+            ),
+            length=1,
+        )
+
+
+@pytest.mark.parametrize("log", [0, 1, "true", None])
+def test_turnover_zscore_rejects_non_boolean_log(log: object) -> None:
+    with pytest.raises(ValueError, match="log parameter must be a boolean"):
+        turnover_zscore(
+            pd.DataFrame(
+                {
+                    "adjusted_close": [10.0, 11.0],
+                    "volume": [100, 200],
+                }
+            ),
+            length=2,
+            log=log,  # type: ignore[arg-type]
+        )
+
+
+def test_turnover_zscore_validates_parameters_before_columns() -> None:
+    frame = pd.DataFrame({"wrong_column": [1.0]})
+
+    with pytest.raises(ValueError, match="must be at least 2"):
+        turnover_zscore(frame, length=1)
+
+    with pytest.raises(ValueError, match="log parameter must be a boolean"):
+        turnover_zscore(
+            frame,
+            length=2,
+            log=1,  # type: ignore[arg-type]
+        )
 
 
 def _ohlc() -> pd.DataFrame:

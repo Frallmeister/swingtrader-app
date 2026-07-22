@@ -18,6 +18,7 @@ from swingtrader.data.features.momentum import add_momentum_features
 from swingtrader.data.features.returns import add_return_features
 from swingtrader.data.features.trend import add_trend_features
 from swingtrader.data.features.volatility import add_volatility_features
+from swingtrader.data.features.volume import add_volume_features
 
 __all__ = [
     "add_market_structure_features",
@@ -25,5 +26,6 @@ __all__ = [
     "add_return_features",
     "add_trend_features",
     "add_volatility_features",
+    "add_volume_features",
     "zigzag_features",
 ]
