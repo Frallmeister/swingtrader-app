@@ -381,6 +381,7 @@ def _confirmed_zigzag_state(
     *,
     deviation: float,
     pivot_legs: int,
+    consistency_pivots: int = 4,
 ) -> pd.DataFrame:
     """Return point-in-time Zig Zag state for one ordered instrument.
 
@@ -393,6 +394,7 @@ def _confirmed_zigzag_state(
         deviation=deviation,
         pivot_legs=pivot_legs,
     )
+    _validate_consistency_pivots(consistency_pivots)
     high_candidates, low_candidates = _zigzag_candidate_prices(data, legs=legs)
     high_candidate_values = high_candidates.to_numpy(dtype="float64")
     low_candidate_values = low_candidates.to_numpy(dtype="float64")
@@ -410,6 +412,8 @@ def _confirmed_zigzag_state(
     previous_low_price = [math.nan] * len(data)
     last_low_position = [math.nan] * len(data)
     previous_low_position = [math.nan] * len(data)
+    high_consistency = [math.nan] * len(data)
+    low_consistency = [math.nan] * len(data)
     pivots: list[_ZigZagPivot] = []
 
     for current_position in range(len(data)):
@@ -452,6 +456,17 @@ def _confirmed_zigzag_state(
             previous_low_price[current_position] = earlier_low.price
             previous_low_position[current_position] = float(earlier_low.position)
 
+        high_consistency[current_position] = _zigzag_pivot_consistency(
+            pivots,
+            direction=1,
+            count=consistency_pivots,
+        )
+        low_consistency[current_position] = _zigzag_pivot_consistency(
+            pivots,
+            direction=-1,
+            count=consistency_pivots,
+        )
+
     return pd.DataFrame(
         {
             "_zigzag_last_price": last_price,
@@ -471,9 +486,53 @@ def _confirmed_zigzag_state(
             "_zigzag_previous_low_price": previous_low_price,
             "_zigzag_last_low_position": last_low_position,
             "_zigzag_previous_low_position": previous_low_position,
+            "_zigzag_high_consistency": high_consistency,
+            "_zigzag_low_consistency": low_consistency,
         },
         index=data.index,
     )
+
+
+def _zigzag_pivot_consistency(
+    pivots: list[_ZigZagPivot],
+    *,
+    direction: int,
+    count: int,
+) -> float:
+    """Calculate Kendall's tau-b for recent pivots in one direction.
+
+    Pivot order is strictly chronological, so the first ranked variable has no
+    ties. Price ties are handled with the tau-b denominator. The result is
+    missing until ``count`` pivots are available and when every selected pivot
+    price is equal.
+    """
+    prices: list[float] = []
+    for pivot in reversed(pivots):
+        if pivot.direction == direction:
+            prices.append(pivot.price)
+            if len(prices) == count:
+                break
+
+    if len(prices) < count:
+        return math.nan
+
+    prices.reverse()
+    concordant = 0
+    discordant = 0
+
+    for earlier_position, earlier_price in enumerate(prices[:-1]):
+        for later_price in prices[earlier_position + 1 :]:
+            if later_price > earlier_price:
+                concordant += 1
+            elif later_price < earlier_price:
+                discordant += 1
+
+    untied_pairs = concordant + discordant
+    if untied_pairs == 0:
+        return math.nan
+
+    total_pairs = count * (count - 1) // 2
+    return (concordant - discordant) / math.sqrt(untied_pairs * total_pairs)
 
 
 def _last_two_zigzag_pivots(
@@ -609,6 +668,19 @@ def _validate_zigzag_parameters(
         )
 
     return deviation / 100.0, pivot_legs // 2
+
+
+def _validate_consistency_pivots(consistency_pivots: int) -> None:
+    """Validate the number of same-direction pivots used for consistency."""
+    if (
+        isinstance(consistency_pivots, bool)
+        or not isinstance(consistency_pivots, int)
+        or consistency_pivots < 2
+    ):
+        raise ValueError(
+            "consistency_pivots must be an integer greater than or equal to 2; "
+            f"got {consistency_pivots!r}."
+        )
 
 
 def _centered_rank(
