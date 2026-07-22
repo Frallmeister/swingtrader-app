@@ -163,22 +163,27 @@ def _candle_patterns(data: pd.DataFrame, *, atr_length: int) -> pd.DataFrame:
     previous_high = high_values.shift(1)
     previous_low = low_values.shift(1)
     comparable_ranges = (
-        high_values.notna()
-        & low_values.notna()
-        & previous_high.notna()
-        & previous_low.notna()
+        high_values.notna() & low_values.notna() & previous_high.notna() & previous_low.notna()
     )
 
     inside_bar = (
-        high_values.le(previous_high)
-        & low_values.ge(previous_low)
-        & (high_values.lt(previous_high) | low_values.gt(previous_low))
-    ).astype("boolean").where(comparable_ranges)
+        (
+            high_values.le(previous_high)
+            & low_values.ge(previous_low)
+            & (high_values.lt(previous_high) | low_values.gt(previous_low))
+        )
+        .astype("boolean")
+        .where(comparable_ranges)
+    )
     outside_bar = (
-        high_values.ge(previous_high)
-        & low_values.le(previous_low)
-        & (high_values.gt(previous_high) | low_values.lt(previous_low))
-    ).astype("boolean").where(comparable_ranges)
+        (
+            high_values.ge(previous_high)
+            & low_values.le(previous_low)
+            & (high_values.gt(previous_high) | low_values.lt(previous_low))
+        )
+        .astype("boolean")
+        .where(comparable_ranges)
+    )
 
     body_edges = pd.concat([open_values, close_values], axis=1)
     upper_body = body_edges.max(axis=1, skipna=False)
@@ -193,20 +198,16 @@ def _candle_patterns(data: pd.DataFrame, *, atr_length: int) -> pd.DataFrame:
     contains_previous_body = (
         lower_body.le(previous_lower_body)
         & upper_body.ge(previous_upper_body)
-        & (
-            lower_body.lt(previous_lower_body)
-            | upper_body.gt(previous_upper_body)
-        )
+        & (lower_body.lt(previous_lower_body) | upper_body.gt(previous_upper_body))
     )
 
     prior_atr = _atr(data, length=atr_length).shift(1)
     body_direction = safe_divide(body, body.abs())
     body_excess_atr = safe_divide(body.abs() - previous_body.abs(), prior_atr)
-    engulfing_strength = body_direction.mul(body_excess_atr).where(
-        comparable_bodies & opposite_direction & contains_previous_body,
-        0.0,
-    )
-    engulfing_strength = engulfing_strength.where(comparable_bodies)
+    engulfing = comparable_bodies & opposite_direction & contains_previous_body
+
+    engulfing_strength = body_direction.mul(body_excess_atr).where(engulfing, 0.0)
+    engulfing_strength = engulfing_strength.where(comparable_bodies & prior_atr.notna())
 
     close_location = safe_divide(close_values - low_values, high_values - low_values)
     lower_wick_atr = safe_divide(lower_body - low_values, prior_atr)

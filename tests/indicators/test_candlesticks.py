@@ -105,12 +105,8 @@ def test_candle_patterns_identifies_inside_outside_bars_and_inside_streaks() -> 
         dtype="boolean",
     )
     expected_streak = pd.Series([pd.NA, 1, 2, 0, 0, 1], dtype="Int64")
-    pd.testing.assert_series_equal(
-        result["inside_bar"], expected_inside, check_names=False
-    )
-    pd.testing.assert_series_equal(
-        result["outside_bar"], expected_outside, check_names=False
-    )
+    pd.testing.assert_series_equal(result["inside_bar"], expected_inside, check_names=False)
+    pd.testing.assert_series_equal(result["outside_bar"], expected_outside, check_names=False)
     pd.testing.assert_series_equal(
         result["consecutive_inside_bars"], expected_streak, check_names=False
     )
@@ -129,9 +125,7 @@ def test_candle_patterns_calculates_signed_engulfing_strength() -> None:
     result = candle_patterns(data, atr_length=1)
 
     expected = pd.Series([np.nan, 1.0 / 3.0, -1.0 / 3.0, 0.0])
-    pd.testing.assert_series_equal(
-        result["engulfing_strength"], expected, check_names=False
-    )
+    pd.testing.assert_series_equal(result["engulfing_strength"], expected, check_names=False)
 
 
 def test_candle_patterns_weights_wick_rejection_by_prior_atr_and_close_location() -> None:
@@ -244,9 +238,7 @@ def test_candle_range_context_rejects_invalid_lengths(kwargs, invalid_value) -> 
 
 @pytest.mark.parametrize("atr_length", [0, True])
 def test_candle_patterns_rejects_invalid_atr_length(atr_length) -> None:
-    data = pd.DataFrame(
-        {"open": [1.0], "high": [2.0], "low": [0.0], "close": [1.0]}
-    )
+    data = pd.DataFrame({"open": [1.0], "high": [2.0], "low": [0.0], "close": [1.0]})
 
     with pytest.raises(ValueError, match=repr(atr_length)):
         candle_patterns(data, atr_length=atr_length)
