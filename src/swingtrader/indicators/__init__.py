@@ -33,7 +33,7 @@ from swingtrader.indicators.volatility import (
     bollinger_percent_b,
     true_range,
 )
-from swingtrader.indicators.volume import mfi
+from swingtrader.indicators.volume import mfi, turnover, turnover_zscore
 
 __all__ = [
     "adr",
@@ -54,5 +54,7 @@ __all__ = [
     "sma",
     "stochastic_oscillator",
     "true_range",
+    "turnover",
+    "turnover_zscore",
     "zigzag",
 ]

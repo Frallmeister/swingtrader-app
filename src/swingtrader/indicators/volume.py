@@ -12,11 +12,37 @@ MFI lives in the indicator volume module even though the resulting model feature
 currently belongs to the momentum feature family.
 """
 
+import numpy as np
 import pandas as pd
 
 from swingtrader.core.numerical import safe_divide
 from swingtrader.data.market_frame import apply_by_ticker, validate_required_columns
 from swingtrader.indicators._validation import validate_length
+
+
+def turnover(data: pd.DataFrame, *, log: bool = False) -> pd.Series:
+    """ADD DOCSTRING HERE."""
+    if not isinstance(log, bool):
+        raise ValueError(f"The log parameter must be a boolean; got {log!r}")
+    turnover_ = (data["adjusted_close"] * data["volume"]).rename("turnover")
+    if log:
+        return np.log1p(turnover_)
+    return turnover_
+
+
+def turnover_zscore(data: pd.DataFrame, *, length: int = 252, log: bool = False) -> pd.Series:
+    """ADD DOCSTRING HERE."""
+    validate_length(length)
+    if not isinstance(log, bool):
+        raise ValueError(f"The log parameter must be a boolean; got {log!r}")
+    lookback_length = length - 1
+    turnover_ = turnover(data, log=log)
+    rolling_turnover = turnover_.shift(1).rolling(
+        window=lookback_length, min_periods=lookback_length
+    )
+    return safe_divide(turnover_ - rolling_turnover.median(), rolling_turnover.std(ddof=0)).rename(
+        "turnover_zscore"
+    )
 
 
 def mfi(
