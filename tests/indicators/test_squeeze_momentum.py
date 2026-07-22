@@ -2,10 +2,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from swingtrader.core.numerical import safe_divide
+from swingtrader.core.numerical import consecutive_true_count, safe_divide
 from swingtrader.indicators.moving_averages import sma
 from swingtrader.indicators.squeeze_momentum import (
-    _consecutive_true_count,
     _linreg,
     lazybear_squeeze_momentum,
 )
@@ -101,7 +100,7 @@ def test_lazybear_squeeze_momentum_derived_columns_are_consistent() -> None:
     result = lazybear_squeeze_momentum(ohlc, bb_length=5, kc_length=5, atr_length=5)
 
     squeeze_on = result["squeeze_on"]
-    expected_duration = _consecutive_true_count(squeeze_on).rename("squeeze_duration")
+    expected_duration = consecutive_true_count(squeeze_on).rename("squeeze_duration")
     expected_released = (squeeze_on.shift(1, fill_value=False) & squeeze_on.eq(False)).rename(
         "squeeze_released"
     )
@@ -242,43 +241,6 @@ def test_linreg_matches_a_polyfit_reference() -> None:
     pd.testing.assert_series_equal(result, pd.Series(expected), check_exact=False)
 
 
-def test_consecutive_true_count_matches_the_documented_example() -> None:
-    condition = pd.Series([pd.NA, False, True, True, True, False, True], dtype="boolean")
-
-    result = _consecutive_true_count(condition)
-
-    pd.testing.assert_series_equal(
-        result,
-        pd.Series([pd.NA, 0, 1, 2, 3, 0, 1], dtype="Int64"),
-    )
-
-
-def test_consecutive_true_count_increments_over_an_unbroken_run() -> None:
-    condition = pd.Series([True, True, True], dtype="boolean")
-
-    result = _consecutive_true_count(condition)
-
-    pd.testing.assert_series_equal(result, pd.Series([1, 2, 3], dtype="Int64"))
-
-
-def test_consecutive_true_count_is_zero_when_never_true() -> None:
-    condition = pd.Series([False, False, False], dtype="boolean")
-
-    result = _consecutive_true_count(condition)
-
-    pd.testing.assert_series_equal(result, pd.Series([0, 0, 0], dtype="Int64"))
-
-
-def test_consecutive_true_count_breaks_the_run_on_missing_values() -> None:
-    condition = pd.Series([True, pd.NA, True], dtype="boolean")
-
-    result = _consecutive_true_count(condition)
-
-    # The missing observation breaks the run and stays missing; the following
-    # true observation starts a fresh count.
-    pd.testing.assert_series_equal(result, pd.Series([1, pd.NA, 1], dtype="Int64"))
-
-
 def _reference_squeeze(
     ohlc: pd.DataFrame,
     *,
@@ -313,7 +275,7 @@ def _reference_squeeze(
     )
     squeeze_width_ratio = safe_divide(upper_bb - lower_bb, upper_kc - lower_kc)
     squeeze_released = squeeze_on.shift(1, fill_value=False) & squeeze_on.eq(False)
-    squeeze_duration = _consecutive_true_count(squeeze_on)
+    squeeze_duration = consecutive_true_count(squeeze_on)
     squeeze_release_duration = squeeze_duration.shift(1).where(squeeze_released)
 
     highest_high = high.rolling(window=kc_length, min_periods=kc_length).max()

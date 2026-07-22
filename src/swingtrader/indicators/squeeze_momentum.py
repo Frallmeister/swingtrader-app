@@ -3,7 +3,8 @@
 This module ports the open-source "Squeeze Momentum Indicator [LazyBear]"
 published on TradingView. It combines Bollinger Bands, Keltner Channels, and a
 linear-regression momentum histogram, returning several related outputs together,
-so it lives in its own module. The indicator-specific linear-regression helper remains private to this module.
+so it lives in its own module. The indicator-specific linear-regression helper
+remains private to this module.
 
 The indicator consumes a dataframe with ``high``, ``low``, and ``close`` columns
 and computes True Range and ATR internally. It accepts either one instrument or a
