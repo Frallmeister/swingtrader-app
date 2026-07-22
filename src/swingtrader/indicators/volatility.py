@@ -14,9 +14,9 @@ import pandas as pd
 
 from swingtrader.core.numerical import safe_divide
 from swingtrader.data.market_frame import apply_by_ticker, validate_required_columns
-from swingtrader.indicators import sma
 from swingtrader.indicators._smoothing import wilder_moving_average
 from swingtrader.indicators._validation import validate_length, validate_num_std
+from swingtrader.indicators.moving_averages import sma
 
 
 def true_range(data: pd.DataFrame) -> pd.Series:

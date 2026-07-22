@@ -1,6 +1,6 @@
 # Features
 
-Feature generation currently supports in-memory historical return, trend, momentum, volatility, volume, and market-structure features for exploratory analysis and baseline modeling. Persistent feature tables and versioned feature pipelines are still future work.
+Feature generation currently supports in-memory historical return, trend, momentum, volatility, price-action, volume, and market-structure features for exploratory analysis, screening, backtest analysis, and baseline modeling. Persistent feature tables and versioned feature pipelines are still future work.
 
 ## Intended Role
 
@@ -24,7 +24,7 @@ records = features.reset_index()
 
 Feature code is organized into two layers with a clear responsibility boundary:
 
-- **Indicators** calculate reusable technical quantities and live in `swingtrader.indicators`. Indicators know nothing about the model feature set, so they can also be reused by notebooks, tests, and future API or frontend charting functionality.
+- **Indicators** calculate reusable technical quantities and live in `swingtrader.indicators`. Indicators know nothing about the model feature set, so they can also be reused by notebooks, tests, future API endpoints, charting, stock screening, and backtest or trade-record analysis.
 - **Features** transform raw data and indicators into model inputs and live in `swingtrader.data.features`. A feature builder decides which source columns an indicator should use, how indicators are combined and normalized, how historical context is represented, and what the model-facing column is named.
 
 In short: indicators calculate reusable technical quantities, and features transform raw data and indicators into model inputs.
@@ -32,7 +32,7 @@ In short: indicators calculate reusable technical quantities, and features trans
 Feature functions follow two contracts:
 
 - public numerical indicators in `swingtrader.indicators` operate per ticker and return either one index-aligned `pd.Series` or, for naturally multi-output indicators, one index-aligned `pd.DataFrame`. Most indicators take a single ordered `pd.Series`; indicators that need several price columns at once, such as the volatility indicators consuming `high`, `low`, and `close`, take a `pd.DataFrame` instead. Every indicator supports two input forms: a single ordered instrument (only required to be chronologically ordered), or a canonical multi-instrument market frame with a `provider`/`ticker`/`trading_date` MultiIndex, in which case calculations are isolated per group and the input index and row order are preserved;
-- application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, `add_volatility_features`, `add_volume_features`, and `add_market_structure_features` return a copy of the input dataframe with final model feature columns added. They are importable from `swingtrader.data.features`, and `swingtrader.data.features.pipeline.add_default_features` runs the standard families in a fixed order.
+- application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, `add_volatility_features`, `add_price_action_features`, `add_volume_features`, and `add_market_structure_features` return a copy of the input dataframe with final model feature columns added. They are importable from `swingtrader.data.features`, and `swingtrader.data.features.pipeline.add_default_features` runs the standard families in a fixed order.
 
 ## Return Features
 
@@ -183,6 +183,33 @@ The default Bollinger length is 20 rows with 2 standard deviations, both calibra
 
 Raw `true_range`, `atr`, `bollinger_bands`, and the price-unit `adr` column are expressed in the input price units and are not comparable across tickers, so `add_volatility_features` only appends the scale-invariant `adr_percent`, `atr_percent`, `bollinger_bandwidth`, and `bollinger_percent_b` columns. `true_range`, `atr`, `adr`, and `bollinger_bands` are exposed as standalone indicators, analogous to `macd`, so consumers such as exploratory analysis and the frontend application can obtain absolute price-unit values directly. The volatility module is intended to later host additional range and dispersion measures.
 
+## Price Action Features
+
+The price-action feature orchestrator is `swingtrader.data.features.price_action.add_price_action_features`. It adds continuous descriptions of the current candle and its short-horizon range context rather than assigning sparse textbook pattern labels. This preserves body, wick, close-location, gap, and range information so downstream models, screeners, APIs, and analysis code can apply their own thresholds or interactions.
+
+With the default settings, the orchestrator adds:
+
+- `candle_signed_body_fraction`, `(close - open) / (high - low)`, where positive values represent bullish bodies and negative values bearish bodies;
+- `candle_upper_wick_fraction`, the distance from the higher of open and close to the high, divided by the high-low range;
+- `candle_lower_wick_fraction`, the distance from the low to the lower of open and close, divided by the high-low range;
+- `candle_close_location`, `(close - low) / (high - low)`, where 0 is the session low and 1 is the session high;
+- `candle_range_atr`, the current True Range divided by the ATR available at the end of the previous row;
+- `candle_gap_atr`, the signed opening gap from the previous close divided by that same prior ATR;
+- `range_percentile_20`, the fraction of the preceding 20 high-low ranges that are less than or equal to the current high-low range.
+
+The public numerical candlestick indicators, importable from `swingtrader.indicators`, are:
+
+- `candle_geometry`, which returns `signed_body_fraction`, `upper_wick_fraction`, `lower_wick_fraction`, and `close_location`;
+- `candle_range_context`, which returns `range_atr`, `gap_atr`, and `range_percentile`.
+
+Both indicators consume a dataframe containing `open`, `high`, `low`, and `close`. They support either one chronologically ordered instrument or the canonical multi-instrument index, and calculations are isolated within each provider/ticker group. Zero-range candles cannot be normalized and therefore remain missing rather than producing infinities.
+
+`candle_range_context` uses the ATR ending on the previous row for both current True Range and the opening gap. The current event therefore cannot increase its own denominator. Its range percentile is also point-in-time safe: it compares the current high-low range with the preceding `range_percentile_length` rows and excludes the current row from the reference sample. The feature column includes the configured history length in its name, so a length of 10 produces `range_percentile_10`.
+
+Inside `add_price_action_features`, all four OHLC columns are placed on the `adjusted_close` scale with the row-wise factor `adjusted_close / close`. This leaves same-row geometry ratios unchanged but removes artificial cross-session gaps and True Range spikes caused by splits and dividend adjustments. The standalone indicators remain source-agnostic and operate on whichever OHLC representation the caller supplies.
+
+The default ATR length is 14 rows and the default range-percentile history is 20 preceding rows. Warm-up periods are kept as missing values. These continuous Phase 1 features form the base for later local pattern and level-interaction work without embedding arbitrary hammer, doji, or wide-range thresholds into the reusable indicator layer.
+
 ## Volume Features
 
 The volume feature orchestrator is `swingtrader.data.features.volume.add_volume_features`. It validates and copies the canonical market-price dataframe, calculates `turnover_zscore`, and appends the feature while preserving the input index and row order.
@@ -268,12 +295,12 @@ Like `pivot_points_high_low`, `zigzag` is retrospective and lookahead-aware: eac
 
 ## Default Feature Pipeline
 
-`swingtrader.data.features.pipeline.add_default_features` runs the standard feature families in a fixed order: returns, then trend, then momentum, then volatility, then market structure. Each family receives the dataframe produced by the previous step, so the result is identical to calling `add_return_features`, `add_trend_features`, `add_momentum_features`, `add_volatility_features`, and `add_market_structure_features` in that sequence with their default arguments. It provides a single entry point for producing the full default feature set while leaving the individual builders available for callers that need custom arguments or a subset of families.
+`swingtrader.data.features.pipeline.add_default_features` runs the standard feature families in a fixed order: returns, then trend, then momentum, then volatility, then price action, then volume, then market structure. Each family receives the dataframe produced by the previous step, so the result is identical to calling `add_return_features`, `add_trend_features`, `add_momentum_features`, `add_volatility_features`, `add_price_action_features`, `add_volume_features`, and `add_market_structure_features` in that sequence with their default arguments. It provides a single entry point for producing the full default feature set while leaving the individual builders available for callers that need custom arguments or a subset of families.
 
 ## Future Feature Ideas
 
-- volume features;
-- opening gap features such as next open versus previous close;
+- local multi-bar price-action patterns such as inside bars, outside bars, engulfing strength, and wick rejection;
+- breakout, failed-break, and confirmed swing-level interaction features;
 - later macro and market-context joins.
 
 ## Design Constraints

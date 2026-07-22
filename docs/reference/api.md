@@ -52,8 +52,9 @@ Reusable technical indicators. Indicators calculate reusable technical
 quantities; features transform raw data and indicators into model inputs. Each
 public indicator supports two input forms: a single ordered instrument, or a
 canonical multi-instrument market frame indexed by `provider`, `ticker`, and
-`trading_date`. Standalone indicators are intended to be reusable by future API
-and frontend charting functionality.
+`trading_date`. Standalone indicators are intended to be reusable by future
+API endpoints, frontend charting and screening, backtests, and trade-record
+analysis.
 
 ### Moving Averages
 
@@ -62,6 +63,10 @@ and frontend charting functionality.
 ### Directional Movement
 
 ::: swingtrader.indicators.directional_movement
+
+### Candlestick Indicators
+
+::: swingtrader.indicators.candlesticks
 
 ### Volatility Indicators
 
@@ -102,6 +107,10 @@ and frontend charting functionality.
 ## Volatility Features
 
 ::: swingtrader.data.features.volatility
+
+## Price Action Features
+
+::: swingtrader.data.features.price_action
 
 ## Volume Features
 

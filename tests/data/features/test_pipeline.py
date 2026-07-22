@@ -4,6 +4,7 @@ import pandas as pd
 from swingtrader.data.features import (
     add_market_structure_features,
     add_momentum_features,
+    add_price_action_features,
     add_return_features,
     add_trend_features,
     add_volatility_features,
@@ -22,12 +23,14 @@ def test_add_default_features_includes_all_family_columns_without_duplicates() -
     market_structure_columns = set(add_market_structure_features(data).columns)
     momentum_columns = set(add_momentum_features(data).columns)
     volatility_columns = set(add_volatility_features(data).columns)
+    price_action_columns = set(add_price_action_features(data).columns)
     volume_columns = set(add_volume_features(data).columns)
     expected_columns = (
         returns_columns
         | trend_columns
         | momentum_columns
         | volatility_columns
+        | price_action_columns
         | volume_columns
         | market_structure_columns
     )
@@ -62,6 +65,7 @@ def test_add_default_features_matches_manual_family_chain() -> None:
         .pipe(add_trend_features)
         .pipe(add_momentum_features)
         .pipe(add_volatility_features)
+        .pipe(add_price_action_features)
         .pipe(add_volume_features)
         .pipe(add_market_structure_features)
     )
@@ -83,6 +87,7 @@ def _prices() -> pd.DataFrame:
         span = np.abs(rng.normal(0.0, 1.0, n)) + 0.5
         frame = pd.DataFrame(
             {
+                "open": close + rng.uniform(-0.5, 0.5, n) * span,
                 "high": close + span,
                 "low": close - span,
                 "close": close,

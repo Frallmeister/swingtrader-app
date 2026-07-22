@@ -1,7 +1,8 @@
 """Reusable technical indicators.
 
 This package calculates reusable technical quantities such as moving averages,
-directional movement, volatility bands, oscillators, and squeeze momentum.
+directional movement, candlestick geometry, volatility bands, oscillators, and
+squeeze momentum.
 Indicators are independent of model-specific feature naming and interpretation
 and are intended to be reused by feature builders, notebooks, tests, and future
 API or frontend charting code.
@@ -18,6 +19,7 @@ Every public indicator supports two input forms:
 Indicators return new index-aligned outputs and never mutate their input objects.
 """
 
+from swingtrader.indicators.candlesticks import candle_geometry, candle_range_context
 from swingtrader.indicators.directional_movement import adx
 from swingtrader.indicators.macd import macd, ppo
 from swingtrader.indicators.market_structure import pivot_points_high_low, zigzag
@@ -43,6 +45,8 @@ __all__ = [
     "bollinger_bands",
     "bollinger_bandwidth",
     "bollinger_percent_b",
+    "candle_geometry",
+    "candle_range_context",
     "ema",
     "lazybear_squeeze_momentum",
     "macd",
