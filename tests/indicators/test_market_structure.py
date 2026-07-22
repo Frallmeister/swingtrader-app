@@ -1,7 +1,13 @@
+import math
+
 import pandas as pd
 import pytest
 
-from swingtrader.indicators.market_structure import pivot_points_high_low
+from swingtrader.indicators.market_structure import (
+    _zigzag_pivot_consistency,
+    _ZigZagPivot,
+    pivot_points_high_low,
+)
 
 
 def test_pivot_points_high_low_returns_expected_pivots_and_ranks() -> None:
@@ -342,6 +348,61 @@ def test_pivot_points_high_low_rejects_invalid_rank_output() -> None:
             low_right=1,
             rank_output="invalid",  # type: ignore[arg-type]
         )
+
+
+@pytest.mark.parametrize(
+    ("prices", "expected"),
+    [
+        ([10.0, 11.0, 12.0, 13.0], 1.0),
+        ([13.0, 12.0, 11.0, 10.0], -1.0),
+        ([10.0, 12.0, 11.0, 13.0], 2 / 3),
+    ],
+)
+def test_zigzag_pivot_consistency(
+    prices: list[float],
+    expected: float,
+) -> None:
+    pivots = [
+        _ZigZagPivot(position=position, price=price, direction=1)
+        for position, price in enumerate(prices)
+    ]
+
+    result = _zigzag_pivot_consistency(
+        pivots,
+        direction=1,
+        count=4,
+    )
+
+    assert result == pytest.approx(expected)
+
+
+def test_zigzag_pivot_consistency_handles_price_ties() -> None:
+    pivots = [
+        _ZigZagPivot(position=0, price=10.0, direction=1),
+        _ZigZagPivot(position=1, price=10.0, direction=1),
+        _ZigZagPivot(position=2, price=11.0, direction=1),
+        _ZigZagPivot(position=3, price=12.0, direction=1),
+    ]
+
+    result = _zigzag_pivot_consistency(
+        pivots,
+        direction=1,
+        count=4,
+    )
+
+    assert result == pytest.approx(5 / math.sqrt(30))
+
+
+def test_zigzag_pivot_consistency_is_missing_for_equal_prices() -> None:
+    pivots = [_ZigZagPivot(position=position, price=10.0, direction=1) for position in range(4)]
+
+    result = _zigzag_pivot_consistency(
+        pivots,
+        direction=1,
+        count=4,
+    )
+
+    assert math.isnan(result)
 
 
 def _prices() -> pd.DataFrame:

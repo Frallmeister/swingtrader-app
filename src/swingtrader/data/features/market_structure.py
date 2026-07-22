@@ -30,6 +30,8 @@ _MARKET_STRUCTURE_FEATURE_COLUMNS = (
     "market_structure_low_change",
     "market_structure_high_rate",
     "market_structure_low_rate",
+    "market_structure_high_consistency",
+    "market_structure_low_consistency",
 )
 
 
@@ -38,6 +40,7 @@ def add_market_structure_features(
     *,
     zigzag_deviation: float = 5.0,
     zigzag_pivot_legs: int = 10,
+    zigzag_consistency_pivots: int = 4,
 ) -> pd.DataFrame:
     """Return a copy of data with the default market-structure features added.
 
@@ -57,6 +60,7 @@ def add_market_structure_features(
         data,
         deviation=zigzag_deviation,
         pivot_legs=zigzag_pivot_legs,
+        consistency_pivots=zigzag_consistency_pivots,
     )
     result[feature_block.columns] = feature_block
     return result
@@ -67,6 +71,7 @@ def zigzag_features(
     *,
     deviation: float = 5.0,
     pivot_legs: int = 10,
+    consistency_pivots: int = 4,
 ) -> pd.DataFrame:
     """Calculate point-in-time features from the latest confirmed Zig Zag state.
 
@@ -92,10 +97,17 @@ def zigzag_features(
       latest two confirmed swing lows, respectively;
     - ``market_structure_high_rate`` and ``market_structure_low_rate``: the
       corresponding logarithmic changes divided by the number of input rows
-      between the two historical pivot positions.
+      between the two historical pivot positions;
+    - ``market_structure_high_consistency`` and
+      ``market_structure_low_consistency``: Kendall's tau-b between chronological
+      order and the prices of the latest ``consistency_pivots`` confirmed swing
+      highs or lows. Values range from ``-1`` for consistently falling pivots to
+      ``1`` for consistently rising pivots.
 
     The structural changes and rates remain missing until two confirmed pivots of
-    the corresponding direction are available. The output preserves the canonical
+    the corresponding direction are available. Consistency remains missing until
+    ``consistency_pivots`` same-direction pivots are available, and is also missing
+    when all selected prices are equal. The output preserves the canonical
     input index and does not mutate ``data``.
 
     Notes
@@ -113,6 +125,7 @@ def zigzag_features(
             group,
             deviation=deviation,
             pivot_legs=pivot_legs,
+            consistency_pivots=consistency_pivots,
         ),
     )
 
@@ -122,12 +135,14 @@ def _zigzag_features(
     *,
     deviation: float,
     pivot_legs: int,
+    consistency_pivots: int,
 ) -> pd.DataFrame:
     """Calculate point-in-time Zig Zag features for one ordered instrument."""
     state = _confirmed_zigzag_state(
         data,
         deviation=deviation,
         pivot_legs=pivot_legs,
+        consistency_pivots=consistency_pivots,
     )
 
     last_price = state["_zigzag_last_price"]
@@ -188,6 +203,8 @@ def _zigzag_features(
             "market_structure_low_change": low_change,
             "market_structure_high_rate": high_rate,
             "market_structure_low_rate": low_rate,
+            "market_structure_high_consistency": state["_zigzag_high_consistency"],
+            "market_structure_low_consistency": state["_zigzag_low_consistency"],
         },
         index=data.index,
     )
