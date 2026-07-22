@@ -123,6 +123,7 @@ def _candle_range_context(
 
 
 def _prior_range_percentile(values: pd.Series, *, length: int) -> pd.Series:
+    """Return the current value's percentile among the previous `length` values."""
     prior_values = pd.concat(
         [values.shift(offset) for offset in range(1, length + 1)],
         axis=1,
