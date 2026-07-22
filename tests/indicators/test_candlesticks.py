@@ -247,13 +247,14 @@ def test_candle_patterns_rejects_invalid_atr_length(atr_length) -> None:
 def test_candle_patterns_leaves_engulfing_strength_missing_until_prior_atr_exists() -> None:
     data = pd.DataFrame(
         {
-            "open": [10.0, 11.0, 10.0, 10.5],
+            "open": [10.0, 10.5, 10.0, 10.5],
             "high": [11.5, 11.5, 12.0, 11.0],
-            "low": [9.5, 9.5, 9.5, 10.0],
-            "close": [11.0, 10.0, 11.5, 10.5],
+            "low": [9.5, 10.0, 9.5, 10.0],
+            "close": [11.0, 11.0, 11.5, 10.5],
         }
     )
 
     result = candle_patterns(data, atr_length=3)
 
     assert result["engulfing_strength"].iloc[:3].isna().all()
+    assert result["engulfing_strength"].iloc[3] == pytest.approx(0.0)
