@@ -2,31 +2,29 @@
 
 ## Responsibility
 
-The features area is reserved for reusable transformations that convert point-in-time input data into model-ready explanatory variables. Feature code should make historical market data useful for modeling without changing the meaning of the source observations or mixing in target, model, or presentation concerns.
+The features area contains reusable transformations that convert point-in-time input data into model-ready explanatory variables. Feature code should make historical market data useful for modeling, screening, APIs, backtests, and later trade-record analysis without changing the meaning of source observations or mixing in target, model, storage, or presentation concerns.
 
-Reusable technical indicator calculations live in the separate `swingtrader.indicators` package. Indicators calculate reusable technical quantities; features transform raw data and indicators into model inputs. A feature builder decides which source columns an indicator consumes, how indicators are combined and normalized, and what the model-facing columns are named. Feature families must import indicator calculations from `swingtrader.indicators` rather than reimplementing them or importing calculations from sibling feature families.
+Reusable technical calculations live in `swingtrader.indicators`. Indicators calculate domain quantities; feature builders decide which source columns to use, how quantities are adjusted or normalized, and what the model-facing columns are named. Feature families must import indicator calculations from `swingtrader.indicators` rather than reimplementing them or importing calculations from sibling feature families.
 
-Feature generation currently includes in-memory return, trend, momentum, and volatility features, plus a default pipeline in `pipeline.py` that runs the four families in a fixed order. The current directory should not yet be treated as a persistent feature pipeline.
+Feature generation currently includes seven in-memory families: returns, trend, momentum, volatility, price action, volume, and market structure. `pipeline.py` runs those families in an explicit fixed order. This directory should not yet be treated as a persistent feature pipeline.
 
 ## Design principles
 
-Feature code should operate only on data available at or before each observation timestamp. It must preserve ticker and trading-date alignment, avoid lookahead leakage, and avoid cross-ticker contamination unless a future feature explicitly defines a safe market-level aggregate.
+Feature code must operate only on information available at or before each observation timestamp. It preserves ticker and trading-date alignment, avoids lookahead leakage and cross-ticker contamination, and leaves incomplete rolling windows missing rather than silently filling them.
 
-Current feature inputs must use a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`, in that exact order, plus the value columns each feature family consumes. The identifiers must not also appear as ordinary columns. External consumers that need identifiers as columns convert explicitly with `features.reset_index()` at their own boundary.
+Inputs use a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`, in that exact order, plus the value columns consumed by the family. Identifiers must not also appear as ordinary columns. External consumers that need column-oriented records convert explicitly with `features.reset_index()` at their own boundary.
 
-Rolling-window features should handle warm-up periods explicitly instead of silently filling incomplete history. Outputs should be predictable, testable, and suitable for both exploratory analysis and later training workflows. Reusable feature logic belongs in package modules with tests, not only in notebooks.
-
-Likely future feature categories include volatility and range, volume, additional technical indicators, and candlestick geometry. Those categories are directional examples, not implemented functions or committed formulas.
+Outputs should remain predictable, testable, and reusable. The same feature dataframe may later support model training, stock-screen filters, API responses, backtest diagnostics, and statistical analysis of recorded trades; those consumers should not require feature formulas to be duplicated in application-specific code.
 
 ## Current status
 
-Initial feature work calculates features in memory for EDA and baseline modeling. Persistent feature tables, feature versioning, and feature-store-like infrastructure are future design decisions. They are not required by the current package contract and are not implemented.
+Features are currently calculated in memory for EDA and baseline modeling. Persistent feature tables, versioning, and feature-store-like infrastructure remain future design decisions and are not part of the current package contract.
 
 ## Package boundaries
 
-Feature code should read source-oriented data from bronze or other approved point-in-time inputs. It should remain separate from provider download code, bronze persistence, target and label generation, model training, production inference, prediction storage, and dashboard presentation.
+Feature code reads source-oriented data from bronze or other approved point-in-time inputs. It remains separate from provider downloads, bronze persistence, target and label generation, model training, production inference, prediction storage, and dashboard presentation.
 
-Experimental ideas, formula sketches, and external references should live in GitHub issues, research notebooks, or dedicated research documentation rather than in this package README.
+Experimental formulas and external references belong in GitHub issues, research notebooks, or dedicated research documentation rather than this package README.
 
 ## Further documentation
 
