@@ -24,7 +24,7 @@ def test_zigzag_leg_dynamics_measure_balance_and_efficiency(
 ) -> None:
     pivots = _pivots_from_log_returns(log_returns)
 
-    leg_balance, efficiency = _zigzag_leg_dynamics(pivots, count=6)
+    leg_balance, efficiency = _zigzag_leg_dynamics(pivots, leg_count=6)
 
     assert leg_balance == pytest.approx(expected)
     assert efficiency == pytest.approx(expected)
@@ -33,7 +33,7 @@ def test_zigzag_leg_dynamics_measure_balance_and_efficiency(
 def test_zigzag_leg_balance_uses_median_magnitudes() -> None:
     pivots = _pivots_from_log_returns([0.10, -0.05, 1.00, -0.05, 0.10, -0.05])
 
-    leg_balance, _ = _zigzag_leg_dynamics(pivots, count=6)
+    leg_balance, _ = _zigzag_leg_dynamics(pivots, leg_count=6)
 
     assert leg_balance == pytest.approx(1.0 / 3.0)
 
@@ -42,7 +42,7 @@ def test_zigzag_efficiency_uses_signed_net_log_displacement() -> None:
     log_returns = [0.20, -0.03, 0.10, -0.02, 0.15, -0.05]
     pivots = _pivots_from_log_returns(log_returns)
 
-    _, efficiency = _zigzag_leg_dynamics(pivots, count=6)
+    _, efficiency = _zigzag_leg_dynamics(pivots, leg_count=6)
 
     expected = sum(log_returns) / sum(abs(value) for value in log_returns)
     assert efficiency == pytest.approx(expected)
@@ -51,7 +51,7 @@ def test_zigzag_efficiency_uses_signed_net_log_displacement() -> None:
 def test_zigzag_leg_dynamics_wait_for_the_complete_window() -> None:
     pivots = _pivots_from_log_returns([0.10, -0.05, 0.10, -0.05, 0.10])
 
-    leg_balance, efficiency = _zigzag_leg_dynamics(pivots, count=6)
+    leg_balance, efficiency = _zigzag_leg_dynamics(pivots, leg_count=6)
 
     assert math.isnan(leg_balance)
     assert math.isnan(efficiency)
@@ -76,7 +76,7 @@ def test_zigzag_leg_dynamics_return_missing_for_invalid_path(
         for position, price in enumerate(prices)
     ]
 
-    leg_balance, efficiency = _zigzag_leg_dynamics(pivots, count=6)
+    leg_balance, efficiency = _zigzag_leg_dynamics(pivots, leg_count=6)
 
     assert math.isnan(leg_balance)
     assert math.isnan(efficiency)
