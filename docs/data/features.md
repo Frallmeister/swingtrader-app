@@ -1,6 +1,6 @@
 # Features
 
-Feature generation currently supports in-memory historical return, trend, momentum, volatility, and market-structure features for exploratory analysis and baseline modeling. Persistent feature tables and versioned feature pipelines are still future work.
+Feature generation currently supports in-memory historical return, trend, momentum, volatility, volume, and market-structure features for exploratory analysis and baseline modeling. Persistent feature tables and versioned feature pipelines are still future work.
 
 ## Intended Role
 
@@ -32,7 +32,7 @@ In short: indicators calculate reusable technical quantities, and features trans
 Feature functions follow two contracts:
 
 - public numerical indicators in `swingtrader.indicators` operate per ticker and return either one index-aligned `pd.Series` or, for naturally multi-output indicators, one index-aligned `pd.DataFrame`. Most indicators take a single ordered `pd.Series`; indicators that need several price columns at once, such as the volatility indicators consuming `high`, `low`, and `close`, take a `pd.DataFrame` instead. Every indicator supports two input forms: a single ordered instrument (only required to be chronologically ordered), or a canonical multi-instrument market frame with a `provider`/`ticker`/`trading_date` MultiIndex, in which case calculations are isolated per group and the input index and row order are preserved;
-- application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, `add_volatility_features`, and `add_market_structure_features` return a copy of the input dataframe with final model feature columns added. They are importable from `swingtrader.data.features`, and `swingtrader.data.features.pipeline.add_default_features` runs the standard families in a fixed order.
+- application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, `add_volatility_features`, `add_volume_features`, and `add_market_structure_features` return a copy of the input dataframe with final model feature columns added. They are importable from `swingtrader.data.features`, and `swingtrader.data.features.pipeline.add_default_features` runs the standard families in a fixed order.
 
 ## Return Features
 
@@ -182,6 +182,25 @@ The default ADR length is 20 rows and is calibratable through the `adr_length` a
 The default Bollinger length is 20 rows with 2 standard deviations, both calibratable through the `bollinger_length` and `bollinger_num_std` arguments on `add_volatility_features` and the `length` and `num_std` arguments on the Bollinger indicators. The middle band is the simple moving average, and the outer bands sit `num_std` rolling standard deviations away, leaving the first `length - 1` rows of each series missing until the window is full. The rolling standard deviation is the population standard deviation (`ddof=0`), matching John Bollinger's original definition and most charting platforms; implementations that use the sample standard deviation (`ddof=1`) produce slightly wider bands for the same `length`.
 
 Raw `true_range`, `atr`, `bollinger_bands`, and the price-unit `adr` column are expressed in the input price units and are not comparable across tickers, so `add_volatility_features` only appends the scale-invariant `adr_percent`, `atr_percent`, `bollinger_bandwidth`, and `bollinger_percent_b` columns. `true_range`, `atr`, `adr`, and `bollinger_bands` are exposed as standalone indicators, analogous to `macd`, so consumers such as exploratory analysis and the frontend application can obtain absolute price-unit values directly. The volatility module is intended to later host additional range and dispersion measures.
+
+## Volume Features
+
+The volume feature orchestrator is `swingtrader.data.features.volume.add_volume_features`. It validates and copies the canonical market-price dataframe, calculates `turnover_zscore`, and appends the feature while preserving the input index and row order.
+
+Turnover is calculated as `adjusted_close * volume`. The public `turnover` indicator returns either this raw value or `log1p(turnover)` when `log=True`. Using adjusted close avoids artificial historical turnover jumps caused by corporate-action adjustments, while the logarithmic transform compresses the strong right skew commonly present in turnover.
+
+`turnover_zscore` measures how unusual the current turnover is relative to the same instrument's recent history:
+
+`(current turnover - prior median) / prior population standard deviation`.
+
+The reference statistics use only the preceding `length - 1` observations; the current row is excluded. A `length` of 252 therefore compares the current row with the previous 251 trading rows. The first `length - 1` rows for each provider/ticker group remain missing, and a reference window with zero standard deviation also produces a missing value.
+
+The feature builder defaults to `turnover_zscore_length=252` and `turnover_zscore_log=True`. Raw-turnover normalization remains available by setting `turnover_zscore_log=False`. The standalone indicator instead defaults
+to `log=False`, so callers explicitly opt into the transform outside the model-feature pipeline.
+
+The feature is point-in-time safe: no future observations are used, and the current turnover does not influence its own reference median or standard
+deviation. Calculations are isolated within each provider/ticker group, so one instrument's turnover history cannot leak into another's.
+
 
 ## Market Structure
 
