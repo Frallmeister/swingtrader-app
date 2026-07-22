@@ -31,11 +31,11 @@ def turnover(data: pd.DataFrame, *, log: bool = False) -> pd.Series:
 def turnover_zscore(data: pd.DataFrame, *, length: int = 252, log: bool = False) -> pd.Series:
     """ADD DOCSTRING HERE."""
     validate_length(length)
-    validate_required_columns(data, required_columns={"adjusted_close", "volume"})
     if length < 2:
         raise ValueError(f"The length parameter must be at least 2; got {length!r}")
     if not isinstance(log, bool):
         raise ValueError(f"The log parameter must be a boolean; got {log!r}")
+    validate_required_columns(data, required_columns={"adjusted_close", "volume"})
 
     return apply_by_ticker(
         data,
