@@ -22,8 +22,10 @@ from swingtrader.indicators._validation import validate_length
 
 def turnover(data: pd.DataFrame, *, log: bool = False) -> pd.Series:
     """ADD DOCSTRING HERE."""
+    validate_required_columns(data, required_columns={"adjusted_close", "volume"})
     if not isinstance(log, bool):
         raise ValueError(f"The log parameter must be a boolean; got {log!r}")
+
     turnover_ = (data["adjusted_close"] * data["volume"]).rename("turnover")
     if log:
         return np.log1p(turnover_)
@@ -33,15 +35,15 @@ def turnover(data: pd.DataFrame, *, log: bool = False) -> pd.Series:
 def turnover_zscore(data: pd.DataFrame, *, length: int = 252, log: bool = False) -> pd.Series:
     """ADD DOCSTRING HERE."""
     validate_length(length)
+    validate_required_columns(data, required_columns={"adjusted_close", "volume"})
+    if length < 2:
+        raise ValueError(f"The length parameter must be at least 2; got {length!r}")
     if not isinstance(log, bool):
         raise ValueError(f"The log parameter must be a boolean; got {log!r}")
-    lookback_length = length - 1
-    turnover_ = turnover(data, log=log)
-    rolling_turnover = turnover_.shift(1).rolling(
-        window=lookback_length, min_periods=lookback_length
-    )
-    return safe_divide(turnover_ - rolling_turnover.median(), rolling_turnover.std(ddof=0)).rename(
-        "turnover_zscore"
+
+    return apply_by_ticker(
+        data,
+        lambda group: _turnover_zscore(group, length=length, log=log),
     )
 
 
@@ -75,6 +77,18 @@ def mfi(
     validate_length(length)
     validate_required_columns(data, required_columns={"high", "low", "close", "volume"})
     return apply_by_ticker(data, lambda group: _mfi(group, length=length))
+
+
+def _turnover_zscore(data: pd.DataFrame, *, length: int = 252, log: bool = False) -> pd.Series:
+    """ADD DOCSTRING HERE."""
+    lookback_length = length - 1
+    turnover_ = turnover(data, log=log)
+    rolling_turnover = turnover_.shift(1).rolling(
+        window=lookback_length, min_periods=lookback_length
+    )
+    return safe_divide(turnover_ - rolling_turnover.median(), rolling_turnover.std(ddof=0)).rename(
+        "turnover_zscore"
+    )
 
 
 def _mfi(data: pd.DataFrame, *, length: int) -> pd.Series:
