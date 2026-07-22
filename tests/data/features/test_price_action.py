@@ -13,12 +13,12 @@ _FEATURE_COLUMNS = [
     "candle_range_atr",
     "candle_gap_atr",
     "range_percentile_2",
-    "inside_bar",
-    "outside_bar",
-    "engulfing_strength",
-    "lower_rejection_strength",
-    "upper_rejection_strength",
-    "consecutive_inside_bars",
+    "candle_inside_bar",
+    "candle_outside_bar",
+    "candle_engulfing_strength",
+    "candle_lower_rejection_strength",
+    "candle_upper_rejection_strength",
+    "candle_consecutive_inside_bars",
 ]
 
 
@@ -77,10 +77,18 @@ def test_add_price_action_features_adds_expected_adjusted_indicator_outputs() ->
         expected_context["range_percentile"],
         check_names=False,
     )
-    for column in expected_patterns:
+    pattern_feature_names = {
+        "inside_bar": "candle_inside_bar",
+        "outside_bar": "candle_outside_bar",
+        "engulfing_strength": "candle_engulfing_strength",
+        "lower_rejection_strength": "candle_lower_rejection_strength",
+        "upper_rejection_strength": "candle_upper_rejection_strength",
+        "consecutive_inside_bars": "candle_consecutive_inside_bars",
+    }
+    for indicator_name, feature_name in pattern_feature_names.items():
         pd.testing.assert_series_equal(
-            result[column],
-            expected_patterns[column],
+            result[feature_name],
+            expected_patterns[indicator_name],
             check_names=False,
         )
     assert result.columns[-len(_FEATURE_COLUMNS) :].tolist() == _FEATURE_COLUMNS
@@ -188,8 +196,8 @@ def test_add_price_action_features_isolates_tickers() -> None:
         ticker_result = result.xs(ticker, level="ticker")
         assert ticker_result["candle_gap_atr"].iloc[:2].isna().all()
         assert ticker_result["range_percentile_2"].iloc[:2].isna().all()
-        assert pd.isna(ticker_result["inside_bar"].iloc[0])
-        assert pd.isna(ticker_result["consecutive_inside_bars"].iloc[0])
+        assert pd.isna(ticker_result["candle_inside_bar"].iloc[0])
+        assert pd.isna(ticker_result["candle_consecutive_inside_bars"].iloc[0])
 
 
 def _prices() -> pd.DataFrame:

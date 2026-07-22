@@ -23,6 +23,15 @@ _GEOMETRY_FEATURE_NAMES = {
     "close_location": "candle_close_location",
 }
 
+_PATTERN_FEATURE_NAMES = {
+    "inside_bar": "candle_inside_bar",
+    "outside_bar": "candle_outside_bar",
+    "engulfing_strength": "candle_engulfing_strength",
+    "lower_rejection_strength": "candle_lower_rejection_strength",
+    "upper_rejection_strength": "candle_upper_rejection_strength",
+    "consecutive_inside_bars": "candle_consecutive_inside_bars",
+}
+
 
 def add_price_action_features(
     data: pd.DataFrame,
@@ -72,12 +81,7 @@ def add_price_action_features(
         "candle_range_atr",
         "candle_gap_atr",
         range_percentile_name,
-        "inside_bar",
-        "outside_bar",
-        "engulfing_strength",
-        "lower_rejection_strength",
-        "upper_rejection_strength",
-        "consecutive_inside_bars",
+        *_PATTERN_FEATURE_NAMES.values(),
     ]
     validate_new_columns(data, new_columns=new_columns)
 
@@ -94,7 +98,9 @@ def add_price_action_features(
             "range_percentile": range_percentile_name,
         }
     )
-    patterns = candle_patterns(adjusted_ohlc, atr_length=atr_length)
+    patterns = candle_patterns(adjusted_ohlc, atr_length=atr_length).rename(
+        columns=_PATTERN_FEATURE_NAMES
+    )
 
     result = data.copy()
     return result.join(geometry).join(range_context).join(patterns)

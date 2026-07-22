@@ -14,7 +14,7 @@ input dataframe.
 
 import pandas as pd
 
-from swingtrader.core.numerical import safe_divide
+from swingtrader.core.numerical import consecutive_true_count, safe_divide
 from swingtrader.data.market_frame import apply_by_ticker, validate_required_columns
 from swingtrader.indicators._validation import validate_length
 from swingtrader.indicators.volatility import _atr, _true_range
@@ -220,18 +220,10 @@ def _candle_patterns(data: pd.DataFrame, *, atr_length: int) -> pd.DataFrame:
             "engulfing_strength": engulfing_strength,
             "lower_rejection_strength": lower_wick_atr.mul(close_location),
             "upper_rejection_strength": upper_wick_atr.mul(1.0 - close_location),
-            "consecutive_inside_bars": _consecutive_inside_count(inside_bar),
+            "consecutive_inside_bars": consecutive_true_count(inside_bar),
         },
         index=data.index,
     )
-
-
-def _consecutive_inside_count(values: pd.Series) -> pd.Series:
-    """Count consecutive inside bars, preserving missing comparisons."""
-    active = values.fillna(False)
-    run_id = (~active).cumsum()
-    counts = active.astype("int64").groupby(run_id).cumsum().astype("Int64")
-    return counts.where(values.notna())
 
 
 def _prior_range_percentile(values: pd.Series, *, length: int) -> pd.Series:

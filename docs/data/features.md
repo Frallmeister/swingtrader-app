@@ -196,12 +196,12 @@ With the default settings, the orchestrator adds:
 - `candle_range_atr`, the current True Range divided by the ATR available at the end of the previous row;
 - `candle_gap_atr`, the signed opening gap from the previous close divided by that same prior ATR;
 - `range_percentile_20`, the fraction of the preceding 20 high-low ranges that are less than or equal to the current high-low range;
-- `inside_bar`, true when the current high-low range is contained by the previous range;
-- `outside_bar`, true when the current high-low range contains the previous range;
-- `engulfing_strength`, the signed amount by which an opposite-direction real body exceeds the previous real body, divided by prior ATR;
-- `lower_rejection_strength`, the lower wick divided by prior ATR and weighted by the close's position toward the candle high;
-- `upper_rejection_strength`, the upper wick divided by prior ATR and weighted by the close's position toward the candle low;
-- `consecutive_inside_bars`, the number of consecutive inside bars ending on the current row.
+- `candle_inside_bar`, true when the current high-low range is contained by the previous range;
+- `candle_outside_bar`, true when the current high-low range contains the previous range;
+- `candle_engulfing_strength`, the signed amount by which an opposite-direction real body exceeds the previous real body, divided by prior ATR;
+- `candle_lower_rejection_strength`, the lower wick divided by prior ATR and weighted by the close's position toward the candle high;
+- `candle_upper_rejection_strength`, the upper wick divided by prior ATR and weighted by the close's position toward the candle low;
+- `candle_consecutive_inside_bars`, the number of consecutive inside bars ending on the current row.
 
 The public numerical candlestick indicators, importable from `swingtrader.indicators`, are:
 
@@ -213,7 +213,7 @@ All three indicators consume a dataframe containing `open`, `high`, `low`, and `
 
 `candle_range_context` uses the ATR ending on the previous row for both current True Range and the opening gap. The current event therefore cannot increase its own denominator. Its range percentile is also point-in-time safe: it compares the current high-low range with the preceding `range_percentile_length` rows and excludes the current row from the reference sample. The feature column includes the configured history length in its name, so a length of 10 produces `range_percentile_10`.
 
-`candle_patterns` compares each candle only with information available on that row or earlier. Inside and outside bars allow equality at one boundary, while an unchanged high-low range is neither. The first comparison row and rows with incomplete candle pairs remain missing. `consecutive_inside_bars` resets to zero when the current candle is not inside the previous candle. An engulfing signal requires an opposite-direction real body that strictly exceeds and contains the previous real body; non-engulfing rows receive zero strength. Engulfing and rejection magnitudes use ATR from the previous row, so the current candle cannot inflate its own normalization denominator.
+`candle_patterns` compares each candle only with information available on that row or earlier. Inside and outside bars allow equality at one boundary, while an unchanged high-low range is neither. The first comparison row and rows with incomplete candle pairs remain missing. `candle_consecutive_inside_bars` resets to zero when the current candle is not inside the previous candle. An engulfing signal requires an opposite-direction real body that strictly exceeds and contains the previous real body; non-engulfing rows receive zero strength. Engulfing and rejection magnitudes use ATR from the previous row, so the current candle cannot inflate its own normalization denominator.
 
 Inside `add_price_action_features`, all four OHLC columns are placed on the `adjusted_close` scale with the row-wise factor `adjusted_close / close`. This leaves same-row geometry ratios unchanged but removes artificial cross-session gaps and True Range spikes caused by splits and dividend adjustments. The standalone indicators remain source-agnostic and operate on whichever OHLC representation the caller supplies.
 
