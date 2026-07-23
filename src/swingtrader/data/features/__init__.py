@@ -5,16 +5,23 @@ Feature builders transform raw market data and reusable indicators from
 indicator inputs to use, how indicators are combined and normalized, how
 historical context is represented, and what model-facing columns are named.
 
-Feature builders are organized by family and remain independently usable. The
-:func:`swingtrader.data.features.pipeline.add_default_features` orchestrator runs
-the standard families in a fixed order.
+Feature builders remain independently usable. Versioned feature-set contracts
+record which builders, parameters, and output columns define reproducible model
+inputs.
 """
 
+from swingtrader.data.features.feature_sets import (
+    DEFAULT_FEATURE_SET,
+    FeatureBlockSpec,
+    FeatureSetSpec,
+    HistoryRequirement,
+)
 from swingtrader.data.features.market_structure import (
     add_market_structure_features,
     zigzag_features,
 )
 from swingtrader.data.features.momentum import add_momentum_features
+from swingtrader.data.features.pipeline import add_default_features, add_feature_set
 from swingtrader.data.features.price_action import add_price_action_features
 from swingtrader.data.features.returns import add_return_features
 from swingtrader.data.features.trend import add_trend_features
@@ -22,6 +29,12 @@ from swingtrader.data.features.volatility import add_volatility_features
 from swingtrader.data.features.volume import add_volume_features
 
 __all__ = [
+    "DEFAULT_FEATURE_SET",
+    "FeatureBlockSpec",
+    "FeatureSetSpec",
+    "HistoryRequirement",
+    "add_default_features",
+    "add_feature_set",
     "add_market_structure_features",
     "add_momentum_features",
     "add_price_action_features",

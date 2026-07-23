@@ -17,3 +17,4 @@ Accepted ADRs should not be silently rewritten when the architecture changes. Ad
 - [ADR 0002: Scheduled inference and persisted predictions](0002-scheduled-inference-and-persisted-predictions.md)
 - [ADR 0003: Separate research targets from executable evaluation](0003-separate-research-targets-from-executable-evaluation.md)
 - [ADR 0004: Adjustment-consistent model prices](0004-adjustment-consistent-model-prices.md)
+- [ADR 0005: Versioned feature-set contract](0005-versioned-feature-set-contract.md)

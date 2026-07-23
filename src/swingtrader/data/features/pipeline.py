@@ -1,38 +1,40 @@
-"""Default feature pipeline orchestration.
+"""Feature-set pipeline orchestration.
 
-This module exposes a single explicit entry point that runs the standard feature
-families in a fixed order. It contains no indicator or feature formulas, no
-dynamic discovery, and no dependency resolution; it simply calls the existing
-family builders in sequence. Each family builder remains independently usable.
+This module executes explicit, versioned feature-set specifications. It contains
+no indicator or feature formulas, dynamic discovery, or dependency resolution.
+Each family builder remains independently usable.
 """
 
 import pandas as pd
 
-from swingtrader.data.features.market_structure import add_market_structure_features
-from swingtrader.data.features.momentum import add_momentum_features
-from swingtrader.data.features.price_action import add_price_action_features
-from swingtrader.data.features.returns import add_return_features
-from swingtrader.data.features.trend import add_trend_features
-from swingtrader.data.features.volatility import add_volatility_features
-from swingtrader.data.features.volume import add_volume_features
+from swingtrader.data.features.feature_sets import (
+    DEFAULT_FEATURE_SET,
+    FeatureSetSpec,
+)
+
+
+def add_feature_set(
+    data: pd.DataFrame,
+    *,
+    feature_set: FeatureSetSpec = DEFAULT_FEATURE_SET,
+) -> pd.DataFrame:
+    """Return a copy of data with the declared feature blocks added.
+
+    Blocks run in their declared order with the parameters recorded by the
+    feature-set specification. Each block retains its own validation and
+    point-in-time calculation contract. The input index and row order are
+    preserved and the input dataframe is not mutated.
+    """
+    result = data
+    for block in feature_set.blocks:
+        result = block.apply(result)
+    return result
 
 
 def add_default_features(data: pd.DataFrame) -> pd.DataFrame:
-    """Return a copy of data with the default feature set from every family added.
+    """Return data with the versioned default OHLCV candidate set added.
 
-    The families run in an explicit, stable order: returns, trend, momentum,
-    volatility, price action, volume, then market structure. The input must
-    satisfy the canonical market-price contract and provide every column the
-    individual families require, including ``open``, ``high``, ``low``, ``close``,
-    ``adjusted_close``, and ``volume``. The input index and row order are
-    preserved and the input dataframe is not mutated. The result is
-    equivalent to applying the family builders manually in the same order.
+    This compatibility wrapper delegates to :func:`add_feature_set` using
+    :data:`swingtrader.data.features.feature_sets.DEFAULT_FEATURE_SET`.
     """
-    data = add_return_features(data)
-    data = add_trend_features(data)
-    data = add_momentum_features(data)
-    data = add_volatility_features(data)
-    data = add_price_action_features(data)
-    data = add_volume_features(data)
-    data = add_market_structure_features(data)
-    return data
+    return add_feature_set(data)
