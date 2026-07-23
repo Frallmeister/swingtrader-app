@@ -1,6 +1,7 @@
 site_name: Swingtrader App
 site_description: Personal swing-trading decision support with a data-first architecture.
 repo_url: https://github.com/Frallmeister/swingtrader-app
+
 docs_dir: docs
 site_dir: site
 use_directory_urls: false
@@ -54,6 +55,11 @@ nav:
   - Architecture:
       - Overview: architecture/overview.md
       - Roadmap: architecture/roadmap.md
+      - Architecture Decisions:
+          - Overview: architecture/decisions/index.md
+          - FastAPI and React Boundary: architecture/decisions/0001-fastapi-react-application-boundary.md
+          - Scheduled Inference: architecture/decisions/0002-scheduled-inference-and-persisted-predictions.md
+          - Research and Execution Evaluation: architecture/decisions/0003-separate-research-targets-from-executable-evaluation.md
       - Trading Objective: architecture/trading-objective.md
       - Ticker Universes: architecture/ticker-universes.md
   - Data:

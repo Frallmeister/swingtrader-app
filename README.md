@@ -187,16 +187,21 @@ Each public indicator accepts either a single ordered instrument or a canonical 
 ## Project Layout
 
 ```text
-src/swingtrader/
-  configs/        Source-controlled project configuration.
-  core/           Shared infrastructure and utilities.
-  data/           Provider clients, ingestion, bronze storage, jobs, eligibility checks, and features.
-  modeling/       Planned model training, inference, and evaluation code.
-  web/            Planned web application.
-
-tests/            Unit and integration-style tests.
-
-docs/             MkDocs project documentation.
+swingtrader-app/
+├── frontend/                  Planned TypeScript/React application.
+├── src/
+│   └── swingtrader/
+│       ├── api/               Planned FastAPI backend and HTTP schemas.
+│       ├── configs/           Source-controlled project configuration.
+│       ├── core/              Shared configuration, logging, numerical helpers,
+│       │                      and cross-cutting contracts.
+│       ├── data/              Clients, ingestion workflows, bronze storage,
+│       │                      feature generation, and scheduled data jobs.
+│       ├── indicators/        Reusable numerical indicator calculations.
+│       └── modeling/          Dataset construction, training, evaluation,
+│                              inference, and model metadata.
+├── tests/                     Unit and integration-style tests using local fixtures.
+└── docs/                      Project documentation and architecture decisions.
 ```
 
 ## Operational Concepts

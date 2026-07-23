@@ -1,8 +1,8 @@
 # Daily Runbook
 
-This page describes the daily market data workflow that should eventually run as a scheduled server job. It is not intended to be a manual checklist for a user to perform every day.
+This page describes the implemented local market-data workflow and the intended production sequence. It is not intended to be a manual checklist for a user to perform every day.
 
-The first implementation is a local runnable job for bronze daily market prices.
+The current implementation covers bronze daily market prices. Feature refresh, inference, and prediction persistence remain planned.
 
 ## Onboarding Prerequisite
 
@@ -47,9 +47,9 @@ Use `--fail-on-ticker-failure` when a scheduler should treat any ticker-level fa
 3. Load market data settings from `src/swingtrader/configs/market_data.yml`.
 4. Read each active ticker's latest bronze daily price state.
 5. Build per-ticker update plans:
-	- tickers with existing rows start from their latest stored `trading_date`;
-	- tickers with no bronze rows are reported as not onboarded and are not updated by this job;
-	- onboarded tickers already current for the requested exclusive `end_date` are skipped.
+   - tickers with existing rows start from their latest stored `trading_date`;
+   - tickers with no bronze rows are reported as not onboarded and are not updated by this job;
+   - onboarded tickers already current for the requested exclusive `end_date` are skipped.
 6. Call the existing historical ingestion function for each planned ticker update.
 7. Upsert bronze rows idempotently.
 8. Log active ticker count, update ticker count, not-onboarded ticker count, skipped ticker count, planned update count, row counts, and failures.
@@ -67,10 +67,17 @@ uv run pytest tests/data/jobs/test_update_market_data.py
 uv run pytest tests/data/ingestion/test_market_data.py tests/data/ingestion/test_onboarding.py
 ```
 
-## Planned Extensions
+## Planned Production Sequence
 
-- Render scheduling.
-- Feature refresh for affected tickers.
-- Feature refresh for inference-ready tickers.
-- Production inference after feature generation and modeling exist.
-- Macro data ingestion jobs.
+After model development establishes a selected feature set and model artifact, extend the scheduled workflow in this order:
+
+1. Update bronze market data.
+2. Resolve inference-ready tickers.
+3. Calculate only the selected production features.
+4. Run model inference using an explicit model and feature-set version.
+5. Persist a dated prediction snapshot.
+6. Expose the persisted snapshot through FastAPI.
+
+The React frontend should read the latest persisted snapshot through the API. It should not cause steps 1 through 5 to run.
+
+Macro-data ingestion and other context jobs remain later extensions.

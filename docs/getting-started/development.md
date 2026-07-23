@@ -5,13 +5,20 @@
 Application code lives under `src/swingtrader` and tests live under `tests`.
 
 ```text
-src/swingtrader/
-  core/       Shared configuration, database engine utilities, logging, and contracts.
-  data/       Clients, ingestion workflows, bronze storage, features, and jobs.
-  modeling/   Future dataset, training, inference, and model registry code.
-  web/        Future dashboard and user-facing application code.
-tests/        Unit and integration-style tests using local fixtures.
-docs/         Project documentation and planning material.
+swingtrader-app/
+├── frontend/                  Planned TypeScript/React application.
+├── src/
+│   └── swingtrader/
+│       ├── api/               Planned FastAPI backend and HTTP schemas.
+│       ├── core/              Shared configuration, logging, numerical helpers,
+│       │                      and cross-cutting contracts.
+│       ├── data/              Clients, ingestion workflows, bronze storage,
+│       │                      feature generation, and scheduled data jobs.
+│       ├── indicators/        Reusable numerical indicator calculations.
+│       └── modeling/          Dataset construction, training, evaluation,
+│                              inference, and model metadata.
+├── tests/                     Unit and integration-style tests using local fixtures.
+└── docs/                      Project documentation and architecture decisions.
 ```
 
 ## Quality Checks
