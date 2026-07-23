@@ -13,7 +13,23 @@ def _price_level_interactions(
     lower_level: pd.Series,
     prior_atr: pd.Series,
 ) -> pd.DataFrame:
-    """Measure close acceptance and intraday rejection around two price levels."""
+    """Measure ATR-normalized acceptance and rejection around known price levels.
+
+    Returns signed close distances from the upper and lower levels, accepted breakout strengths
+    when the close finishes beyond a level, and failed breakout strengths when the intraday range
+    crosses a level but the close finishes at or back inside it. Rows remain missing until both the
+    relevant level and prior ATR are available.
+
+    Args:
+        data: OHLC data containing `high`, `low`, and `close` columns.
+        upper_level: Upper reference level aligned to `data.index`.
+        lower_level: Lower reference level aligned to `data.index`.
+        prior_atr: ATR known before the current row, aligned to `data.index`.
+
+    Returns:
+        A dataframe with close-distance, accepted-breakout, and failed-breakout
+        strengths for the upper and lower levels.
+    """
     high = data.loc[:, "high"]
     low = data.loc[:, "low"]
     close = data.loc[:, "close"]
