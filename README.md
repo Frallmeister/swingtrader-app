@@ -21,7 +21,7 @@ The project currently implements the data foundation:
 * initial market data onboarding for active tickers with no bronze rows
 * daily market data updates for already-onboarded tickers
 * inference-readiness and training-eligibility checks based on bronze data quality
-* in-memory adjusted-close return, trend, and momentum feature generation, plus high/low/close volatility and Zig Zag market-structure features
+* in-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation
 * local SQLite support and configurable SQLAlchemy database URLs
 * MkDocs-based project documentation
 * pytest/ruff-based local quality checks
@@ -170,9 +170,9 @@ features = add_volume_features(features)
 features = add_market_structure_features(features)
 ```
 
-The codebase separates two responsibilities. **Indicators** in `swingtrader.indicators` calculate reusable technical quantities (moving averages, ADX, ATR, ADR, RSI, MACD, PPO, MFI, Bollinger Bands, squeeze momentum, pivot points, Zig Zag) that are meaningful outside any particular model. **Features** in `swingtrader.data.features` transform raw data and indicators into model inputs, deciding which source columns to use, how to combine and normalize them, and what the model-facing columns are named.
+The codebase separates two responsibilities. **Indicators** in `swingtrader.indicators` calculate reusable technical quantities (moving averages, ADX, ATR, ADR, RSI, MACD, PPO, MFI, Bollinger Bands, squeeze momentum, candlestick price action, turnover, pivot points, Zig Zag) that are meaningful outside any particular model. **Features** in `swingtrader.data.features` transform raw data and indicators into model inputs, deciding which source columns to use, how to combine and normalize them, and what the model-facing columns are named.
 
-Return features add trailing adjusted-close returns. Trend features add moving-average, directional-movement, and VWAP-distance columns. Momentum features add PPO, RSI, stochastic, MFI, and squeeze-momentum columns. Volatility features add ATR, ADR, and Bollinger-derived columns. Price-action features add candle geometry, range context, inside/outside bars, engulfing strength, and wick-rejection signals. Volume features add turnover z-scores. Market-structure features add point-in-time Zig Zag swing and structural-trend columns.
+Return features add trailing adjusted-close returns. Trend features add moving-average, directional-movement, and VWAP-distance columns. Momentum features add PPO, RSI, stochastic, MFI, and squeeze-momentum columns. Volatility features add ATR, ADR, and Bollinger-derived columns. Price-action features add candle geometry, local patterns, range context, and rolling breakout or failed-break signals. Volume features add turnover z-scores. Market-structure features add point-in-time Zig Zag swing, structural-trend, and confirmed swing-level interaction columns.
 
 `add_default_features` runs the seven families in a fixed order and is equivalent to applying them manually. All calculations are isolated by provider and ticker, with warm-up rows left missing until enough history is available. Consumers that need identifiers as columns can call `features.reset_index()`.
 
