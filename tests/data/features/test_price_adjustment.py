@@ -164,7 +164,7 @@ def test_volume_features_are_invariant_to_share_count_split() -> None:
     continuous = _continuous_prices()
     split_encoded = continuous.copy(deep=True)
     before_split = split_encoded.index.get_level_values("trading_date") < pd.Timestamp("2025-03-10")
-    # A share-count split moves price and volume inversely: a 1-for-2 split halves
+    # A share-count split moves price and volume inversely: a 2-for-1 split halves
     # the price and doubles the share count. Encoded on the pre-split nominal
     # scale, raw price is doubled and raw volume is halved before the split, so
     # traded turnover ``close * volume`` is unchanged.
