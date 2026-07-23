@@ -311,9 +311,7 @@ def _candle_direction_runs(data: pd.DataFrame, *, atr_length: int) -> pd.DataFra
     run_start = active_run & direction_changed
     run_id = ((~active_run) | direction_changed).cumsum()
 
-    run_baseline = (
-        close_values.shift(1).where(run_start).groupby(run_id, sort=False).ffill()
-    )
+    run_baseline = (close_values.shift(1).where(run_start).groupby(run_id, sort=False).ffill())
     direction_run_return = (
         safe_divide(close_values, run_baseline)
         .sub(1.0)

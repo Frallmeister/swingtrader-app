@@ -29,13 +29,9 @@ def test_candle_direction_runs_calculates_count_return_and_body_magnitude() -> N
             0.1,
         ]
     )
-    expected_body_atr = pd.Series(
-        [0.0, 0.5, 7.0 / 6.0, -0.25, -11.0 / 12.0, 0.0, 0.5]
-    )
+    expected_body_atr = pd.Series([0.0, 0.5, 7.0 / 6.0, -0.25, -11.0 / 12.0, 0.0, 0.5])
 
-    pd.testing.assert_series_equal(
-        result["direction_run"], expected_run, check_names=False
-    )
+    pd.testing.assert_series_equal(result["direction_run"], expected_run, check_names=False)
     pd.testing.assert_series_equal(
         result["direction_run_return"], expected_return, check_names=False
     )
@@ -57,9 +53,7 @@ def test_candle_direction_runs_preserves_missing_values_and_resets_after_them() 
     result = candle_direction_runs(data, atr_length=1)
 
     expected_run = pd.Series([1, 2, pd.NA, 1], dtype="Int64")
-    pd.testing.assert_series_equal(
-        result["direction_run"], expected_run, check_names=False
-    )
+    pd.testing.assert_series_equal(result["direction_run"], expected_run, check_names=False)
     assert result.loc[2].isna().all()
     assert result.loc[3, "direction_run_return"] == pytest.approx(1.0 / 12.0)
 
