@@ -14,7 +14,12 @@ from swingtrader.data.market_frame import (
     validate_new_columns,
     validate_required_columns,
 )
-from swingtrader.indicators import candle_geometry, candle_patterns, candle_range_context
+from swingtrader.indicators import (
+    candle_geometry,
+    candle_patterns,
+    candle_range_context,
+    rolling_level_interactions,
+)
 
 _GEOMETRY_FEATURE_NAMES = {
     "signed_body_fraction": "candle_signed_body_fraction",
@@ -38,6 +43,7 @@ def add_price_action_features(
     *,
     atr_length: int = 14,
     range_percentile_length: int = 20,
+    breakout_length: int = 20,
 ) -> pd.DataFrame:
     """Return a copy of data with the default price-action features added.
 
@@ -54,6 +60,10 @@ def add_price_action_features(
     excluding the current row from its reference history. Local pattern outputs
     identify inside and outside bars, count consecutive inside bars, and measure
     engulfing and wick-rejection strength without applying textbook thresholds.
+    Rolling-level outputs measure the close's distance from the preceding
+    ``breakout_length``-row high and low, accepted breakout penetration, and
+    failed intraday breaks that close back inside the prior range. The current
+    row is excluded from both rolling levels.
 
     The price columns are first placed on the ``adjusted_close`` scale by
     multiplying every OHLC value by ``adjusted_close / close``. Same-row geometry
@@ -76,16 +86,31 @@ def add_price_action_features(
     )
 
     range_percentile_name = f"range_percentile_{range_percentile_length}"
+    level_feature_names = {
+        "close_to_upper_atr": f"candle_close_to_prior_high_atr_{breakout_length}",
+        "close_to_lower_atr": f"candle_close_to_prior_low_atr_{breakout_length}",
+        "breakout_high_strength": f"candle_breakout_high_strength_{breakout_length}",
+        "breakout_low_strength": f"candle_breakout_low_strength_{breakout_length}",
+        "failed_break_high_strength": f"candle_failed_breakout_high_strength_{breakout_length}",
+        "failed_break_low_strength": f"candle_failed_breakout_low_strength_{breakout_length}",
+    }
     new_columns = [
         *_GEOMETRY_FEATURE_NAMES.values(),
         "candle_range_atr",
         "candle_gap_atr",
         range_percentile_name,
         *_PATTERN_FEATURE_NAMES.values(),
+        *level_feature_names.values(),
     ]
     validate_new_columns(data, new_columns=new_columns)
 
     adjusted_ohlc = _adjusted_ohlc(data)
+    level_context = rolling_level_interactions(
+        adjusted_ohlc,
+        length=breakout_length,
+        atr_length=atr_length,
+    ).loc[:, list(level_feature_names)]
+    level_context = level_context.rename(columns=level_feature_names)
     geometry = candle_geometry(adjusted_ohlc).rename(columns=_GEOMETRY_FEATURE_NAMES)
     range_context = candle_range_context(
         adjusted_ohlc,
@@ -103,7 +128,7 @@ def add_price_action_features(
     )
 
     result = data.copy()
-    return result.join(geometry).join(range_context).join(patterns)
+    return result.join(geometry).join(range_context).join(patterns).join(level_context)
 
 
 def _adjusted_ohlc(data: pd.DataFrame) -> pd.DataFrame:

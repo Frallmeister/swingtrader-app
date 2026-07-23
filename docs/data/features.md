@@ -185,7 +185,7 @@ Raw `true_range`, `atr`, `bollinger_bands`, and the price-unit `adr` column are 
 
 ## Price Action Features
 
-The price-action feature orchestrator is `swingtrader.data.features.price_action.add_price_action_features`. It combines continuous descriptions of the current candle and its short-horizon range context with a small set of direct local pattern signals. This preserves body, wick, close-location, gap, range, containment, engulfing, and rejection information without adding a large catalogue of thresholded textbook patterns.
+The price-action feature orchestrator is `swingtrader.data.features.price_action.add_price_action_features`. It combines continuous descriptions of the current candle, short-horizon range context, local patterns, and interactions with prior rolling price extremes. This preserves body, wick, close-location, gap, range, containment, engulfing, rejection, breakout, and failed-break information without adding a large catalogue of thresholded textbook patterns.
 
 With the default settings, the orchestrator adds:
 
@@ -201,23 +201,29 @@ With the default settings, the orchestrator adds:
 - `candle_engulfing_strength`, the signed amount by which an opposite-direction real body exceeds the previous real body, divided by prior ATR;
 - `candle_lower_rejection_strength`, the lower wick divided by prior ATR and weighted by the close's position toward the candle high;
 - `candle_upper_rejection_strength`, the upper wick divided by prior ATR and weighted by the close's position toward the candle low;
-- `candle_consecutive_inside_bars`, the number of consecutive inside bars ending on the current row.
+- `candle_consecutive_inside_bars`, the number of consecutive inside bars ending on the current row;
+- `candle_close_to_prior_high_atr_20` and `candle_close_to_prior_low_atr_20`, signed close distances from the preceding 20-row high and low, divided by prior ATR;
+- `candle_breakout_high_strength_20` and `candle_breakout_low_strength_20`, positive close penetration beyond the corresponding prior level, divided by prior ATR;
+- `candle_failed_breakout_high_strength_20` and `candle_failed_breakout_low_strength_20`, positive intraday excursions beyond a prior level when the close finishes back inside the prior range.
 
 The public numerical candlestick indicators, importable from `swingtrader.indicators`, are:
 
 - `candle_geometry`, which returns `signed_body_fraction`, `upper_wick_fraction`, `lower_wick_fraction`, and `close_location`;
 - `candle_range_context`, which returns `range_atr`, `gap_atr`, and `range_percentile`;
-- `candle_patterns`, which returns the containment, engulfing, rejection, and inside-bar streak outputs.
+- `candle_patterns`, which returns the containment, engulfing, rejection, and inside-bar streak outputs;
+- `rolling_level_interactions`, which returns prior rolling high and low levels together with ATR-normalised close distance, accepted-breakout strength, and failed-break strength.
 
-All three indicators consume a dataframe containing `open`, `high`, `low`, and `close`. They support either one chronologically ordered instrument or the canonical multi-instrument index, and calculations are isolated within each provider/ticker group. Zero-range candles cannot produce normalized geometry and therefore leave the four geometry outputs missing rather than producing infinities. Range-context and pattern outputs follow their own history and denominator requirements.
+The candlestick indicators support either one chronologically ordered instrument or the canonical multi-instrument index, and calculations are isolated within each provider/ticker group. Geometry, range context, and local patterns consume OHLC data, while rolling level interactions require high, low, and close. Zero-range candles cannot produce normalized geometry and therefore leave the four geometry outputs missing rather than producing infinities. Other outputs follow their own history and denominator requirements.
 
 `candle_range_context` uses the ATR ending on the previous row for both current True Range and the opening gap. The current event therefore cannot increase its own denominator. Its range percentile is also point-in-time safe: it compares the current high-low range with the preceding `range_percentile_length` rows and excludes the current row from the reference sample. The feature column includes the configured history length in its name, so a length of 10 produces `range_percentile_10`.
 
 `candle_patterns` compares each candle only with information available on that row or earlier. Inside and outside bars allow equality at one boundary, while an unchanged high-low range is neither. The first comparison row and rows with incomplete candle pairs remain missing. `candle_consecutive_inside_bars` resets to zero when the current candle is not inside the previous candle. An engulfing signal requires an opposite-direction real body that strictly exceeds and contains the previous real body; non-engulfing rows receive zero strength. Engulfing and rejection magnitudes use ATR from the previous row, so the current candle cannot inflate its own normalization denominator.
 
+`rolling_level_interactions` calculates each level from only the preceding `breakout_length` rows, excluding the current candle. A breakout strength is positive when the close finishes beyond the prior high or low. A failed-break strength is positive when the intraday high or low crosses the level but the close finishes back inside; evaluable non-events are zero. Distances and strengths use ATR from the previous row, and the feature names include the configured level length.
+
 Inside `add_price_action_features`, all four OHLC columns are placed on the `adjusted_close` scale with the row-wise factor `adjusted_close / close`. This leaves same-row geometry ratios unchanged but removes artificial cross-session gaps and True Range spikes caused by splits and dividend adjustments. The standalone indicators remain source-agnostic and operate on whichever OHLC representation the caller supplies.
 
-The default ATR length is 14 rows and the default range-percentile history is 20 preceding rows. Warm-up periods are kept as missing values where the calculation requires prior ATR or history. Phase 1 provides continuous candle geometry and range context, while Phase 2 adds compact local pattern signals. Breakout and level-interaction features remain deferred to Phase 3.
+The default ATR length is 14 rows, while the range-percentile and rolling-level histories both default to 20 preceding rows. Warm-up periods are kept as missing values where a calculation requires prior ATR, a previous candle, or a complete rolling history.
 
 ## Volume Features
 
@@ -259,7 +265,10 @@ With the default settings, the orchestrator adds:
 - `market_structure_high_consistency`, Kendall's tau-b between chronological order and the prices of the latest confirmed swing highs;
 - `market_structure_low_consistency`, Kendall's tau-b between chronological order and the prices of the latest confirmed swing lows;
 - `market_structure_leg_balance`, the median magnitude of recent completed upward legs minus the median magnitude of recent completed downward legs, divided by their sum;
-- `market_structure_efficiency`, signed net log displacement divided by total absolute log path length over recent completed legs.
+- `market_structure_efficiency`, signed net log displacement divided by total absolute log path length over recent completed legs;
+- `market_structure_close_to_prior_high_atr` and `market_structure_close_to_prior_low_atr`, signed close distances from the latest confirmed swing high and low, divided by prior ATR;
+- `market_structure_breakout_high_strength` and `market_structure_breakout_low_strength`, positive close penetration beyond the corresponding confirmed swing level;
+- `market_structure_failed_breakout_high_strength` and `market_structure_failed_breakout_low_strength`, positive intraday excursions beyond a confirmed swing level when the close finishes back on the other side.
 
 The high and low changes preserve both direction and magnitude. Positive values mean that the corresponding structural boundary moved upward, while negative values mean that it moved downward. Taken together, their signs distinguish higher-high/higher-low, lower-high/lower-low, broadening, and contracting structures without adding a redundant categorical state. The rate features retain the same direction but also distinguish an equal structural displacement completed over a few bars from one completed over a much longer period. Drift and width are documented analytical interpretations of the high/low pair rather than additional default columns: `(high_change + low_change) / 2` describes common structural drift and `(high_change - low_change) / 2` describes expansion or contraction.
 
@@ -268,6 +277,8 @@ The consistency features measure whether several same-direction pivots have prog
 The completed-movement features use logarithmic changes between adjacent retained pivots. `market_structure_leg_balance` compares the median absolute magnitude of low-to-high legs with the median absolute magnitude of high-to-low legs using `(up_median - down_median) / (up_median + down_median)`. Positive values mean upward impulses are typically larger, negative values mean downward legs dominate, and zero means their typical magnitudes are equal. `market_structure_efficiency` divides signed net log displacement by the sum of absolute log-leg magnitudes. Values near `1` or `-1` indicate efficient directional progression, while values near zero indicate substantial structural movement with little net progress. Both features use the same Zig Zag scale as the displacement and consistency features.
 
 The dynamics window defaults to the latest six completed legs, giving three upward and three downward observations. It is calibratable through `zigzag_dynamics_legs` on `add_market_structure_features` and `dynamics_legs` on `zigzag_features`, and must be an even integer of at least two. Both outputs remain missing until the complete window exists. Only movement between confirmed retained pivots is included: price movement after the latest confirmed endpoint, including the current interpolated or active leg, is excluded.
+
+The swing-level interaction features reuse the latest high and low that were confirmed and knowable on each row. Accepted and failed breaks follow the same definitions as the rolling price-action levels and are normalized by ATR from the previous row. They remain missing until the corresponding swing level and prior ATR exist; evaluable rows without a break receive zero strength. The ATR length defaults to 14 and is configurable through `zigzag_atr_length` on `add_market_structure_features` and `atr_length` on `zigzag_features`.
 
 Unlike the retrospective `zigzag` indicator, these features are point-in-time: a pivot updates the output only on and after its confirmation row, and an intermediate endpoint stays visible until a later, more extreme, confirmed endpoint replaces it. Temporary confirmed endpoints can therefore affect the state that was knowable at the time even if they later disappear from the final retrospective Zig Zag. Appending future rows never changes an already-emitted value. The structural changes and rates remain missing until two confirmed pivots of the corresponding direction exist. Their bar counts use the historical pivot positions rather than the later confirmation rows. The `zigzag_deviation` and `zigzag_pivot_legs` arguments default to 5.0 percent and 10 bars and are forwarded to the underlying Zig Zag calculation.
 
@@ -308,7 +319,7 @@ Like `pivot_points_high_low`, `zigzag` is retrospective and lookahead-aware: eac
 
 ## Future Feature Ideas
 
-- breakout, failed-break, and confirmed swing-level interaction features;
+- directional candle-run count, close-to-close return, and cumulative body-magnitude features;
 - later macro and market-context joins.
 
 ## Design Constraints

@@ -1,7 +1,8 @@
 """Point-in-time market-structure feature transformations.
 
-This module converts confirmed Zig Zag state into normalized, row-aligned
-features. Unlike the retrospective :func:`swingtrader.indicators.zigzag` output,
+This module converts confirmed Zig Zag state and swing-level interactions into
+normalized, row-aligned features. Unlike the retrospective
+:func:`swingtrader.indicators.zigzag` output,
 these features update only when each pivot has enough right-side observations to
 be confirmed. Intermediate endpoints remain visible until a later confirmed,
 more-extreme endpoint replaces them.
@@ -17,7 +18,10 @@ from swingtrader.data.market_frame import (
     validate_new_columns,
     validate_required_columns,
 )
+from swingtrader.indicators._price_levels import _price_level_interactions
+from swingtrader.indicators._validation import validate_length
 from swingtrader.indicators.market_structure import _confirmed_zigzag_state
+from swingtrader.indicators.volatility import _atr
 
 _MARKET_STRUCTURE_FEATURE_COLUMNS = (
     "zigzag_last_direction",
@@ -34,6 +38,12 @@ _MARKET_STRUCTURE_FEATURE_COLUMNS = (
     "market_structure_low_consistency",
     "market_structure_leg_balance",
     "market_structure_efficiency",
+    "market_structure_close_to_prior_high_atr",
+    "market_structure_close_to_prior_low_atr",
+    "market_structure_breakout_high_strength",
+    "market_structure_breakout_low_strength",
+    "market_structure_failed_breakout_high_strength",
+    "market_structure_failed_breakout_low_strength",
 )
 
 
@@ -44,13 +54,15 @@ def add_market_structure_features(
     zigzag_pivot_legs: int = 10,
     zigzag_consistency_pivots: int = 4,
     zigzag_dynamics_legs: int = 6,
+    zigzag_atr_length: int = 14,
 ) -> pd.DataFrame:
     """Return a copy of data with the default market-structure features added.
 
     The input must use the canonical market-price MultiIndex with levels
     ``provider``, ``ticker``, and ``trading_date`` and contain ``high``, ``low``,
     and ``close`` columns. The appended features are point-in-time: a Zig Zag
-    pivot affects the output only on and after its confirmation row.
+    pivot and its associated support or resistance level affect the output only
+    on and after the pivot confirmation row.
 
     Use :func:`zigzag_features` directly when only the feature block is needed,
     for example for a frontend endpoint that should not calculate every feature
@@ -65,6 +77,7 @@ def add_market_structure_features(
         pivot_legs=zigzag_pivot_legs,
         consistency_pivots=zigzag_consistency_pivots,
         dynamics_legs=zigzag_dynamics_legs,
+        atr_length=zigzag_atr_length,
     )
     result[feature_block.columns] = feature_block
     return result
@@ -77,6 +90,7 @@ def zigzag_features(
     pivot_legs: int = 10,
     consistency_pivots: int = 4,
     dynamics_legs: int = 6,
+    atr_length: int = 14,
 ) -> pd.DataFrame:
     """Calculate point-in-time features from the latest confirmed Zig Zag state.
 
@@ -115,14 +129,26 @@ def zigzag_features(
       total absolute log path length over the latest ``dynamics_legs`` completed
       legs. Values near zero indicate substantial movement with little net
       progress.
+    - ``market_structure_close_to_prior_high_atr`` and
+      ``market_structure_close_to_prior_low_atr``: close distance from the latest
+      confirmed swing high and low, normalized by prior ATR;
+    - ``market_structure_breakout_high_strength`` and
+      ``market_structure_breakout_low_strength``: positive close penetration beyond
+      the latest confirmed swing level, normalized by prior ATR;
+    - ``market_structure_failed_breakout_high_strength`` and
+      ``market_structure_failed_breakout_low_strength``: positive intraday excursion
+      beyond a confirmed level when the close finishes back on the other side.
 
     The structural changes and rates remain missing until two confirmed pivots of
     the corresponding direction are available. Consistency remains missing until
     ``consistency_pivots`` same-direction pivots are available, and is also missing
     when all selected prices are equal. Leg balance and efficiency remain
-    missing until ``dynamics_legs`` completed legs are available. The dynamics
-    window must be even so it contains equal numbers of upward and downward legs.
-    The output preserves the canonical input index and does not mutate ``data``.
+    missing until ``dynamics_legs`` completed legs are available. Swing-level
+    interactions remain missing until the corresponding confirmed level and prior
+    ATR are available; evaluable rows without a break receive zero strength. The
+    dynamics window must be even so it contains equal numbers of upward and
+    downward legs. The output preserves the canonical input index and does not
+    mutate ``data``.
 
     Notes
     -----
@@ -134,6 +160,7 @@ def zigzag_features(
     """
     validate_market_price_index(data)
     validate_required_columns(data, required_columns={"high", "low", "close"})
+    validate_length(atr_length)
 
     return apply_by_ticker(
         data,
@@ -143,6 +170,7 @@ def zigzag_features(
             pivot_legs=pivot_legs,
             consistency_pivots=consistency_pivots,
             dynamics_legs=dynamics_legs,
+            atr_length=atr_length,
         ),
     )
 
@@ -154,6 +182,7 @@ def _zigzag_features(
     pivot_legs: int,
     consistency_pivots: int,
     dynamics_legs: int,
+    atr_length: int,
 ) -> pd.DataFrame:
     """Calculate point-in-time Zig Zag features for one ordered instrument."""
     state = _confirmed_zigzag_state(
@@ -210,6 +239,13 @@ def _zigzag_features(
         rate_name="market_structure_low_rate",
     )
 
+    level_interactions = _price_level_interactions(
+        data,
+        upper_level=state["_zigzag_last_high_price"],
+        lower_level=state["_zigzag_last_low_price"],
+        prior_atr=_atr(data, length=atr_length).shift(1),
+    )
+
     return pd.DataFrame(
         {
             "zigzag_last_direction": state["_zigzag_last_direction"],
@@ -226,6 +262,16 @@ def _zigzag_features(
             "market_structure_low_consistency": state["_zigzag_low_consistency"],
             "market_structure_leg_balance": state["_zigzag_leg_balance"],
             "market_structure_efficiency": state["_zigzag_efficiency"],
+            "market_structure_close_to_prior_high_atr": level_interactions["close_to_upper_atr"],
+            "market_structure_close_to_prior_low_atr": level_interactions["close_to_lower_atr"],
+            "market_structure_breakout_high_strength": level_interactions["breakout_high_strength"],
+            "market_structure_breakout_low_strength": level_interactions["breakout_low_strength"],
+            "market_structure_failed_breakout_high_strength": level_interactions[
+                "failed_break_high_strength"
+            ],
+            "market_structure_failed_breakout_low_strength": level_interactions[
+                "failed_break_low_strength"
+            ],
         },
         index=data.index,
     )
