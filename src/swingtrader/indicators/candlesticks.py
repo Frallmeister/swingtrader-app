@@ -196,8 +196,8 @@ def _candle_patterns(data: pd.DataFrame, *, atr_length: int) -> pd.DataFrame:
     comparable_bodies = body.notna() & previous_body.notna()
     opposite_direction = body.mul(previous_body).lt(0)
     contains_previous_body = (
-        lower_body.le(previous_lower_body)
-        & upper_body.ge(previous_upper_body)
+        upper_body.ge(previous_upper_body)
+        & lower_body.le(previous_lower_body)
         & (lower_body.lt(previous_lower_body) | upper_body.gt(previous_upper_body))
     )
 
@@ -206,8 +206,11 @@ def _candle_patterns(data: pd.DataFrame, *, atr_length: int) -> pd.DataFrame:
     body_excess_atr = safe_divide(body.abs() - previous_body.abs(), prior_atr)
     engulfing = comparable_bodies & opposite_direction & contains_previous_body
 
-    engulfing_strength = body_direction.mul(body_excess_atr).where(engulfing, 0.0)
-    engulfing_strength = engulfing_strength.where(comparable_bodies & prior_atr.notna())
+    engulfing_strength = (
+        body_direction.mul(body_excess_atr)
+        .where(engulfing, 0.0)
+        .where(comparable_bodies & prior_atr.notna())
+    )
 
     close_location = safe_divide(close_values - low_values, high_values - low_values)
     lower_wick_atr = safe_divide(lower_body - low_values, prior_atr)
