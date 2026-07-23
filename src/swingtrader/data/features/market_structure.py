@@ -75,6 +75,8 @@ def add_market_structure_features(
     family. Existing columns with the generated feature names are rejected rather
     than silently overwritten.
     """
+    validate_market_price_index(data)
+    validate_required_columns(data, required_columns={"high", "low", "close", "adjusted_close"})
     validate_new_columns(data, new_columns=_MARKET_STRUCTURE_FEATURE_COLUMNS)
     result = data.copy()
     feature_block = zigzag_features(
