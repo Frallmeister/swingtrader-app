@@ -27,7 +27,7 @@ def add_volume_features(
     The function adds ``turnover_zscore``, which measures how unusual the current
     turnover is relative to the preceding ``turnover_zscore_length - 1``
     observations for the same provider and ticker. Turnover is calculated as
-    ``adjusted_close * volume``.
+    ``close * volume``.
 
     By default, turnover is transformed with ``log1p`` before normalization. This
     reduces its right skew and limits the influence of extreme turnover values.
@@ -35,14 +35,14 @@ def add_volume_features(
     the feature point-in-time safe.
 
     ``data`` must use the canonical ``provider``, ``ticker``, and
-    ``trading_date`` index levels and contain ``adjusted_close`` and ``volume``
+    ``trading_date`` index levels and contain ``close`` and ``volume``
     columns. Calculations are isolated within each provider/ticker group. The
     input dataframe is copied before the feature is added.
 
     Parameters
     ----------
     data
-        Canonical market-price dataframe containing ``adjusted_close`` and
+        Canonical market-price dataframe containing ``close`` and
         ``volume`` columns.
     turnover_zscore_length
         Total observation span used by the turnover z-score, including the
@@ -64,7 +64,7 @@ def add_volume_features(
         If a required input column is missing.
     """
     validate_market_price_index(data)
-    validate_required_columns(data, required_columns={"adjusted_close", "volume"})
+    validate_required_columns(data, required_columns={"close", "volume"})
     validate_new_columns(data, new_columns={"turnover_zscore"})
     data = data.copy()
     data["turnover_zscore"] = turnover_zscore(

@@ -33,7 +33,7 @@ In short: indicators calculate reusable technical quantities, and features trans
 
 Model features that compare prices across sessions use a common price representation. The feature layer multiplies each requested raw OHLC value by the row-wise factor `adjusted_close / close`, placing open, high, low, and close on the adjusted-close scale. The transformed close is set directly to `adjusted_close`.
 
-This preserves same-session candle geometry while preventing stock splits and dividend adjustments from appearing as overnight gaps, directional movement, volatility, momentum, or market-structure changes. Source volume is not transformed. Features that combine price and volume, such as rolling VWAP and MFI, therefore use adjustment-consistent prices together with the provider's volume series. Turnover defines its own model-facing quantity as `adjusted_close * volume`.
+This preserves same-session candle geometry while preventing stock splits and dividend adjustments from appearing as overnight gaps, directional movement, volatility, momentum, or market-structure changes. Source volume is not transformed. Features that combine an adjusted price series with volume, such as rolling VWAP and MFI, therefore use adjustment-consistent prices together with the provider's volume series. Turnover instead multiplies raw `close` by raw `volume`, which is already split-invariant because price and share count move inversely.
 
 The indicator layer remains source-agnostic. Standalone indicators calculate from whichever series or price frame the caller supplies, which permits raw-price charting and analysis. Canonical feature orchestrators own the adjustment decision so persisted model columns do not accidentally mix incompatible price histories. `zigzag_features` also accepts an explicitly selected `high`/`low`/`close` frame without `adjusted_close` for direct use; canonical model inputs include `adjusted_close` and use the adjustment-consistent path.
 
@@ -245,7 +245,7 @@ The default ATR length is 14 rows, while the range-percentile and rolling-level 
 
 The volume feature orchestrator is `swingtrader.data.features.volume.add_volume_features`. It validates and copies the canonical market-price dataframe, calculates `turnover_zscore`, and appends the feature while preserving the input index and row order.
 
-Turnover is calculated as `adjusted_close * volume`. The public `turnover` indicator returns either this raw value or `log1p(turnover)` when `log=True`. Using adjusted close avoids artificial historical turnover jumps caused by corporate-action adjustments, while the logarithmic transform compresses the strong right skew commonly present in turnover.
+Turnover is calculated as `close * volume`. The public `turnover` indicator returns either this raw value or `log1p(turnover)` when `log=True`. Raw `close * volume` is the economically meaningful traded turnover and is naturally split-invariant, because a split moves price and share count inversely so their product is unchanged. The logarithmic transform compresses the strong right skew commonly present in turnover.
 
 `turnover_zscore` measures how unusual the current turnover is relative to the same instrument's recent history:
 

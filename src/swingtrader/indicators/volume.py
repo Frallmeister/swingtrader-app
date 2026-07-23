@@ -25,19 +25,19 @@ from swingtrader.indicators._validation import validate_length
 def turnover(data: pd.DataFrame, *, log: bool = False) -> pd.Series:
     """Calculate traded turnover for each observation.
 
-    Turnover is defined as ``adjusted_close * volume``. When ``log`` is true, the
+    Turnover is defined as ``close * volume``. When ``log`` is true, the
     result is transformed with ``log1p``, equivalent to
     ``log(1 + turnover)``. The transformation reduces the right skew commonly
     present in turnover while keeping zero-turnover observations finite.
 
-    ``data`` must contain ``adjusted_close`` and ``volume`` columns. The
+    ``data`` must contain ``close`` and ``volume`` columns. The
     calculation is row-local, so the function accepts either one instrument or a
     multi-instrument dataframe without requiring grouping.
 
     Parameters
     ----------
     data
-        Market data containing ``adjusted_close`` and ``volume`` columns.
+        Market data containing ``close`` and ``volume`` columns.
     log
         Whether to apply ``log1p`` to the calculated turnover.
 
@@ -53,7 +53,7 @@ def turnover(data: pd.DataFrame, *, log: bool = False) -> pd.Series:
     KeyError
         If a required input column is missing.
     """
-    validate_required_columns(data, required_columns={"adjusted_close", "volume"})
+    validate_required_columns(data, required_columns={"close", "volume"})
     if not isinstance(log, bool):
         raise ValueError(f"The log parameter must be a boolean; got {log!r}")
     return _turnover(data, log=log)
@@ -68,7 +68,7 @@ def turnover_zscore(data: pd.DataFrame, *, length: int = 252, log: bool = False)
 
     ``(current turnover - prior median) / prior population standard deviation``.
 
-    Turnover is ``adjusted_close * volume``. When ``log`` is true, ``log1p`` is
+    Turnover is ``close * volume``. When ``log`` is true, ``log1p`` is
     applied before calculating the rolling statistics. Median centering reduces
     the influence of unusually large historical turnover observations, while the
     standard deviation expresses the deviation relative to historical
@@ -87,7 +87,7 @@ def turnover_zscore(data: pd.DataFrame, *, length: int = 252, log: bool = False)
     Parameters
     ----------
     data
-        Chronologically ordered market data containing ``adjusted_close`` and
+        Chronologically ordered market data containing ``close`` and
         ``volume`` columns.
     length
         Total observation span including the current row. Must be at least 2.
@@ -111,7 +111,7 @@ def turnover_zscore(data: pd.DataFrame, *, length: int = 252, log: bool = False)
         raise ValueError(f"The length parameter must be at least 2; got {length!r}")
     if not isinstance(log, bool):
         raise ValueError(f"The log parameter must be a boolean; got {log!r}")
-    validate_required_columns(data, required_columns={"adjusted_close", "volume"})
+    validate_required_columns(data, required_columns={"close", "volume"})
 
     return apply_by_ticker(
         data,
@@ -152,7 +152,7 @@ def mfi(
 
 
 def _turnover(data: pd.DataFrame, *, log: bool) -> pd.Series:
-    turnover_ = (data["adjusted_close"] * data["volume"]).rename("turnover")
+    turnover_ = (data["close"] * data["volume"]).rename("turnover")
     if log:
         return np.log1p(turnover_)
     return turnover_

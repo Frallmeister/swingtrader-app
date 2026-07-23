@@ -13,7 +13,7 @@ Reusable indicators also serve notebooks, charting, and analysis where raw price
 
 Canonical model feature builders express the OHLC columns they consume on the adjusted-close scale. For each row, selected raw price columns are multiplied by `adjusted_close / close`, and transformed close is set directly to `adjusted_close`.
 
-The transformation belongs to `swingtrader.data.features`, not `swingtrader.indicators`. Indicators remain source-agnostic and calculate from the price representation supplied by their caller. Source volume is retained when a feature combines price and volume. Turnover continues to define its model-facing value explicitly as `adjusted_close * volume`.
+The transformation belongs to `swingtrader.data.features`, not `swingtrader.indicators`. Indicators remain source-agnostic and calculate from the price representation supplied by their caller. Source volume is retained when a feature combines an adjusted price series with volume. Turnover is the exception: it multiplies raw `close` by raw `volume`. A split moves price and share count inversely, so their product is already split-invariant and needs no adjustment. Raw `close * volume` is also the economically meaningful traded turnover.
 
 Cross-session feature families must be covered by synthetic corporate-action tests showing that equivalent economic histories produce equivalent model features when one raw history encodes a split discontinuity.
 

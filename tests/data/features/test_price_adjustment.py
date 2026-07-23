@@ -120,10 +120,17 @@ _FEATURE_FAMILIES: list[tuple[Callable[..., pd.DataFrame], dict[str, Any], str]]
     ),
 ]
 
+# Volume features derive traded turnover from raw ``close * volume`` rather than
+# from an adjusted price, so they are excluded from the adjusted-price invariance
+# test and covered separately by the share-count split test below.
+_ADJUSTMENT_CONSISTENT_FAMILIES = [
+    family for family in _FEATURE_FAMILIES if family[0] is not add_volume_features
+]
+
 
 @pytest.mark.parametrize(
     ("builder", "kwargs", "collision_column"),
-    _FEATURE_FAMILIES,
+    _ADJUSTMENT_CONSISTENT_FAMILIES,
 )
 def test_feature_family_is_invariant_to_split_encoded_raw_prices(
     builder: Callable[..., pd.DataFrame],
@@ -138,6 +145,34 @@ def test_feature_family_is_invariant_to_split_encoded_raw_prices(
 
     continuous_result = builder(continuous, **kwargs)
     split_result = builder(split_encoded, **kwargs)
+    feature_columns = [
+        column for column in continuous_result.columns if column not in continuous.columns
+    ]
+
+    assert feature_columns
+    assert continuous_result.loc[:, feature_columns].notna().any().any()
+    pd.testing.assert_frame_equal(
+        split_result.loc[:, feature_columns],
+        continuous_result.loc[:, feature_columns],
+        check_exact=False,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+
+def test_volume_features_are_invariant_to_share_count_split() -> None:
+    continuous = _continuous_prices()
+    split_encoded = continuous.copy(deep=True)
+    before_split = split_encoded.index.get_level_values("trading_date") < pd.Timestamp("2025-03-10")
+    # A share-count split moves price and volume inversely: a 1-for-2 split halves
+    # the price and doubles the share count. Encoded on the pre-split nominal
+    # scale, raw price is doubled and raw volume is halved before the split, so
+    # traded turnover ``close * volume`` is unchanged.
+    split_encoded.loc[before_split, ["open", "high", "low", "close"]] *= 2.0
+    split_encoded.loc[before_split, "volume"] *= 0.5
+
+    continuous_result = add_volume_features(continuous, turnover_zscore_length=5)
+    split_result = add_volume_features(split_encoded, turnover_zscore_length=5)
     feature_columns = [
         column for column in continuous_result.columns if column not in continuous.columns
     ]
