@@ -60,6 +60,7 @@ nav:
           - FastAPI and React Boundary: architecture/decisions/0001-fastapi-react-application-boundary.md
           - Scheduled Inference: architecture/decisions/0002-scheduled-inference-and-persisted-predictions.md
           - Research and Execution Evaluation: architecture/decisions/0003-separate-research-targets-from-executable-evaluation.md
+          - Adjustment-Consistent Model Prices: architecture/decisions/0004-adjustment-consistent-model-prices.md
       - Trading Objective: architecture/trading-objective.md
       - Ticker Universes: architecture/ticker-universes.md
   - Data:

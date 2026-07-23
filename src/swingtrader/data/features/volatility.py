@@ -13,8 +13,12 @@ its input.
 
 import pandas as pd
 
+from swingtrader.data.features._price_adjustment import (
+    adjustment_consistent_price_frame,
+)
 from swingtrader.data.market_frame import (
     validate_market_price_index,
+    validate_new_columns,
     validate_required_columns,
 )
 from swingtrader.indicators.volatility import (
@@ -22,6 +26,13 @@ from swingtrader.indicators.volatility import (
     atr_percent,
     bollinger_bandwidth,
     bollinger_percent_b,
+)
+
+_VOLATILITY_FEATURE_COLUMNS = (
+    "adr_percent",
+    "atr_percent",
+    "bollinger_bandwidth",
+    "bollinger_percent_b",
 )
 
 
@@ -43,33 +54,37 @@ def add_volatility_features(
     ``bollinger_bandwidth``, and ``bollinger_percent_b`` feature columns.
 
     ADR is the simple moving average of the daily high-low range over
-    ``adr_length`` observations. It is normalized by the current raw close to
-    produce ``adr_percent``. ADR measures typical intraday price movement and
-    does not account for gaps between the previous close and the current
-    session.
-
-    ATR is calculated from raw ``high``, ``low``, and ``close`` because True
-    Range combines the intraday range with gaps from the previous close. It is
-    normalized by the current raw close to produce ``atr_percent``.
+    ``adr_length`` observations and does not account for gaps. ATR uses True
+    Range, which combines the intraday range with gaps from the previous close.
+    Both indicators receive ``high``, ``low``, and ``close`` transformed onto
+    the adjusted-close scale and are normalized by adjusted close. This preserves
+    intraday geometry while preventing corporate-action adjustments from
+    appearing as volatility.
 
     The Bollinger features are calculated from ``adjusted_close`` so their
     rolling mean and standard deviation are not distorted by split and dividend
     discontinuities in the raw close.
 
-    Raw ADR, True Range, ATR, and the Bollinger bands themselves are expressed
-    in the input price units and are not comparable across tickers, so the
-    orchestrator only appends the scale-invariant columns. Use the standalone
-    indicators in :mod:`swingtrader.indicators` directly when absolute
+    Absolute ADR, True Range, ATR, and the Bollinger bands themselves are
+    expressed in the caller-supplied price units and are not comparable across
+    tickers, so the orchestrator only appends the scale-invariant columns. Use
+    the standalone indicators in :mod:`swingtrader.indicators` directly when
+    absolute
     price-unit values are required.
     """
     validate_market_price_index(data)
     validate_required_columns(data, required_columns={"high", "low", "close", "adjusted_close"})
+    validate_new_columns(data, new_columns=_VOLATILITY_FEATURE_COLUMNS)
 
     data = data.copy()
-    adr_block = adr(data, length=adr_length)
+    adjusted_hlc = adjustment_consistent_price_frame(
+        data,
+        price_columns=("high", "low", "close"),
+    )
+    adr_block = adr(adjusted_hlc, length=adr_length)
     data["adr_percent"] = adr_block["adr_percent"]
 
-    data["atr_percent"] = atr_percent(data, length=atr_length)
+    data["atr_percent"] = atr_percent(adjusted_hlc, length=atr_length)
 
     adjusted_close = data.loc[:, "adjusted_close"]
     data["bollinger_bandwidth"] = bollinger_bandwidth(

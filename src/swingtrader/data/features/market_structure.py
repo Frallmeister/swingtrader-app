@@ -12,6 +12,9 @@ import numpy as np
 import pandas as pd
 
 from swingtrader.core.numerical import safe_divide
+from swingtrader.data.features._price_adjustment import (
+    adjustment_consistent_price_frame,
+)
 from swingtrader.data.market_frame import (
     apply_by_ticker,
     validate_market_price_index,
@@ -60,7 +63,10 @@ def add_market_structure_features(
 
     The input must use the canonical market-price MultiIndex with levels
     ``provider``, ``ticker``, and ``trading_date`` and contain ``high``, ``low``,
-    and ``close`` columns. The appended features are point-in-time: a Zig Zag
+    and ``close`` columns. When ``adjusted_close`` is present, as it is in the
+    canonical feature pipeline, the price columns are transformed onto that scale
+    before the structure is calculated. The appended features are point-in-time:
+    a Zig Zag
     pivot and its associated support or resistance level affect the output only
     on and after the pivot confirmation row.
 
@@ -152,18 +158,28 @@ def zigzag_features(
 
     Notes
     -----
-    All returned columns are point-in-time safe for row-aligned modeling. Pivot
-    information first appears on its confirmation row; future rows never revise
-    previously emitted feature values. Leg dynamics use only adjacent confirmed
-    endpoints and exclude movement from the latest endpoint toward the current
-    close or an interpolated active leg.
+    All returned columns are point-in-time safe for row-aligned modeling. When
+    ``adjusted_close`` is present, ``high``, ``low``, and ``close`` are first
+    transformed onto that scale. Inputs without ``adjusted_close`` are treated as
+    an explicitly selected price representation for backwards-compatible direct
+    use. Pivot information first appears on its confirmation row; future rows
+    never revise previously emitted feature values. Leg dynamics use only
+    adjacent confirmed endpoints and exclude movement from the latest endpoint
+    toward the current close or an interpolated active leg.
     """
     validate_market_price_index(data)
     validate_required_columns(data, required_columns={"high", "low", "close"})
     validate_length(atr_length)
 
+    price_data = data.loc[:, ["high", "low", "close"]]
+    if "adjusted_close" in data.columns:
+        price_data = adjustment_consistent_price_frame(
+            data,
+            price_columns=("high", "low", "close"),
+        )
+
     return apply_by_ticker(
-        data,
+        price_data,
         lambda group: _zigzag_features(
             group,
             deviation=deviation,

@@ -18,9 +18,13 @@ rather than a reusable technical indicator, so it lives here rather than in
 
 import pandas as pd
 
+from swingtrader.data.features._price_adjustment import (
+    adjustment_consistent_price_frame,
+)
 from swingtrader.data.market_frame import (
     apply_by_ticker,
     validate_market_price_index,
+    validate_new_columns,
     validate_required_columns,
 )
 from swingtrader.indicators.macd import ppo
@@ -28,6 +32,27 @@ from swingtrader.indicators.oscillators import rsi, stochastic_oscillator
 from swingtrader.indicators.squeeze_momentum import lazybear_squeeze_momentum
 from swingtrader.indicators.volatility import bollinger_percent_b
 from swingtrader.indicators.volume import mfi
+
+_MOMENTUM_FEATURE_COLUMNS = (
+    "ppo",
+    "ppo_signal",
+    "ppo_histogram",
+    "ppo_percentile",
+    "rsi",
+    "rsi_percent_b",
+    "stochastic_k",
+    "stochastic_d",
+    "mfi",
+    "mfi_percent_b",
+    "squeeze_on",
+    "squeeze_off",
+    "squeeze_released",
+    "squeeze_width_ratio",
+    "squeeze_momentum_atr",
+    "squeeze_momentum_atr_change",
+    "squeeze_duration",
+    "squeeze_release_duration",
+)
 
 
 def add_momentum_features(
@@ -60,23 +85,21 @@ def add_momentum_features(
     RSI, RSI %B, stochastic %K and %D, MFI, MFI %B, and LazyBear squeeze momentum
     feature columns.
 
-    PPO, RSI, and ``rsi_percent_b`` are calculated from ``adjusted_close`` so they
-    are not distorted by split and dividend discontinuities in the raw close.
-    ``rsi_percent_b`` locates the RSI line within its own Bollinger Bands, giving
-    a scale-invariant measure of how stretched momentum is relative to its recent
-    range. The stochastic oscillator and the Money Flow Index are calculated from
-    the raw ``high``, ``low``, ``close``, and (for MFI) ``volume`` because they
-    need the intraday extremes and the traded volume together, matching the ADX
-    and ATR calculations in the trend and volatility modules. ``mfi_percent_b``
-    locates the MFI line within its own Bollinger Bands, mirroring
-    ``rsi_percent_b``.
+    PPO, RSI, and ``rsi_percent_b`` are calculated from ``adjusted_close``. The
+    stochastic oscillator, Money Flow Index, and LazyBear squeeze receive
+    ``high``, ``low``, and ``close`` transformed onto the same adjusted-close
+    scale. Source ``volume`` is retained for MFI. This preserves intraday
+    geometry while preventing corporate-action adjustments from appearing as
+    cross-session momentum or volatility. ``rsi_percent_b`` and
+    ``mfi_percent_b`` locate their oscillator lines within their own Bollinger
+    Bands.
 
     The LazyBear squeeze momentum features (``squeeze_on``, ``squeeze_off``,
     ``squeeze_released``, ``squeeze_width_ratio``, ``squeeze_momentum_atr``,
     ``squeeze_momentum_atr_change``, ``squeeze_duration``, and
-    ``squeeze_release_duration``) are calculated from the raw ``high``, ``low``,
-    and ``close``, with True Range and ATR computed internally, because the
-    squeeze compares Bollinger Bands against Keltner Channels and normalises the
+    ``squeeze_release_duration``) calculate True Range and ATR internally from
+    the adjustment-consistent price frame because the squeeze compares Bollinger
+    Bands against Keltner Channels and normalises the
     momentum histogram by ATR. The raw price-unit ``squeeze_momentum`` line is
     dropped so the persisted ``squeeze_momentum_atr`` feature stays comparable
     across tickers. See
@@ -87,8 +110,13 @@ def add_momentum_features(
     validate_required_columns(
         data, required_columns={"high", "low", "close", "adjusted_close", "volume"}
     )
+    validate_new_columns(data, new_columns=_MOMENTUM_FEATURE_COLUMNS)
 
     data = data.copy()
+    adjusted_hlc = adjustment_consistent_price_frame(
+        data,
+        price_columns=("high", "low", "close"),
+    )
 
     ppo_block = ppo(data.loc[:, "adjusted_close"], lengths=ppo_lengths, use_percent=False)
     data[ppo_block.columns] = ppo_block
@@ -105,14 +133,15 @@ def add_momentum_features(
     ).rename("rsi_percent_b")
 
     stochastic_block = stochastic_oscillator(
-        data.loc[:, ["high", "low", "close"]],
+        adjusted_hlc,
         k_length=stochastic_k_length,
         k_smoothing=stochastic_k_smoothing,
         d_length=stochastic_d_length,
     )
     data[stochastic_block.columns] = stochastic_block
 
-    data["mfi"] = mfi(data.loc[:, ["high", "low", "close", "volume"]], length=mfi_length)
+    adjusted_hlcv = adjusted_hlc.assign(volume=data.loc[:, "volume"])
+    data["mfi"] = mfi(adjusted_hlcv, length=mfi_length)
     data["mfi_percent_b"] = bollinger_percent_b(
         data.loc[:, "mfi"],
         length=mfi_bollinger_length,
@@ -120,7 +149,7 @@ def add_momentum_features(
     ).rename("mfi_percent_b")
 
     squeeze_block = lazybear_squeeze_momentum(
-        data.loc[:, ["high", "low", "close"]],
+        adjusted_hlc,
         bb_length=squeeze_bb_length,
         bb_mult=squeeze_bb_mult,
         kc_length=squeeze_kc_length,

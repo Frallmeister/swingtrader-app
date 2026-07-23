@@ -8,7 +8,9 @@ indicator layer remains reusable for raw or otherwise transformed prices.
 
 import pandas as pd
 
-from swingtrader.core.numerical import safe_divide
+from swingtrader.data.features._price_adjustment import (
+    adjustment_consistent_price_frame,
+)
 from swingtrader.data.market_frame import (
     validate_market_price_index,
     validate_new_columns,
@@ -115,7 +117,10 @@ def add_price_action_features(
     ]
     validate_new_columns(data, new_columns=new_columns)
 
-    adjusted_ohlc = _adjusted_ohlc(data)
+    adjusted_ohlc = adjustment_consistent_price_frame(
+        data,
+        price_columns=("open", "high", "low", "close"),
+    )
     level_context = rolling_level_interactions(
         adjusted_ohlc,
         length=breakout_length,
@@ -150,8 +155,3 @@ def add_price_action_features(
         .join(direction_runs)
         .join(level_context)
     )
-
-
-def _adjusted_ohlc(data: pd.DataFrame) -> pd.DataFrame:
-    adjustment_factor = safe_divide(data.loc[:, "adjusted_close"], data.loc[:, "close"])
-    return data.loc[:, ["open", "high", "low", "close"]].mul(adjustment_factor, axis=0)
