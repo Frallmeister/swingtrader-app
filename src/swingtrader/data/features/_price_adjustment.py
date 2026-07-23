@@ -31,7 +31,5 @@ def adjustment_consistent_price_frame(
     )
     result = data.loc[:, columns].mul(adjustment_factor, axis=0)
     if "close" in result.columns:
-        result.loc[:, "close"] = data.loc[:, "adjusted_close"].where(
-            adjustment_factor.notna()
-        )
+        result.loc[:, "close"] = data.loc[:, "adjusted_close"].where(adjustment_factor.notna())
     return result

@@ -48,9 +48,7 @@ def test_adjustment_consistent_price_frame_preserves_geometry_and_input() -> Non
     pd.testing.assert_frame_equal(prices, original)
 
 
-_FEATURE_FAMILIES: list[
-    tuple[Callable[..., pd.DataFrame], dict[str, Any], str]
-] = [
+_FEATURE_FAMILIES: list[tuple[Callable[..., pd.DataFrame], dict[str, Any], str]] = [
     (
         add_return_features,
         {"horizons": (1, 5, 10)},
@@ -135,9 +133,7 @@ def test_feature_family_is_invariant_to_split_encoded_raw_prices(
     del collision_column
     continuous = _continuous_prices()
     split_encoded = continuous.copy(deep=True)
-    before_split = split_encoded.index.get_level_values("trading_date") < pd.Timestamp(
-        "2025-03-10"
-    )
+    before_split = split_encoded.index.get_level_values("trading_date") < pd.Timestamp("2025-03-10")
     split_encoded.loc[before_split, ["open", "high", "low", "close"]] *= 2.0
 
     continuous_result = builder(continuous, **kwargs)
