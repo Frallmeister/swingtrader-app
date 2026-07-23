@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from types import MappingProxyType
+
 import pandas as pd
 
 from swingtrader.data.features.market_structure import add_market_structure_features
@@ -45,9 +46,7 @@ class FeatureBlockSpec:
         if not self.output_columns:
             raise ValueError(f"Feature block {self.name!r} must declare output columns.")
         if len(self.output_columns) != len(set(self.output_columns)):
-            raise ValueError(
-                f"Feature block {self.name!r} contains duplicate output columns."
-            )
+            raise ValueError(f"Feature block {self.name!r} contains duplicate output columns.")
         object.__setattr__(
             self,
             "parameters",
@@ -70,8 +69,7 @@ class FeatureBlockSpec:
             "name": self.name,
             "builder": self.builder_path,
             "parameters": {
-                key: _json_value(value)
-                for key, value in sorted(self.parameters.items())
+                key: _json_value(value) for key, value in sorted(self.parameters.items())
             },
             "output_columns": list(self.output_columns),
             "required_columns": sorted(self.required_columns),
@@ -101,9 +99,7 @@ class FeatureSetSpec:
 
         output_columns = self.feature_columns
         if len(output_columns) != len(set(output_columns)):
-            raise ValueError(
-                "Feature output columns must be unique across a feature set."
-            )
+            raise ValueError("Feature output columns must be unique across a feature set.")
 
     @property
     def identifier(self) -> str:
@@ -113,20 +109,12 @@ class FeatureSetSpec:
     @property
     def feature_columns(self) -> tuple[str, ...]:
         """Return all declared feature columns in execution order."""
-        return tuple(
-            column
-            for block in self.blocks
-            for column in block.output_columns
-        )
+        return tuple(column for block in self.blocks for column in block.output_columns)
 
     @property
     def required_columns(self) -> frozenset[str]:
         """Return the union of source columns required by all blocks."""
-        return frozenset(
-            column
-            for block in self.blocks
-            for column in block.required_columns
-        )
+        return frozenset(column for block in self.blocks for column in block.required_columns)
 
     def select(
         self,
@@ -148,9 +136,7 @@ class FeatureSetSpec:
         return FeatureSetSpec(
             name=name,
             version=version,
-            blocks=tuple(
-                block for block in self.blocks if block.name in requested
-            ),
+            blocks=tuple(block for block in self.blocks if block.name in requested),
         )
 
     def to_manifest(self) -> dict[str, object]:
@@ -204,9 +190,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "vwap_distance",
                 "vwap_distance_percent_b",
             ),
-            required_columns=frozenset(
-                {"high", "low", "close", "volume", "adjusted_close"}
-            ),
+            required_columns=frozenset({"high", "low", "close", "volume", "adjusted_close"}),
         ),
         FeatureBlockSpec(
             name="momentum",
@@ -249,9 +233,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "squeeze_duration",
                 "squeeze_release_duration",
             ),
-            required_columns=frozenset(
-                {"high", "low", "close", "adjusted_close", "volume"}
-            ),
+            required_columns=frozenset({"high", "low", "close", "adjusted_close", "volume"}),
             history_requirement=HistoryRequirement.EXPANDING,
         ),
         FeatureBlockSpec(
@@ -269,9 +251,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "bollinger_bandwidth",
                 "bollinger_percent_b",
             ),
-            required_columns=frozenset(
-                {"high", "low", "close", "adjusted_close"}
-            ),
+            required_columns=frozenset({"high", "low", "close", "adjusted_close"}),
         ),
         FeatureBlockSpec(
             name="price_action",
@@ -305,9 +285,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "candle_failed_breakout_high_strength_20",
                 "candle_failed_breakout_low_strength_20",
             ),
-            required_columns=frozenset(
-                {"open", "high", "low", "close", "adjusted_close"}
-            ),
+            required_columns=frozenset({"open", "high", "low", "close", "adjusted_close"}),
         ),
         FeatureBlockSpec(
             name="volume",

@@ -61,9 +61,7 @@ def test_feature_set_manifest_is_deterministic_and_json_serializable() -> None:
     assert manifest["feature_columns"] == list(DEFAULT_FEATURE_SET.feature_columns)
     assert manifest["blocks"][0] == {
         "name": "returns",
-        "builder": (
-            "swingtrader.data.features.returns.add_return_features"
-        ),
+        "builder": ("swingtrader.data.features.returns.add_return_features"),
         "parameters": {"horizons": [1, 5, 10, 20]},
         "output_columns": [
             "return_1d",
