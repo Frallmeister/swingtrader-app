@@ -23,8 +23,8 @@ _FEATURE_COLUMNS = [
     "candle_close_to_prior_low_atr_20",
     "candle_breakout_high_strength_20",
     "candle_breakout_low_strength_20",
-    "candle_failed_break_high_strength_20",
-    "candle_failed_break_low_strength_20",
+    "candle_failed_breakout_high_strength_20",
+    "candle_failed_breakout_low_strength_20",
 ]
 
 

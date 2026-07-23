@@ -7,12 +7,12 @@ from swingtrader.data.features.market_structure import (
 )
 
 _LEVEL_COLUMNS = [
-    "market_structure_close_to_high_atr",
-    "market_structure_close_to_low_atr",
-    "market_structure_break_high_strength",
-    "market_structure_break_low_strength",
-    "market_structure_failed_break_high_strength",
-    "market_structure_failed_break_low_strength",
+    "market_structure_close_to_prior_high_atr",
+    "market_structure_close_to_prior_low_atr",
+    "market_structure_breakout_high_strength",
+    "market_structure_breakout_low_strength",
+    "market_structure_failed_breakout_high_strength",
+    "market_structure_failed_breakout_low_strength",
 ]
 
 
@@ -24,11 +24,11 @@ def test_zigzag_features_measure_confirmed_swing_level_interactions() -> None:
         atr_length=1,
     ).reset_index(drop=True)
 
-    assert pd.isna(result.loc[3, "market_structure_close_to_high_atr"])
-    assert result.loc[4, "market_structure_close_to_high_atr"] == pytest.approx(-0.5)
-    assert result.loc[4, "market_structure_close_to_low_atr"] == pytest.approx(2.0)
-    assert result.loc[6, "market_structure_break_high_strength"] == pytest.approx(0.5)
-    assert result.loc[6, "market_structure_failed_break_high_strength"] == pytest.approx(0.0)
+    assert pd.isna(result.loc[3, "market_structure_close_to_prior_high_atr"])
+    assert result.loc[4, "market_structure_close_to_prior_high_atr"] == pytest.approx(-0.5)
+    assert result.loc[4, "market_structure_close_to_prior_low_atr"] == pytest.approx(2.0)
+    assert result.loc[6, "market_structure_breakout_high_strength"] == pytest.approx(0.5)
+    assert result.loc[6, "market_structure_failed_breakout_high_strength"] == pytest.approx(0.0)
 
 
 def test_zigzag_features_measure_failed_breaks_of_confirmed_levels() -> None:
@@ -41,9 +41,11 @@ def test_zigzag_features_measure_failed_breaks_of_confirmed_levels() -> None:
         atr_length=1,
     ).reset_index(drop=True)
 
-    assert high_result.loc[5, "market_structure_close_to_high_atr"] == pytest.approx(0.0)
-    assert high_result.loc[5, "market_structure_break_high_strength"] == pytest.approx(0.0)
-    assert high_result.loc[5, "market_structure_failed_break_high_strength"] == pytest.approx(0.5)
+    assert high_result.loc[5, "market_structure_close_to_prior_high_atr"] == pytest.approx(0.0)
+    assert high_result.loc[5, "market_structure_breakout_high_strength"] == pytest.approx(0.0)
+    assert high_result.loc[5, "market_structure_failed_breakout_high_strength"] == pytest.approx(
+        0.5
+    )
 
     low_failure = _prices().copy()
     low_failure.loc[5, ["low", "close"]] = [99.0, 100.0]
@@ -54,9 +56,9 @@ def test_zigzag_features_measure_failed_breaks_of_confirmed_levels() -> None:
         atr_length=1,
     ).reset_index(drop=True)
 
-    assert low_result.loc[5, "market_structure_close_to_low_atr"] == pytest.approx(0.0)
-    assert low_result.loc[5, "market_structure_break_low_strength"] == pytest.approx(0.0)
-    assert low_result.loc[5, "market_structure_failed_break_low_strength"] == pytest.approx(0.5)
+    assert low_result.loc[5, "market_structure_close_to_prior_low_atr"] == pytest.approx(0.0)
+    assert low_result.loc[5, "market_structure_breakout_low_strength"] == pytest.approx(0.0)
+    assert low_result.loc[5, "market_structure_failed_breakout_low_strength"] == pytest.approx(0.5)
 
 
 def test_zigzag_level_interactions_do_not_change_when_future_rows_are_appended() -> None:

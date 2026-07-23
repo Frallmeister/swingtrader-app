@@ -38,12 +38,12 @@ _MARKET_STRUCTURE_FEATURE_COLUMNS = (
     "market_structure_low_consistency",
     "market_structure_leg_balance",
     "market_structure_efficiency",
-    "market_structure_close_to_high_atr",
-    "market_structure_close_to_low_atr",
-    "market_structure_break_high_strength",
-    "market_structure_break_low_strength",
-    "market_structure_failed_break_high_strength",
-    "market_structure_failed_break_low_strength",
+    "market_structure_close_to_prior_high_atr",
+    "market_structure_close_to_prior_low_atr",
+    "market_structure_breakout_high_strength",
+    "market_structure_breakout_low_strength",
+    "market_structure_failed_breakout_high_strength",
+    "market_structure_failed_breakout_low_strength",
 )
 
 
@@ -129,14 +129,14 @@ def zigzag_features(
       total absolute log path length over the latest ``dynamics_legs`` completed
       legs. Values near zero indicate substantial movement with little net
       progress.
-    - ``market_structure_close_to_high_atr`` and
-      ``market_structure_close_to_low_atr``: close distance from the latest
+    - ``market_structure_close_to_prior_high_atr`` and
+      ``market_structure_close_to_prior_low_atr``: close distance from the latest
       confirmed swing high and low, normalized by prior ATR;
-    - ``market_structure_break_high_strength`` and
-      ``market_structure_break_low_strength``: positive close penetration beyond
+    - ``market_structure_breakout_high_strength`` and
+      ``market_structure_breakout_low_strength``: positive close penetration beyond
       the latest confirmed swing level, normalized by prior ATR;
-    - ``market_structure_failed_break_high_strength`` and
-      ``market_structure_failed_break_low_strength``: positive intraday excursion
+    - ``market_structure_failed_breakout_high_strength`` and
+      ``market_structure_failed_breakout_low_strength``: positive intraday excursion
       beyond a confirmed level when the close finishes back on the other side.
 
     The structural changes and rates remain missing until two confirmed pivots of
@@ -262,14 +262,14 @@ def _zigzag_features(
             "market_structure_low_consistency": state["_zigzag_low_consistency"],
             "market_structure_leg_balance": state["_zigzag_leg_balance"],
             "market_structure_efficiency": state["_zigzag_efficiency"],
-            "market_structure_close_to_high_atr": level_interactions["close_to_upper_atr"],
-            "market_structure_close_to_low_atr": level_interactions["close_to_lower_atr"],
-            "market_structure_break_high_strength": level_interactions["breakout_high_strength"],
-            "market_structure_break_low_strength": level_interactions["breakout_low_strength"],
-            "market_structure_failed_break_high_strength": level_interactions[
+            "market_structure_close_to_prior_high_atr": level_interactions["close_to_upper_atr"],
+            "market_structure_close_to_prior_low_atr": level_interactions["close_to_lower_atr"],
+            "market_structure_breakout_high_strength": level_interactions["breakout_high_strength"],
+            "market_structure_breakout_low_strength": level_interactions["breakout_low_strength"],
+            "market_structure_failed_breakout_high_strength": level_interactions[
                 "failed_break_high_strength"
             ],
-            "market_structure_failed_break_low_strength": level_interactions[
+            "market_structure_failed_breakout_low_strength": level_interactions[
                 "failed_break_low_strength"
             ],
         },

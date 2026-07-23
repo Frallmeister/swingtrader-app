@@ -204,7 +204,7 @@ With the default settings, the orchestrator adds:
 - `candle_consecutive_inside_bars`, the number of consecutive inside bars ending on the current row;
 - `candle_close_to_prior_high_atr_20` and `candle_close_to_prior_low_atr_20`, signed close distances from the preceding 20-row high and low, divided by prior ATR;
 - `candle_breakout_high_strength_20` and `candle_breakout_low_strength_20`, positive close penetration beyond the corresponding prior level, divided by prior ATR;
-- `candle_failed_break_high_strength_20` and `candle_failed_break_low_strength_20`, positive intraday excursions beyond a prior level when the close finishes back inside the prior range.
+- `candle_failed_breakout_high_strength_20` and `candle_failed_breakout_low_strength_20`, positive intraday excursions beyond a prior level when the close finishes back inside the prior range.
 
 The public numerical candlestick indicators, importable from `swingtrader.indicators`, are:
 
@@ -266,9 +266,9 @@ With the default settings, the orchestrator adds:
 - `market_structure_low_consistency`, Kendall's tau-b between chronological order and the prices of the latest confirmed swing lows;
 - `market_structure_leg_balance`, the median magnitude of recent completed upward legs minus the median magnitude of recent completed downward legs, divided by their sum;
 - `market_structure_efficiency`, signed net log displacement divided by total absolute log path length over recent completed legs;
-- `market_structure_close_to_high_atr` and `market_structure_close_to_low_atr`, signed close distances from the latest confirmed swing high and low, divided by prior ATR;
-- `market_structure_break_high_strength` and `market_structure_break_low_strength`, positive close penetration beyond the corresponding confirmed swing level;
-- `market_structure_failed_break_high_strength` and `market_structure_failed_break_low_strength`, positive intraday excursions beyond a confirmed swing level when the close finishes back on the other side.
+- `market_structure_close_to_prior_high_atr` and `market_structure_close_to_prior_low_atr`, signed close distances from the latest confirmed swing high and low, divided by prior ATR;
+- `market_structure_breakout_high_strength` and `market_structure_breakout_low_strength`, positive close penetration beyond the corresponding confirmed swing level;
+- `market_structure_failed_breakout_high_strength` and `market_structure_failed_breakout_low_strength`, positive intraday excursions beyond a confirmed swing level when the close finishes back on the other side.
 
 The high and low changes preserve both direction and magnitude. Positive values mean that the corresponding structural boundary moved upward, while negative values mean that it moved downward. Taken together, their signs distinguish higher-high/higher-low, lower-high/lower-low, broadening, and contracting structures without adding a redundant categorical state. The rate features retain the same direction but also distinguish an equal structural displacement completed over a few bars from one completed over a much longer period. Drift and width are documented analytical interpretations of the high/low pair rather than additional default columns: `(high_change + low_change) / 2` describes common structural drift and `(high_change - low_change) / 2` describes expansion or contraction.
 

@@ -8,8 +8,8 @@ _LEVEL_FEATURE_NAMES = {
     "close_to_lower_atr": "candle_close_to_prior_low_atr_3",
     "breakout_high_strength": "candle_breakout_high_strength_3",
     "breakout_low_strength": "candle_breakout_low_strength_3",
-    "failed_break_high_strength": "candle_failed_break_high_strength_3",
-    "failed_break_low_strength": "candle_failed_break_low_strength_3",
+    "failed_break_high_strength": "candle_failed_breakout_high_strength_3",
+    "failed_break_low_strength": "candle_failed_breakout_low_strength_3",
 }
 
 
