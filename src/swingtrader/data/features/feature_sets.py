@@ -43,15 +43,16 @@ class FeatureBlockSpec:
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("Feature block name must not be empty.")
-        if not self.output_columns:
+
+        output_columns = tuple(self.output_columns)
+        object.__setattr__(self, "output_columns", output_columns)
+
+        if not output_columns:
             raise ValueError(f"Feature block {self.name!r} must declare output columns.")
-        if len(self.output_columns) != len(set(self.output_columns)):
+        if len(output_columns) != len(set(output_columns)):
             raise ValueError(f"Feature block {self.name!r} contains duplicate output columns.")
-        object.__setattr__(
-            self,
-            "parameters",
-            MappingProxyType(dict(self.parameters)),
-        )
+
+        object.__setattr__(self, "parameters", MappingProxyType(dict(self.parameters)))
         object.__setattr__(self, "required_columns", frozenset(self.required_columns))
 
     @property
@@ -90,10 +91,14 @@ class FeatureSetSpec:
             raise ValueError("Feature set name must not be empty.")
         if not self.version:
             raise ValueError("Feature set version must not be empty.")
-        if not self.blocks:
+        blocks = tuple(self.blocks)
+        object.__setattr__(self, "blocks", blocks)
+
+        if not blocks:
             raise ValueError("A feature set must contain at least one block.")
 
-        block_names = tuple(block.name for block in self.blocks)
+        block_names = tuple(block.name for block in blocks)
+
         if len(block_names) != len(set(block_names)):
             raise ValueError("Feature block names must be unique within a feature set.")
 
@@ -191,6 +196,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "vwap_distance_percent_b",
             ),
             required_columns=frozenset({"high", "low", "close", "volume", "adjusted_close"}),
+            history_requirement=HistoryRequirement.EXPANDING,
         ),
         FeatureBlockSpec(
             name="momentum",
@@ -252,6 +258,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "bollinger_percent_b",
             ),
             required_columns=frozenset({"high", "low", "close", "adjusted_close"}),
+            history_requirement=HistoryRequirement.EXPANDING,
         ),
         FeatureBlockSpec(
             name="price_action",
@@ -286,6 +293,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "candle_failed_breakout_low_strength_20",
             ),
             required_columns=frozenset({"open", "high", "low", "close", "adjusted_close"}),
+            history_requirement=HistoryRequirement.EXPANDING,
         ),
         FeatureBlockSpec(
             name="volume",

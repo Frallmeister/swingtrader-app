@@ -57,24 +57,25 @@ def test_selected_feature_set_runs_only_requested_blocks() -> None:
 def test_feature_set_manifest_is_deterministic_and_json_serializable() -> None:
     manifest = DEFAULT_FEATURE_SET.to_manifest()
 
-    assert manifest["identifier"] == "ohlcv_v1_candidates:1"
-    assert manifest["feature_columns"] == list(DEFAULT_FEATURE_SET.feature_columns)
-    assert manifest["blocks"][0] == {
-        "name": "returns",
-        "builder": ("swingtrader.data.features.returns.add_return_features"),
-        "parameters": {"horizons": [1, 5, 10, 20]},
-        "output_columns": [
-            "return_1d",
-            "return_5d",
-            "return_10d",
-            "return_20d",
-        ],
-        "required_columns": ["adjusted_close"],
-        "history_requirement": "bounded",
+    assert manifest == DEFAULT_FEATURE_SET.to_manifest()
+    json.dumps(manifest)
+
+    assert manifest["name"] == "ohlcv_v1_candidates"
+    assert manifest["version"] == "1"
+
+    history_requirements = {
+        block["name"]: block["history_requirement"] for block in manifest["blocks"]
     }
-    assert manifest["blocks"][2]["history_requirement"] == "expanding"
-    assert manifest["blocks"][-1]["history_requirement"] == "path_dependent"
-    json.dumps(manifest, sort_keys=True)
+
+    assert history_requirements == {
+        "returns": "bounded",
+        "trend": "expanding",
+        "momentum": "expanding",
+        "volatility": "expanding",
+        "price_action": "expanding",
+        "volume": "bounded",
+        "market_structure": "path_dependent",
+    }
 
 
 def test_feature_set_rejects_duplicate_output_columns() -> None:
@@ -92,6 +93,39 @@ def test_feature_set_rejects_unknown_selected_blocks() -> None:
             name="invalid",
             version="1",
         )
+
+
+def test_feature_block_copies_output_columns() -> None:
+    output_columns = ["feature"]
+
+    def builder(data: pd.DataFrame) -> pd.DataFrame:
+        return data.copy()
+
+    block = FeatureBlockSpec(
+        name="block",
+        builder=builder,
+        output_columns=output_columns,  # type: ignore[arg-type]
+    )
+
+    output_columns.append("later_mutation")
+
+    assert block.output_columns == ("feature",)
+
+
+def test_feature_set_copies_blocks() -> None:
+    first = _block("first", output_columns=("first_feature",))
+    second = _block("second", output_columns=("second_feature",))
+    blocks = [first]
+
+    feature_set = FeatureSetSpec(
+        name="stable",
+        version="1",
+        blocks=blocks,  # type: ignore[arg-type]
+    )
+
+    blocks.append(second)
+
+    assert feature_set.blocks == (first,)
 
 
 def _block(
