@@ -4,51 +4,60 @@ This roadmap is a planning aid, not a replacement for GitHub issues. It describe
 
 ## Completed Foundation
 
-- Project packaging, testing, and linting.
+- Project packaging, testing, linting, and MkDocs documentation.
 - Active ticker universe resolution.
 - yfinance historical daily price download and normalization.
-- Bronze daily price schema and idempotent writer.
-- Historical ingestion library function.
-- Local/dev ticker universe generation utility.
-- Bronze onboarding sync and runnable onboarding job for newly active tickers.
-- Runnable daily market data update job.
-- Documentation foundation with MkDocs.
-- Documentation for real local commands and operations.
+- Bronze daily price schema, idempotent writer, and pandas loader.
+- Runnable ticker onboarding and daily market-data update jobs.
 - Bronze-backed inference-readiness and training-eligibility rules.
-- Bronze daily-price pandas loader.
-- Bounded foundation cleanup.
+- Reusable indicator library.
+- In-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation.
 - V1 model target and evaluation contract.
-- V1 forward-return and binary target label generation.
-- Initial adjusted-close return feature generation.
+- V1 forward-return and binary-target generation.
 
-## Near Term
+## Repository Stabilization
 
-1. Expand reusable OHLCV-derived features beyond adjusted-close returns.
-2. Implement leakage-safe temporal train, validation, and test dataset construction.
-3. Train and evaluate the first baseline models.
+Complete these items before treating baseline model results as durable:
 
-## Medium Term
+1. Define and apply consistent corporate-action semantics for cross-session price calculations.
+2. Add split-equivalence and generic point-in-time feature contract tests.
+3. Standardize feature-column collision behavior and remove accidental private cross-package contracts.
+4. Introduce a versioned feature-set specification and experiment manifest.
+5. Classify selected feature calculations as bounded-window, expanding, or path-dependent for future production planning.
 
-- Baseline ranking model.
-- Local inference workflow.
-- Prediction/ranking output schema.
-- Persistent feature or label storage if in-memory experiments show it is justified.
+## Model Development
 
-## Longer Term
+1. Implement leakage-safe temporal train, validation, and test dataset construction.
+2. Add date-based splits with target-horizon purging.
+3. Establish dummy-classifier and date-matched random-ranking baselines.
+4. Train and evaluate the first XGBoost classifier and regression candidates.
+5. Evaluate classification quality, calibration, daily cross-sectional ranking, and stability over time.
+6. Perform feature ablation and select a reproducible OHLCV V1 feature set.
 
-- Render deployment with scheduled jobs.
-- PostgreSQL production storage.
-- Dashboard for latest ranked candidates.
-- Market data quality visibility in the web app.
-- Risk and position sizing support.
-- Backtesting and evaluation reports.
-- Macro data ingestion and macro/context features after the OHLCV-only V1 path is useful.
+## Production Preparation
+
+- Define the persisted prediction and ranking schema.
+- Implement a scheduled selected-feature and model-inference workflow.
+- Store prediction snapshots for API consumption.
+- Add PostgreSQL schema migrations when production tables begin to evolve.
+- Add the FastAPI backend without placing heavy model computation in request handlers.
+- Initialize the TypeScript and React frontend and generate API types from OpenAPI where practical.
+- Deploy the database, scheduled jobs, backend, and frontend on Render.
+
+## Later Scope
+
+- Market-data quality visibility in the frontend.
+- Risk and position-sizing support.
+- Executable backtesting and strategy evaluation.
+- Historical-universe and survivorship improvements.
+- Macro, benchmark, sector, fundamental, news, or sentiment inputs after the OHLCV-only path is useful.
 
 ## Open Decisions
 
-- Feature and label gates for future modeling readiness.
+- Exact temporal split and walk-forward schedule.
 - Minimum label count for training dataset inclusion.
-- Exact training universe representation.
-- How prediction output should be stored and displayed.
-- Whether and when model-ready features should be persisted.
-- Which market data quality indicators should be visible in the web app.
+- Exact historical training-universe representation.
+- Which feature blocks justify production computation or persisted state.
+- Prediction retention and model-version lifecycle.
+- Authentication and authorization implementation.
+- Which market-data quality indicators should be visible in the frontend.
