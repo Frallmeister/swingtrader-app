@@ -1,9 +1,9 @@
-"""Candlestick geometry, range context, patterns, and level indicators.
+"""Candlestick geometry, range context, patterns, runs, and level indicators.
 
 The indicators in this module combine continuous OHLC descriptions with a small
 set of direct local candle relations. They preserve body, wick, close-location,
-gap, range, containment, engulfing, rejection, and breakout information without
-adding a large catalogue of thresholded textbook patterns.
+gap, range, containment, engulfing, rejection, directional-run, and breakout
+information without adding a large catalogue of thresholded textbook patterns.
 
 Each public function accepts either one chronologically ordered instrument or a
 canonical multi-instrument market frame carrying the ``provider``, ``ticker``,
@@ -106,6 +106,36 @@ def candle_patterns(
     return apply_by_ticker(
         data,
         lambda group: _candle_patterns(group, atr_length=atr_length),
+    )
+
+
+def candle_direction_runs(
+    data: pd.DataFrame,
+    *,
+    atr_length: int = 14,
+) -> pd.DataFrame:
+    """Calculate signed same-direction candle-run indicators.
+
+    A bullish candle has ``close > open`` and a bearish candle has
+    ``close < open``. Doji candles reset the active run and receive zero for all
+    three outputs. Rows with missing open or close values remain missing.
+
+    ``direction_run`` is the signed number of consecutive candles with the same
+    direction, positive for bullish runs and negative for bearish runs.
+    ``direction_run_return`` is the cumulative close-to-close return from the
+    close immediately before the active run through the current close.
+    ``direction_run_body_atr`` sums each candle's signed real body divided by the
+    ATR known on the preceding row. It remains missing until every candle in the
+    active run can be normalized.
+
+    ``data`` must contain ``open``, ``high``, ``low``, and ``close`` columns in
+    chronological order.
+    """
+    validate_length(atr_length)
+    validate_required_columns(data, required_columns={"open", "high", "low", "close"})
+    return apply_by_ticker(
+        data,
+        lambda group: _candle_direction_runs(group, atr_length=atr_length),
     )
 
 
@@ -263,6 +293,52 @@ def _candle_patterns(data: pd.DataFrame, *, atr_length: int) -> pd.DataFrame:
             "consecutive_inside_bars": consecutive_true_count(inside_bar),
         },
         index=data.index,
+    )
+
+
+def _candle_direction_runs(data: pd.DataFrame, *, atr_length: int) -> pd.DataFrame:
+    open_values = data.loc[:, "open"]
+    close_values = data.loc[:, "close"]
+    body = close_values - open_values
+    direction = safe_divide(body, body.abs()).where(body.ne(0), 0.0).astype("Int8")
+
+    # Count the current consecutive bullish or bearish candle run with a signed length.
+    bullish_count = consecutive_true_count(direction.eq(1))
+    bearish_count = consecutive_true_count(direction.eq(-1))
+    direction_run = bullish_count.sub(bearish_count).rename("direction_run")
+
+    # Identify active directional runs and assign a stable group identifier to each run.
+    active_run = direction.ne(0).fillna(False)
+    direction_changed = direction.ne(direction.shift(1)).fillna(True)
+    run_start = active_run & direction_changed
+    run_id = ((~active_run) | direction_changed).cumsum()
+
+    # Measure cumulative close-to-close return from the close preceding each active run.
+    run_baseline = close_values.shift(1).where(run_start).groupby(run_id, sort=False).ffill()
+    direction_run_return = (
+        safe_divide(close_values, run_baseline)
+        .sub(1.0)
+        .where(active_run, 0.0)
+        .where(direction.notna())
+        .rename("direction_run_return")
+    )
+
+    # Accumulate signed real-body movement normalized by the ATR known before each candle.
+    prior_atr = _atr(data, length=atr_length).shift(1)
+    body_atr = safe_divide(body, prior_atr)
+    complete_run = body_atr.notna().groupby(run_id, sort=False).cummin()
+    direction_run_body_atr = (
+        body_atr.groupby(run_id, sort=False)
+        .cumsum()
+        .where(complete_run)
+        .where(active_run, 0.0)
+        .where(direction.notna())
+        .rename("direction_run_body_atr")
+    )
+
+    return pd.concat(
+        [direction_run, direction_run_return, direction_run_body_atr],
+        axis="columns",
     )
 
 

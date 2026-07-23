@@ -20,6 +20,7 @@ Indicators return new index-aligned outputs and never mutate their input objects
 """
 
 from swingtrader.indicators.candlesticks import (
+    candle_direction_runs,
     candle_geometry,
     candle_patterns,
     candle_range_context,
@@ -50,6 +51,7 @@ __all__ = [
     "bollinger_bands",
     "bollinger_bandwidth",
     "bollinger_percent_b",
+    "candle_direction_runs",
     "candle_geometry",
     "candle_patterns",
     "candle_range_context",
