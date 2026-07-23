@@ -1,9 +1,9 @@
-"""Candlestick geometry, range context, and local pattern indicators.
+"""Candlestick geometry, range context, patterns, and level indicators.
 
 The indicators in this module combine continuous OHLC descriptions with a small
 set of direct local candle relations. They preserve body, wick, close-location,
-gap, range, containment, engulfing, and rejection information without adding a
-large catalogue of thresholded textbook patterns.
+gap, range, containment, engulfing, rejection, and breakout information without
+adding a large catalogue of thresholded textbook patterns.
 
 Each public function accepts either one chronologically ordered instrument or a
 canonical multi-instrument market frame carrying the ``provider``, ``ticker``,
@@ -16,6 +16,7 @@ import pandas as pd
 
 from swingtrader.core.numerical import consecutive_true_count, safe_divide
 from swingtrader.data.market_frame import apply_by_ticker, validate_required_columns
+from swingtrader.indicators._price_levels import _price_level_interactions
 from swingtrader.indicators._validation import validate_length
 from swingtrader.indicators.volatility import _atr, _true_range
 
@@ -105,6 +106,42 @@ def candle_patterns(
     return apply_by_ticker(
         data,
         lambda group: _candle_patterns(group, atr_length=atr_length),
+    )
+
+
+def rolling_level_interactions(
+    data: pd.DataFrame,
+    *,
+    length: int = 20,
+    atr_length: int = 14,
+) -> pd.DataFrame:
+    """Measure point-in-time interactions with prior rolling price extremes.
+
+    ``prior_high`` and ``prior_low`` are the highest high and lowest low from the
+    preceding ``length`` rows. The current row is excluded. Close distances,
+    accepted breakout penetration, and failed-break excursions are normalized by
+    the ATR available at the end of the previous row.
+
+    ``breakout_high_strength`` and ``breakout_low_strength`` are positive only
+    when the close finishes beyond the corresponding level.
+    ``failed_break_high_strength`` and ``failed_break_low_strength`` are positive
+    only when the intraday range crosses a level but the close finishes back on
+    the prior-range side. Once the levels and prior ATR are available, rows with
+    no corresponding event receive zero strength.
+
+    ``data`` must contain ``high``, ``low``, and ``close`` columns in
+    chronological order.
+    """
+    validate_length(length)
+    validate_length(atr_length)
+    validate_required_columns(data, required_columns={"high", "low", "close"})
+    return apply_by_ticker(
+        data,
+        lambda group: _rolling_level_interactions(
+            group,
+            length=length,
+            atr_length=atr_length,
+        ),
     )
 
 
@@ -226,6 +263,34 @@ def _candle_patterns(data: pd.DataFrame, *, atr_length: int) -> pd.DataFrame:
             "consecutive_inside_bars": consecutive_true_count(inside_bar),
         },
         index=data.index,
+    )
+
+
+def _rolling_level_interactions(
+    data: pd.DataFrame,
+    *,
+    length: int,
+    atr_length: int,
+) -> pd.DataFrame:
+    high = data.loc[:, "high"]
+    low = data.loc[:, "low"]
+    prior_high = high.shift(1).rolling(window=length, min_periods=length).max()
+    prior_low = low.shift(1).rolling(window=length, min_periods=length).min()
+    prior_atr = _atr(data, length=atr_length).shift(1)
+
+    interactions = _price_level_interactions(
+        data,
+        upper_level=prior_high,
+        lower_level=prior_low,
+        prior_atr=prior_atr,
+    )
+    return pd.concat(
+        [
+            prior_high.rename("prior_high"),
+            prior_low.rename("prior_low"),
+            interactions,
+        ],
+        axis="columns",
     )
 
 

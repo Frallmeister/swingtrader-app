@@ -23,6 +23,7 @@ from swingtrader.indicators.candlesticks import (
     candle_geometry,
     candle_patterns,
     candle_range_context,
+    rolling_level_interactions,
 )
 from swingtrader.indicators.directional_movement import adx
 from swingtrader.indicators.macd import macd, ppo
@@ -58,6 +59,7 @@ __all__ = [
     "mfi",
     "pivot_points_high_low",
     "ppo",
+    "rolling_level_interactions",
     "rolling_vwap",
     "rsi",
     "sma",

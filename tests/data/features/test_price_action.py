@@ -19,6 +19,12 @@ _FEATURE_COLUMNS = [
     "candle_lower_rejection_strength",
     "candle_upper_rejection_strength",
     "candle_consecutive_inside_bars",
+    "candle_close_to_prior_high_atr_20",
+    "candle_close_to_prior_low_atr_20",
+    "candle_breakout_high_strength_20",
+    "candle_breakout_low_strength_20",
+    "candle_failed_break_high_strength_20",
+    "candle_failed_break_low_strength_20",
 ]
 
 
