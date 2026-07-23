@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from swingtrader.data.features import add_price_action_features
-from swingtrader.indicators import candle_geometry, candle_range_context
+from swingtrader.indicators import candle_geometry, candle_patterns, candle_range_context
 
 _FEATURE_COLUMNS = [
     "candle_signed_body_fraction",
@@ -13,6 +13,12 @@ _FEATURE_COLUMNS = [
     "candle_range_atr",
     "candle_gap_atr",
     "range_percentile_2",
+    "candle_inside_bar",
+    "candle_outside_bar",
+    "candle_engulfing_strength",
+    "candle_lower_rejection_strength",
+    "candle_upper_rejection_strength",
+    "candle_consecutive_inside_bars",
 ]
 
 
@@ -34,6 +40,7 @@ def test_add_price_action_features_adds_expected_adjusted_indicator_outputs() ->
         atr_length=2,
         percentile_length=2,
     )
+    expected_patterns = candle_patterns(adjusted_ohlc, atr_length=2)
 
     pd.testing.assert_series_equal(
         result["candle_signed_body_fraction"],
@@ -70,6 +77,20 @@ def test_add_price_action_features_adds_expected_adjusted_indicator_outputs() ->
         expected_context["range_percentile"],
         check_names=False,
     )
+    pattern_feature_names = {
+        "inside_bar": "candle_inside_bar",
+        "outside_bar": "candle_outside_bar",
+        "engulfing_strength": "candle_engulfing_strength",
+        "lower_rejection_strength": "candle_lower_rejection_strength",
+        "upper_rejection_strength": "candle_upper_rejection_strength",
+        "consecutive_inside_bars": "candle_consecutive_inside_bars",
+    }
+    for indicator_name, feature_name in pattern_feature_names.items():
+        pd.testing.assert_series_equal(
+            result[feature_name],
+            expected_patterns[indicator_name],
+            check_names=False,
+        )
     assert result.columns[-len(_FEATURE_COLUMNS) :].tolist() == _FEATURE_COLUMNS
     pd.testing.assert_index_equal(result.index, data.index)
     pd.testing.assert_frame_equal(data, original)
@@ -175,6 +196,8 @@ def test_add_price_action_features_isolates_tickers() -> None:
         ticker_result = result.xs(ticker, level="ticker")
         assert ticker_result["candle_gap_atr"].iloc[:2].isna().all()
         assert ticker_result["range_percentile_2"].iloc[:2].isna().all()
+        assert pd.isna(ticker_result["candle_inside_bar"].iloc[0])
+        assert pd.isna(ticker_result["candle_consecutive_inside_bars"].iloc[0])
 
 
 def _prices() -> pd.DataFrame:

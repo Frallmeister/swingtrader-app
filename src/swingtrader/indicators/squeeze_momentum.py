@@ -3,9 +3,8 @@
 This module ports the open-source "Squeeze Momentum Indicator [LazyBear]"
 published on TradingView. It combines Bollinger Bands, Keltner Channels, and a
 linear-regression momentum histogram, returning several related outputs together,
-so it lives in its own module. The linear-regression and consecutive-state
-helpers it needs are kept private here because no other indicator module uses
-them.
+so it lives in its own module. The indicator-specific linear-regression helper
+remains private to this module.
 
 The indicator consumes a dataframe with ``high``, ``low``, and ``close`` columns
 and computes True Range and ATR internally. It accepts either one instrument or a
@@ -18,7 +17,7 @@ returns a new dataframe and does not mutate its input.
 import numpy as np
 import pandas as pd
 
-from swingtrader.core.numerical import safe_divide
+from swingtrader.core.numerical import consecutive_true_count, safe_divide
 from swingtrader.data.market_frame import apply_by_ticker, validate_required_columns
 from swingtrader.indicators._validation import (
     validate_length,
@@ -170,7 +169,7 @@ def _lazybear_squeeze_momentum(
 
     squeeze_width_ratio = safe_divide(upper_bb - lower_bb, upper_kc - lower_kc)
     squeeze_released = squeeze_on.shift(1, fill_value=False) & squeeze_on.eq(False)
-    squeeze_duration = _consecutive_true_count(squeeze_on)
+    squeeze_duration = consecutive_true_count(squeeze_on)
     squeeze_release_duration = squeeze_duration.shift(1).where(squeeze_released)
 
     # Calculate momentum
@@ -199,44 +198,6 @@ def _lazybear_squeeze_momentum(
         },
         index=data.index,
     )
-
-
-def _consecutive_true_count(condition: pd.Series) -> pd.Series:
-    """Count consecutive periods for which a condition is true.
-
-    The count starts at one when the condition becomes true, increments
-    while it remains true, and resets to zero when it becomes false.
-    Missing values break the current run and remain missing in the result.
-
-    Parameters
-    ----------
-    condition
-        Boolean condition ordered chronologically.
-
-    Returns
-    -------
-    pd.Series
-        Nullable integer series containing the consecutive true count.
-
-    Examples
-    --------
-    A condition of::
-
-        <NA>, False, True, True, True, False, True
-
-    produces::
-
-        <NA>, 0, 1, 2, 3, 0, 1
-    """
-    condition = condition.astype("boolean")
-    active = condition.fillna(False)
-
-    # Each False or missing observation begins a new run group.
-    run_id = (~active).cumsum()
-
-    counts = active.astype("int64").groupby(run_id).cumsum().astype("Int64")
-
-    return counts.where(condition.notna())
 
 
 def _linreg(

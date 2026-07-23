@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from swingtrader.indicators import candle_geometry, candle_range_context
+from swingtrader.indicators import candle_geometry, candle_patterns, candle_range_context
 
 
 def test_candle_geometry_calculates_normalized_body_wicks_and_close_location() -> None:
@@ -84,6 +84,66 @@ def test_candle_range_context_ranks_current_range_against_prior_ranges_only() ->
     pd.testing.assert_series_equal(result["range_percentile"], expected)
 
 
+def test_candle_patterns_identifies_inside_outside_bars_and_inside_streaks() -> None:
+    data = pd.DataFrame(
+        {
+            "open": [5.0, 5.0, 5.0, 5.0, 5.0, 5.0],
+            "high": [10.0, 9.0, 8.0, 9.0, 9.0, 9.0],
+            "low": [0.0, 1.0, 2.0, 1.0, 1.0, 2.0],
+            "close": [6.0, 6.0, 6.0, 6.0, 6.0, 6.0],
+        }
+    )
+
+    result = candle_patterns(data, atr_length=1)
+
+    expected_inside = pd.Series(
+        [pd.NA, True, True, False, False, True],
+        dtype="boolean",
+    )
+    expected_outside = pd.Series(
+        [pd.NA, False, False, True, False, False],
+        dtype="boolean",
+    )
+    expected_streak = pd.Series([pd.NA, 1, 2, 0, 0, 1], dtype="Int64")
+    pd.testing.assert_series_equal(result["inside_bar"], expected_inside, check_names=False)
+    pd.testing.assert_series_equal(result["outside_bar"], expected_outside, check_names=False)
+    pd.testing.assert_series_equal(
+        result["consecutive_inside_bars"], expected_streak, check_names=False
+    )
+
+
+def test_candle_patterns_calculates_signed_engulfing_strength() -> None:
+    data = pd.DataFrame(
+        {
+            "open": [10.0, 8.5, 11.0, 9.0],
+            "high": [11.0, 11.0, 11.5, 10.0],
+            "low": [8.0, 8.0, 7.5, 8.0],
+            "close": [9.0, 10.5, 8.0, 9.5],
+        }
+    )
+
+    result = candle_patterns(data, atr_length=1)
+
+    expected = pd.Series([np.nan, 1.0 / 3.0, -1.0 / 3.0, 0.0])
+    pd.testing.assert_series_equal(result["engulfing_strength"], expected, check_names=False)
+
+
+def test_candle_patterns_weights_wick_rejection_by_prior_atr_and_close_location() -> None:
+    data = pd.DataFrame(
+        {
+            "open": [10.0, 10.0],
+            "high": [12.0, 14.0],
+            "low": [8.0, 8.0],
+            "close": [10.0, 13.0],
+        }
+    )
+
+    result = candle_patterns(data, atr_length=1)
+
+    assert result["lower_rejection_strength"].iloc[1] == pytest.approx(5.0 / 12.0)
+    assert result["upper_rejection_strength"].iloc[1] == pytest.approx(1.0 / 24.0)
+
+
 def test_candlestick_indicators_isolate_tickers_and_preserve_index() -> None:
     index = pd.MultiIndex.from_product(
         [
@@ -105,13 +165,18 @@ def test_candlestick_indicators_isolate_tickers_and_preserve_index() -> None:
 
     geometry = candle_geometry(data)
     context = candle_range_context(data, atr_length=1, percentile_length=2)
+    patterns = candle_patterns(data, atr_length=1)
 
     pd.testing.assert_index_equal(geometry.index, data.index)
     pd.testing.assert_index_equal(context.index, data.index)
+    pd.testing.assert_index_equal(patterns.index, data.index)
     for ticker in ("AAA.ST", "BBB.ST"):
         ticker_context = context.xs(ticker, level="ticker")
+        ticker_patterns = patterns.xs(ticker, level="ticker")
         assert ticker_context["range_percentile"].iloc[:2].isna().all()
         assert pd.isna(ticker_context["gap_atr"].iloc[0])
+        assert pd.isna(ticker_patterns["inside_bar"].iloc[0])
+        assert pd.isna(ticker_patterns["consecutive_inside_bars"].iloc[0])
 
 
 def test_candlestick_indicators_reject_unordered_datetime_index() -> None:
@@ -142,11 +207,15 @@ def test_candlestick_indicators_do_not_mutate_input() -> None:
 
     candle_geometry(data)
     candle_range_context(data, atr_length=1, percentile_length=1)
+    candle_patterns(data, atr_length=1)
 
     pd.testing.assert_frame_equal(data, original)
 
 
-@pytest.mark.parametrize("function", [candle_geometry, candle_range_context])
+@pytest.mark.parametrize(
+    "function",
+    [candle_geometry, candle_range_context, candle_patterns],
+)
 def test_candlestick_indicators_require_ohlc_columns(function) -> None:
     with pytest.raises(ValueError, match="Missing required columns: open"):
         function(pd.DataFrame({"high": [2.0], "low": [1.0], "close": [1.5]}))
@@ -165,3 +234,27 @@ def test_candle_range_context_rejects_invalid_lengths(kwargs, invalid_value) -> 
 
     with pytest.raises(ValueError, match=repr(invalid_value)):
         candle_range_context(data, **kwargs)
+
+
+@pytest.mark.parametrize("atr_length", [0, True])
+def test_candle_patterns_rejects_invalid_atr_length(atr_length) -> None:
+    data = pd.DataFrame({"open": [1.0], "high": [2.0], "low": [0.0], "close": [1.0]})
+
+    with pytest.raises(ValueError, match=repr(atr_length)):
+        candle_patterns(data, atr_length=atr_length)
+
+
+def test_candle_patterns_leaves_engulfing_strength_missing_until_prior_atr_exists() -> None:
+    data = pd.DataFrame(
+        {
+            "open": [10.0, 10.5, 10.0, 10.5],
+            "high": [11.5, 11.5, 12.0, 11.0],
+            "low": [9.5, 10.0, 9.5, 10.0],
+            "close": [11.0, 11.0, 11.5, 10.5],
+        }
+    )
+
+    result = candle_patterns(data, atr_length=3)
+
+    assert result["engulfing_strength"].iloc[:3].isna().all()
+    assert result["engulfing_strength"].iloc[3] == pytest.approx(0.0)
