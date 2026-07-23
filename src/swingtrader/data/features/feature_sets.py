@@ -344,7 +344,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
 )
 
 
-def _json_value(value: FeatureParameter) -> object:
+def _json_value(value: object) -> object:
     if isinstance(value, tuple):
         return [_json_value(item) for item in value]
     return value

@@ -124,6 +124,10 @@ analysis.
 
 ::: swingtrader.data.features.pipeline
 
+## Versioned Feature Sets
+
+::: swingtrader.data.features.feature_sets
+
 ## Modeling Dataset Labels
 
 ::: swingtrader.modeling.datasets.labels
