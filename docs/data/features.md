@@ -185,7 +185,7 @@ Raw `true_range`, `atr`, `bollinger_bands`, and the price-unit `adr` column are 
 
 ## Price Action Features
 
-The price-action feature orchestrator is `swingtrader.data.features.price_action.add_price_action_features`. It combines continuous descriptions of the current candle, short-horizon range context, local patterns, and interactions with prior rolling price extremes. This preserves body, wick, close-location, gap, range, containment, engulfing, rejection, breakout, and failed-break information without adding a large catalogue of thresholded textbook patterns.
+The price-action feature orchestrator is `swingtrader.data.features.price_action.add_price_action_features`. It combines continuous descriptions of the current candle, short-horizon range context, local patterns, directional candle runs, and interactions with prior rolling price extremes. This preserves body, wick, close-location, gap, range, containment, engulfing, rejection, directional-persistence, breakout, and failed-break information without adding a large catalogue of thresholded textbook patterns.
 
 With the default settings, the orchestrator adds:
 
@@ -202,6 +202,9 @@ With the default settings, the orchestrator adds:
 - `candle_lower_rejection_strength`, the lower wick divided by prior ATR and weighted by the close's position toward the candle high;
 - `candle_upper_rejection_strength`, the upper wick divided by prior ATR and weighted by the close's position toward the candle low;
 - `candle_consecutive_inside_bars`, the number of consecutive inside bars ending on the current row;
+- `candle_direction_run`, the signed number of consecutive candles with the same open-to-close direction, positive for bullish runs and negative for bearish runs;
+- `candle_direction_run_return`, the cumulative close-to-close return from immediately before the active directional run through the current close;
+- `candle_direction_run_body_atr`, the cumulative sum of each candle's signed real body divided by the ATR known before that candle;
 - `candle_close_to_prior_high_atr_20` and `candle_close_to_prior_low_atr_20`, signed close distances from the preceding 20-row high and low, divided by prior ATR;
 - `candle_breakout_high_strength_20` and `candle_breakout_low_strength_20`, positive close penetration beyond the corresponding prior level, divided by prior ATR;
 - `candle_failed_breakout_high_strength_20` and `candle_failed_breakout_low_strength_20`, positive intraday excursions beyond a prior level when the close finishes back inside the prior range.
@@ -211,13 +214,16 @@ The public numerical candlestick indicators, importable from `swingtrader.indica
 - `candle_geometry`, which returns `signed_body_fraction`, `upper_wick_fraction`, `lower_wick_fraction`, and `close_location`;
 - `candle_range_context`, which returns `range_atr`, `gap_atr`, and `range_percentile`;
 - `candle_patterns`, which returns the containment, engulfing, rejection, and inside-bar streak outputs;
+- `candle_direction_runs`, which returns signed run length, cumulative close-to-close return, and cumulative ATR-normalized real-body magnitude;
 - `rolling_level_interactions`, which returns prior rolling high and low levels together with ATR-normalised close distance, accepted-breakout strength, and failed-break strength.
 
-The candlestick indicators support either one chronologically ordered instrument or the canonical multi-instrument index, and calculations are isolated within each provider/ticker group. Geometry, range context, and local patterns consume OHLC data, while rolling level interactions require high, low, and close. Zero-range candles cannot produce normalized geometry and therefore leave the four geometry outputs missing rather than producing infinities. Other outputs follow their own history and denominator requirements.
+The candlestick indicators support either one chronologically ordered instrument or the canonical multi-instrument index, and calculations are isolated within each provider/ticker group. Geometry, range context, local patterns, and directional runs consume OHLC data, while rolling level interactions require high, low, and close. Zero-range candles cannot produce normalized geometry and therefore leave the four geometry outputs missing rather than producing infinities. Other outputs follow their own history and denominator requirements.
 
 `candle_range_context` uses the ATR ending on the previous row for both current True Range and the opening gap. The current event therefore cannot increase its own denominator. Its range percentile is also point-in-time safe: it compares the current high-low range with the preceding `range_percentile_length` rows and excludes the current row from the reference sample. The feature column includes the configured history length in its name, so a length of 10 produces `range_percentile_10`.
 
 `candle_patterns` compares each candle only with information available on that row or earlier. Inside and outside bars allow equality at one boundary, while an unchanged high-low range is neither. The first comparison row and rows with incomplete candle pairs remain missing. `candle_consecutive_inside_bars` resets to zero when the current candle is not inside the previous candle. An engulfing signal requires an opposite-direction real body that strictly exceeds and contains the previous real body; non-engulfing rows receive zero strength. Engulfing and rejection magnitudes use ATR from the previous row, so the current candle cannot inflate its own normalization denominator.
+
+`candle_direction_runs` treats `close > open` as bullish and `close < open` as bearish. A doji resets the run and produces zero outputs, while missing open or close values remain missing and also break the sequence. Run return is measured from the close immediately before the active run, so it includes both gaps and intraday movement. The body-magnitude feature accumulates each signed real body divided by ATR from the preceding row. It remains missing when the full active run cannot be normalized, rather than silently dropping unavailable early contributions.
 
 `rolling_level_interactions` calculates each level from only the preceding `breakout_length` rows, excluding the current candle. A breakout strength is positive when the close finishes beyond the prior high or low. A failed-break strength is positive when the intraday high or low crosses the level but the close finishes back inside; evaluable non-events are zero. Distances and strengths use ATR from the previous row, and the feature names include the configured level length.
 
@@ -319,7 +325,6 @@ Like `pivot_points_high_low`, `zigzag` is retrospective and lookahead-aware: eac
 
 ## Future Feature Ideas
 
-- directional candle-run count, close-to-close return, and cumulative body-magnitude features;
 - later macro and market-context joins.
 
 ## Design Constraints

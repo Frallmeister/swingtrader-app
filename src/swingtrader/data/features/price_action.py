@@ -15,6 +15,7 @@ from swingtrader.data.market_frame import (
     validate_required_columns,
 )
 from swingtrader.indicators import (
+    candle_direction_runs,
     candle_geometry,
     candle_patterns,
     candle_range_context,
@@ -35,6 +36,12 @@ _PATTERN_FEATURE_NAMES = {
     "lower_rejection_strength": "candle_lower_rejection_strength",
     "upper_rejection_strength": "candle_upper_rejection_strength",
     "consecutive_inside_bars": "candle_consecutive_inside_bars",
+}
+
+_RUN_FEATURE_NAMES = {
+    "direction_run": "candle_direction_run",
+    "direction_run_return": "candle_direction_run_return",
+    "direction_run_body_atr": "candle_direction_run_body_atr",
 }
 
 
@@ -60,9 +67,12 @@ def add_price_action_features(
     excluding the current row from its reference history. Local pattern outputs
     identify inside and outside bars, count consecutive inside bars, and measure
     engulfing and wick-rejection strength without applying textbook thresholds.
-    Rolling-level outputs measure the close's distance from the preceding
-    ``breakout_length``-row high and low, accepted breakout penetration, and
-    failed intraday breaks that close back inside the prior range. The current
+    Directional-run outputs describe the signed same-direction streak, its
+    cumulative close-to-close return, and its cumulative signed real-body
+    magnitude normalized by prior ATR. Rolling-level outputs measure the close's
+    distance from the preceding ``breakout_length``-row high and low, accepted
+    breakout penetration, and failed intraday breaks that close back inside the
+    prior range. The current
     row is excluded from both rolling levels.
 
     The price columns are first placed on the ``adjusted_close`` scale by
@@ -100,6 +110,7 @@ def add_price_action_features(
         "candle_gap_atr",
         range_percentile_name,
         *_PATTERN_FEATURE_NAMES.values(),
+        *_RUN_FEATURE_NAMES.values(),
         *level_feature_names.values(),
     ]
     validate_new_columns(data, new_columns=new_columns)
@@ -126,9 +137,19 @@ def add_price_action_features(
     patterns = candle_patterns(adjusted_ohlc, atr_length=atr_length).rename(
         columns=_PATTERN_FEATURE_NAMES
     )
+    direction_runs = candle_direction_runs(
+        adjusted_ohlc,
+        atr_length=atr_length,
+    ).rename(columns=_RUN_FEATURE_NAMES)
 
     result = data.copy()
-    return result.join(geometry).join(range_context).join(patterns).join(level_context)
+    return (
+        result.join(geometry)
+        .join(range_context)
+        .join(patterns)
+        .join(direction_runs)
+        .join(level_context)
+    )
 
 
 def _adjusted_ohlc(data: pd.DataFrame) -> pd.DataFrame:
