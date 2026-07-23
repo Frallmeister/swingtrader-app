@@ -44,6 +44,31 @@ def test_add_price_action_features_rejects_existing_direction_run_column() -> No
         add_price_action_features(data)
 
 
+def test_add_price_action_features_direction_runs_are_future_invariant() -> None:
+    data = _prices()
+
+    expected = add_price_action_features(
+        data.iloc[:4],
+        atr_length=1,
+        range_percentile_length=1,
+        breakout_length=1,
+    )
+
+    actual = add_price_action_features(
+        data,
+        atr_length=1,
+        range_percentile_length=1,
+        breakout_length=1,
+    ).iloc[:4]
+
+    columns = [
+        "candle_direction_run",
+        "candle_direction_run_return",
+        "candle_direction_run_body_atr",
+    ]
+    pd.testing.assert_frame_equal(actual[columns], expected[columns])
+
+
 def _prices() -> pd.DataFrame:
     periods = 5
     index = pd.MultiIndex.from_arrays(
