@@ -302,15 +302,18 @@ def _candle_direction_runs(data: pd.DataFrame, *, atr_length: int) -> pd.DataFra
     body = close_values - open_values
     direction = safe_divide(body, body.abs()).where(body.ne(0), 0.0).astype("Int8")
 
+    # Count the current consecutive bullish or bearish candle run with a signed length.
     bullish_count = consecutive_true_count(direction.eq(1))
     bearish_count = consecutive_true_count(direction.eq(-1))
     direction_run = bullish_count.sub(bearish_count).rename("direction_run")
 
+    # Identify active directional runs and assign a stable group identifier to each run.
     active_run = direction.ne(0).fillna(False)
     direction_changed = direction.ne(direction.shift(1)).fillna(True)
     run_start = active_run & direction_changed
     run_id = ((~active_run) | direction_changed).cumsum()
 
+    # Measure cumulative close-to-close return from the close preceding each active run.
     run_baseline = close_values.shift(1).where(run_start).groupby(run_id, sort=False).ffill()
     direction_run_return = (
         safe_divide(close_values, run_baseline)
@@ -320,6 +323,7 @@ def _candle_direction_runs(data: pd.DataFrame, *, atr_length: int) -> pd.DataFra
         .rename("direction_run_return")
     )
 
+    # Accumulate signed real-body movement normalized by the ATR known before each candle.
     prior_atr = _atr(data, length=atr_length).shift(1)
     body_atr = safe_divide(body, prior_atr)
     complete_run = body_atr.notna().groupby(run_id, sort=False).cummin()
