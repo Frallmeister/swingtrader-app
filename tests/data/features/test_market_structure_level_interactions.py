@@ -43,9 +43,7 @@ def test_zigzag_features_measure_failed_breaks_of_confirmed_levels() -> None:
 
     assert high_result.loc[5, "market_structure_close_to_high_atr"] == pytest.approx(0.0)
     assert high_result.loc[5, "market_structure_break_high_strength"] == pytest.approx(0.0)
-    assert high_result.loc[5, "market_structure_failed_break_high_strength"] == pytest.approx(
-        0.5
-    )
+    assert high_result.loc[5, "market_structure_failed_break_high_strength"] == pytest.approx(0.5)
 
     low_failure = _prices().copy()
     low_failure.loc[5, ["low", "close"]] = [99.0, 100.0]

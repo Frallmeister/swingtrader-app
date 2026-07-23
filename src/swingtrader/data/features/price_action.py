@@ -91,12 +91,8 @@ def add_price_action_features(
         "close_to_lower_atr": f"candle_close_to_prior_low_atr_{breakout_length}",
         "breakout_high_strength": f"candle_breakout_high_strength_{breakout_length}",
         "breakout_low_strength": f"candle_breakout_low_strength_{breakout_length}",
-        "failed_break_high_strength": (
-            f"candle_failed_break_high_strength_{breakout_length}"
-        ),
-        "failed_break_low_strength": (
-            f"candle_failed_break_low_strength_{breakout_length}"
-        ),
+        "failed_break_high_strength": (f"candle_failed_break_high_strength_{breakout_length}"),
+        "failed_break_low_strength": (f"candle_failed_break_low_strength_{breakout_length}"),
     }
     new_columns = [
         *_GEOMETRY_FEATURE_NAMES.values(),

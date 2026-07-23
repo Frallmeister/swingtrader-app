@@ -262,18 +262,10 @@ def _zigzag_features(
             "market_structure_low_consistency": state["_zigzag_low_consistency"],
             "market_structure_leg_balance": state["_zigzag_leg_balance"],
             "market_structure_efficiency": state["_zigzag_efficiency"],
-            "market_structure_close_to_high_atr": level_interactions[
-                "close_to_upper_atr"
-            ],
-            "market_structure_close_to_low_atr": level_interactions[
-                "close_to_lower_atr"
-            ],
-            "market_structure_break_high_strength": level_interactions[
-                "breakout_high_strength"
-            ],
-            "market_structure_break_low_strength": level_interactions[
-                "breakout_low_strength"
-            ],
+            "market_structure_close_to_high_atr": level_interactions["close_to_upper_atr"],
+            "market_structure_close_to_low_atr": level_interactions["close_to_lower_atr"],
+            "market_structure_break_high_strength": level_interactions["breakout_high_strength"],
+            "market_structure_break_low_strength": level_interactions["breakout_low_strength"],
             "market_structure_failed_break_high_strength": level_interactions[
                 "failed_break_high_strength"
             ],
