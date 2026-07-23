@@ -27,13 +27,17 @@ def test_add_volatility_features_preserves_source_columns_and_adds_final_feature
     pd.testing.assert_index_equal(result.index, prices.index)
     pd.testing.assert_frame_equal(prices, original)
 
-    expected_adr = adr(prices, length=2)["adr_percent"]
+    adjusted_close = prices["adjusted_close"]
+    adjustment_factor = adjusted_close.div(prices["close"])
+    adjusted_hlc = prices[["high", "low", "close"]].mul(adjustment_factor, axis=0)
+    adjusted_hlc["close"] = adjusted_close
+
+    expected_adr = adr(adjusted_hlc, length=2)["adr_percent"]
     pd.testing.assert_series_equal(result["adr_percent"], expected_adr, check_exact=False)
 
-    expected = atr_percent(prices, length=2).rename("atr_percent")
+    expected = atr_percent(adjusted_hlc, length=2).rename("atr_percent")
     pd.testing.assert_series_equal(result["atr_percent"], expected, check_exact=False)
 
-    adjusted_close = prices["adjusted_close"]
     pd.testing.assert_series_equal(
         result["bollinger_bandwidth"],
         bollinger_bandwidth(adjusted_close, length=3, num_std=2.0).rename("bollinger_bandwidth"),

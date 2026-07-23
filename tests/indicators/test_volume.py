@@ -138,10 +138,10 @@ def test_mfi_groups_by_ticker_index_levels() -> None:
     assert result.loc[("yfinance", "BBB.ST")].isna().all()
 
 
-def test_turnover_calculates_adjusted_close_times_volume() -> None:
+def test_turnover_calculates_close_times_volume() -> None:
     frame = pd.DataFrame(
         {
-            "adjusted_close": [10.0, 12.5, 8.0],
+            "close": [10.0, 12.5, 8.0],
             "volume": [100, 200, 50],
         }
     )
@@ -158,7 +158,7 @@ def test_turnover_calculates_adjusted_close_times_volume() -> None:
 def test_turnover_applies_log1p_when_requested() -> None:
     frame = pd.DataFrame(
         {
-            "adjusted_close": [10.0, 12.5, 8.0],
+            "close": [10.0, 12.5, 8.0],
             "volume": [100, 200, 0],
         }
     )
@@ -172,10 +172,10 @@ def test_turnover_applies_log1p_when_requested() -> None:
     pd.testing.assert_series_equal(result, expected)
 
 
-def test_turnover_requires_adjusted_close_and_volume() -> None:
+def test_turnover_requires_close_and_volume() -> None:
     frame = pd.DataFrame(
         {
-            "adjusted_close": [10.0],
+            "close": [10.0],
         }
     )
 
@@ -189,7 +189,7 @@ def test_turnover_rejects_non_boolean_log(log: object) -> None:
         turnover(
             pd.DataFrame(
                 {
-                    "adjusted_close": [10.0],
+                    "close": [10.0],
                     "volume": [100],
                 }
             ),
@@ -200,7 +200,7 @@ def test_turnover_rejects_non_boolean_log(log: object) -> None:
 def test_turnover_zscore_uses_only_preceding_observations() -> None:
     frame = pd.DataFrame(
         {
-            "adjusted_close": [10.0, 10.0, 10.0, 10.0],
+            "close": [10.0, 10.0, 10.0, 10.0],
             "volume": [10.0, 20.0, 30.0, 100.0],
         }
     )
@@ -224,7 +224,7 @@ def test_turnover_zscore_uses_only_preceding_observations() -> None:
 def test_turnover_zscore_applies_log_transform_before_normalization() -> None:
     frame = pd.DataFrame(
         {
-            "adjusted_close": [10.0, 10.0, 10.0, 10.0],
+            "close": [10.0, 10.0, 10.0, 10.0],
             "volume": [10.0, 20.0, 30.0, 100.0],
         }
     )
@@ -250,7 +250,7 @@ def test_turnover_zscore_applies_log_transform_before_normalization() -> None:
 def test_turnover_zscore_does_not_include_current_value_in_reference_window() -> None:
     baseline = pd.DataFrame(
         {
-            "adjusted_close": [10.0, 10.0, 10.0, 10.0],
+            "close": [10.0, 10.0, 10.0, 10.0],
             "volume": [10.0, 20.0, 30.0, 40.0],
         }
     )
@@ -273,7 +273,7 @@ def test_turnover_zscore_does_not_include_current_value_in_reference_window() ->
 def test_turnover_zscore_requires_full_reference_window() -> None:
     frame = pd.DataFrame(
         {
-            "adjusted_close": [10.0, 10.0, 10.0, 10.0, 10.0],
+            "close": [10.0, 10.0, 10.0, 10.0, 10.0],
             "volume": [10.0, 20.0, 30.0, 40.0, 50.0],
         }
     )
@@ -287,7 +287,7 @@ def test_turnover_zscore_requires_full_reference_window() -> None:
 def test_turnover_zscore_leaves_zero_variance_reference_missing() -> None:
     frame = pd.DataFrame(
         {
-            "adjusted_close": [10.0, 10.0, 10.0, 10.0],
+            "close": [10.0, 10.0, 10.0, 10.0],
             "volume": [100.0, 100.0, 100.0, 200.0],
         }
     )
@@ -300,7 +300,7 @@ def test_turnover_zscore_leaves_zero_variance_reference_missing() -> None:
 def test_turnover_zscore_allows_non_temporal_index_and_preserves_order() -> None:
     frame = pd.DataFrame(
         {
-            "adjusted_close": [10.0, 10.0, 10.0, 10.0],
+            "close": [10.0, 10.0, 10.0, 10.0],
             "volume": [10.0, 20.0, 30.0, 40.0],
         },
         index=pd.Index([2, 0, 3, 1]),
@@ -329,10 +329,10 @@ def test_turnover_zscore_groups_by_ticker_index_levels() -> None:
     assert bbb.isna().all()
 
 
-def test_turnover_zscore_requires_adjusted_close_and_volume() -> None:
+def test_turnover_zscore_requires_close_and_volume() -> None:
     frame = pd.DataFrame(
         {
-            "adjusted_close": [10.0, 11.0],
+            "close": [10.0, 11.0],
         }
     )
 
@@ -346,7 +346,7 @@ def test_turnover_zscore_rejects_invalid_length(length: object) -> None:
         turnover_zscore(
             pd.DataFrame(
                 {
-                    "adjusted_close": [10.0, 11.0],
+                    "close": [10.0, 11.0],
                     "volume": [100, 200],
                 }
             ),
@@ -359,7 +359,7 @@ def test_turnover_zscore_rejects_length_below_two() -> None:
         turnover_zscore(
             pd.DataFrame(
                 {
-                    "adjusted_close": [10.0],
+                    "close": [10.0],
                     "volume": [100],
                 }
             ),
@@ -373,7 +373,7 @@ def test_turnover_zscore_rejects_non_boolean_log(log: object) -> None:
         turnover_zscore(
             pd.DataFrame(
                 {
-                    "adjusted_close": [10.0, 11.0],
+                    "close": [10.0, 11.0],
                     "volume": [100, 200],
                 }
             ),

@@ -5,6 +5,7 @@ import pandas as pd
 from swingtrader.core.numerical import safe_divide
 from swingtrader.data.market_frame import (
     validate_market_price_index,
+    validate_new_columns,
     validate_required_columns,
 )
 
@@ -24,6 +25,8 @@ def add_return_features(
     validate_market_price_index(prices)
     validate_required_columns(prices, required_columns={"adjusted_close"})
     _validate_horizons(horizons)
+    feature_columns = [f"return_{horizon}d" for horizon in horizons]
+    validate_new_columns(prices, new_columns=feature_columns)
 
     data = prices.copy()
     if data.empty:

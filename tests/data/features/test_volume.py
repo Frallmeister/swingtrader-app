@@ -157,7 +157,7 @@ def test_add_volume_features_rejects_unsorted_input() -> None:
         )
 
 
-@pytest.mark.parametrize("missing_column", ["adjusted_close", "volume"])
+@pytest.mark.parametrize("missing_column", ["close", "volume"])
 def test_add_volume_features_requires_input_columns(
     missing_column: str,
 ) -> None:
@@ -235,7 +235,7 @@ def _prices() -> pd.DataFrame:
                     "2026-07-07",
                 ]
             ).date,
-            "adjusted_close": [
+            "close": [
                 10.0,
                 10.0,
                 10.0,
