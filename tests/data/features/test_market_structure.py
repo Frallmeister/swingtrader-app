@@ -93,20 +93,6 @@ def test_add_market_structure_features_preserves_input_and_appends_block() -> No
     pd.testing.assert_frame_equal(result[expected_block.columns], expected_block)
 
 
-def test_add_market_structure_features_requires_adjusted_close() -> None:
-    prices = _prices().drop(columns="adjusted_close")
-
-    with pytest.raises(ValueError, match="Missing required columns"):
-        add_market_structure_features(
-            prices,
-            zigzag_deviation=1.0,
-            zigzag_pivot_legs=4,
-            zigzag_consistency_pivots=3,
-            zigzag_dynamics_legs=4,
-            zigzag_atr_length=5,
-        )
-
-
 def test_zigzag_features_calculate_each_ticker_independently() -> None:
     prices = _indexed_prices()
 
@@ -190,7 +176,6 @@ def _prices() -> pd.DataFrame:
             ],
         }
     )
-    base["adjusted_close"] = base["close"]
     dates = pd.date_range("2026-01-01", periods=len(base), freq="D")
 
     aaa = base.assign(
