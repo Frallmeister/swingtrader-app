@@ -1,14 +1,18 @@
-"""Versioned contracts for reproducible model feature sets."""
+"""Concrete, versioned feature-set definitions.
+
+This module is the catalog of reproducible feature sets built from the
+contract types in :mod:`swingtrader.data.features.contracts`. It holds
+configured instances such as :data:`DEFAULT_FEATURE_SET`; add new named and
+versioned sets here rather than in the module that defines the spec types.
+"""
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
-from enum import StrEnum
-from types import MappingProxyType
-
-import pandas as pd
-
+from swingtrader.data.features.contracts import (
+    FeatureBlockSpec,
+    FeatureSetSpec,
+    HistoryRequirement,
+)
 from swingtrader.data.features.market_structure import add_market_structure_features
 from swingtrader.data.features.momentum import add_momentum_features
 from swingtrader.data.features.price_action import add_price_action_features
@@ -16,145 +20,6 @@ from swingtrader.data.features.returns import add_return_features
 from swingtrader.data.features.trend import add_trend_features
 from swingtrader.data.features.volatility import add_volatility_features
 from swingtrader.data.features.volume import add_volume_features
-
-type FeatureParameter = bool | int | float | str | tuple[object, ...]
-type FeatureBuilder = Callable[..., pd.DataFrame]
-
-
-class HistoryRequirement(StrEnum):
-    """Describe how much historical state a feature block may depend on."""
-
-    BOUNDED = "bounded"
-    EXPANDING = "expanding"
-    PATH_DEPENDENT = "path_dependent"
-
-
-@dataclass(frozen=True, slots=True)
-class FeatureBlockSpec:
-    """Declare one executable feature-family block and its stable schema."""
-
-    name: str
-    builder: FeatureBuilder = field(repr=False, compare=False)
-    parameters: Mapping[str, FeatureParameter] = field(default_factory=dict)
-    output_columns: tuple[str, ...] = ()
-    required_columns: frozenset[str] = frozenset()
-    history_requirement: HistoryRequirement = HistoryRequirement.BOUNDED
-
-    def __post_init__(self) -> None:
-        if not self.name:
-            raise ValueError("Feature block name must not be empty.")
-
-        output_columns = tuple(self.output_columns)
-        object.__setattr__(self, "output_columns", output_columns)
-
-        if not output_columns:
-            raise ValueError(f"Feature block {self.name!r} must declare output columns.")
-        if len(output_columns) != len(set(output_columns)):
-            raise ValueError(f"Feature block {self.name!r} contains duplicate output columns.")
-
-        object.__setattr__(self, "parameters", MappingProxyType(dict(self.parameters)))
-        object.__setattr__(self, "required_columns", frozenset(self.required_columns))
-
-    @property
-    def builder_path(self) -> str:
-        """Return the import path of the configured builder."""
-        return f"{self.builder.__module__}.{self.builder.__qualname__}"
-
-    def apply(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Apply this block with its declared parameters."""
-        return self.builder(data, **self.parameters)
-
-    def to_manifest(self) -> dict[str, object]:
-        """Return a deterministic, JSON-serializable block description."""
-        return {
-            "name": self.name,
-            "builder": self.builder_path,
-            "parameters": {
-                key: _json_value(value) for key, value in sorted(self.parameters.items())
-            },
-            "output_columns": list(self.output_columns),
-            "required_columns": sorted(self.required_columns),
-            "history_requirement": self.history_requirement.value,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class FeatureSetSpec:
-    """Declare an ordered, versioned collection of feature blocks."""
-
-    name: str
-    version: str
-    blocks: tuple[FeatureBlockSpec, ...]
-
-    def __post_init__(self) -> None:
-        if not self.name:
-            raise ValueError("Feature set name must not be empty.")
-        if not self.version:
-            raise ValueError("Feature set version must not be empty.")
-        blocks = tuple(self.blocks)
-        object.__setattr__(self, "blocks", blocks)
-
-        if not blocks:
-            raise ValueError("A feature set must contain at least one block.")
-
-        block_names = tuple(block.name for block in blocks)
-
-        if len(block_names) != len(set(block_names)):
-            raise ValueError("Feature block names must be unique within a feature set.")
-
-        output_columns = self.feature_columns
-        if len(output_columns) != len(set(output_columns)):
-            raise ValueError("Feature output columns must be unique across a feature set.")
-
-    @property
-    def identifier(self) -> str:
-        """Return the stable feature-set name and version identifier."""
-        return f"{self.name}:{self.version}"
-
-    @property
-    def feature_columns(self) -> tuple[str, ...]:
-        """Return all declared feature columns in execution order."""
-        return tuple(column for block in self.blocks for column in block.output_columns)
-
-    @property
-    def required_columns(self) -> frozenset[str]:
-        """Return the union of source columns required by all blocks."""
-        return frozenset(column for block in self.blocks for column in block.required_columns)
-
-    def select(
-        self,
-        *block_names: str,
-        name: str,
-        version: str,
-    ) -> FeatureSetSpec:
-        """Return a newly identified subset in the original block order."""
-        requested = set(block_names)
-        if not requested:
-            raise ValueError("At least one feature block name is required.")
-
-        available = {block.name for block in self.blocks}
-        unknown = requested.difference(available)
-        if unknown:
-            names = ", ".join(sorted(unknown))
-            raise ValueError(f"Unknown feature block names: {names}.")
-
-        return FeatureSetSpec(
-            name=name,
-            version=version,
-            blocks=tuple(block for block in self.blocks if block.name in requested),
-        )
-
-    def to_manifest(self) -> dict[str, object]:
-        """Return a deterministic, JSON-serializable feature-set manifest."""
-        return {
-            "name": self.name,
-            "version": self.version,
-            "identifier": self.identifier,
-            "feature_columns": list(self.feature_columns),
-            "required_columns": sorted(self.required_columns),
-            "blocks": [block.to_manifest() for block in self.blocks],
-        }
-
 
 DEFAULT_FEATURE_SET = FeatureSetSpec(
     name="ohlcv_v1_candidates",
@@ -342,9 +207,3 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
         ),
     ),
 )
-
-
-def _json_value(value: object) -> object:
-    if isinstance(value, tuple):
-        return [_json_value(item) for item in value]
-    return value

@@ -126,7 +126,13 @@ analysis.
 
 ## Versioned Feature Sets
 
-::: swingtrader.data.features.feature_sets
+### Contract Types
+
+::: swingtrader.data.features.contracts
+
+### Catalog
+
+::: swingtrader.data.features.catalog
 
 ## Modeling Dataset Labels
 
