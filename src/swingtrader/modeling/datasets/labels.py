@@ -24,7 +24,6 @@ FORWARD_RETURN_COLUMNS = tuple(
     f"forward_return_{horizon}d" for horizon in V1_FORWARD_RETURN_HORIZONS
 )
 TARGET_SIGNIFICANT_UP_5D_COLUMN = "target_significant_up_5d"
-LABEL_COLUMNS = (*FORWARD_RETURN_COLUMNS, TARGET_SIGNIFICANT_UP_5D_COLUMN)
 
 
 def add_forward_return_targets(
@@ -120,12 +119,6 @@ def generate_target_set(
 def generate_v1_labels(prices: pd.DataFrame) -> pd.DataFrame:
     """Add the versioned V1 target set while preserving historical behavior."""
     from swingtrader.modeling.datasets.target_catalog import V1_TARGET_SET
-
-    required_columns = {"adjusted_close"}
-    missing_columns = required_columns.difference(prices.columns)
-    if missing_columns:
-        missing_names = ", ".join(sorted(missing_columns))
-        raise ValueError(f"Missing required price columns: {missing_names}")
 
     return generate_target_set(prices, target_set=V1_TARGET_SET)
 

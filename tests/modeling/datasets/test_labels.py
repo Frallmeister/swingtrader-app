@@ -212,7 +212,7 @@ def test_generate_v1_labels_returns_empty_frame_with_stable_label_columns() -> N
 def test_generate_v1_labels_rejects_missing_required_columns() -> None:
     prices = pd.DataFrame(columns=["provider", "ticker", "trading_date"])
 
-    with pytest.raises(ValueError, match="Missing required price columns: adjusted_close"):
+    with pytest.raises(ValueError, match="missing required columns: adjusted_close"):
         generate_v1_labels(prices)
 
 
