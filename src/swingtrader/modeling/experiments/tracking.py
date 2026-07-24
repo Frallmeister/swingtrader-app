@@ -67,9 +67,12 @@ class DatasetSplitSummary:
             raise ValueError("A non-empty dataset summary must declare at least one ticker.")
         if self.rows > 0 and self.start_date is None:
             raise ValueError("A non-empty dataset summary must declare its date range.")
-        if self.start_date is not None and self.end_date is not None:
-            if self.start_date > self.end_date:
-                raise ValueError("Dataset summary start date must not follow its end date.")
+        if (
+            self.start_date is not None
+            and self.end_date is not None
+            and self.start_date > self.end_date
+        ):
+            raise ValueError("Dataset summary start date must not follow its end date.")
         if self.class_prevalence is not None:
             if isinstance(self.class_prevalence, bool) or not isinstance(
                 self.class_prevalence, Real
@@ -92,9 +95,7 @@ class DatasetSummary:
     def __post_init__(self) -> None:
         for split_name in ("train", "validation", "test"):
             if not isinstance(getattr(self, split_name), DatasetSplitSummary):
-                raise TypeError(
-                    f"Dataset {split_name} summary must be a DatasetSplitSummary."
-                )
+                raise TypeError(f"Dataset {split_name} summary must be a DatasetSplitSummary.")
 
 
 class ExperimentRun:
@@ -254,9 +255,7 @@ def _dataset_metrics(summary: DatasetSummary) -> dict[str, float]:
     for split_name in ("train", "validation", "test"):
         split = getattr(summary, split_name)
         if split.class_prevalence is not None:
-            metrics[f"dataset.{split_name}.class_prevalence"] = float(
-                split.class_prevalence
-            )
+            metrics[f"dataset.{split_name}.class_prevalence"] = float(split.class_prevalence)
     return metrics
 
 

@@ -19,8 +19,8 @@ from swingtrader.modeling.experiments import (
     TemporalSplitSpec,
     UniverseSpec,
     start_experiment_run,
+    tracking,
 )
-from swingtrader.modeling.experiments import tracking
 
 
 def _experiment_spec() -> ExperimentSpec:
@@ -285,9 +285,11 @@ def test_experiment_run_validates_metric_step() -> None:
 
 
 def test_start_experiment_run_rejects_blank_run_name() -> None:
-    with pytest.raises(ValueError, match="run name"):
-        with start_experiment_run(_experiment_spec(), run_name="   "):
-            pass
+    with (
+        pytest.raises(ValueError, match="run name"),
+        start_experiment_run(_experiment_spec(), run_name="   "),
+    ):
+        pass
 
 
 def test_dataset_split_summary_rejects_non_numeric_prevalence() -> None:

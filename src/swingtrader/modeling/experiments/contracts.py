@@ -53,8 +53,7 @@ def _freeze_value(value: object, *, path: str) -> object:
         return MappingProxyType(frozen)
     if isinstance(value, (list, tuple)):
         return tuple(
-            _freeze_value(item, path=f"{path}[{position}]")
-            for position, item in enumerate(value)
+            _freeze_value(item, path=f"{path}[{position}]") for position, item in enumerate(value)
         )
     raise TypeError(
         f"{path} contains unsupported value {value!r}; use JSON-compatible "
@@ -103,9 +102,7 @@ class UniverseSpec:
         try:
             tickers = tuple(self.tickers)
         except TypeError as exc:
-            raise TypeError(
-                "Universe tickers must be an iterable of ticker strings."
-            ) from exc
+            raise TypeError("Universe tickers must be an iterable of ticker strings.") from exc
         if not tickers:
             raise ValueError("A universe must contain at least one ticker.")
         if any(not isinstance(ticker, str) or not ticker.strip() for ticker in tickers):
