@@ -11,6 +11,7 @@ from swingtrader.data.features import (
     HistoryRequirement,
     add_default_features,
     add_feature_set,
+    add_return_features,
 )
 from swingtrader.data.features.catalog import (
     DEFAULT_FEATURE_SET as CATALOG_DEFAULT_FEATURE_SET,
@@ -161,6 +162,69 @@ def _block(
         output_columns=output_columns,
         history_requirement=HistoryRequirement.BOUNDED,
     )
+
+
+def test_feature_set_digest_is_sha256_hex() -> None:
+    assert len(DEFAULT_FEATURE_SET.digest) == 64
+    int(DEFAULT_FEATURE_SET.digest, 16)
+
+
+def test_equivalent_feature_sets_have_equal_digests() -> None:
+    first = FeatureSetSpec(
+        name="example",
+        version="1",
+        blocks=(
+            FeatureBlockSpec(
+                name="returns",
+                builder=add_return_features,
+                parameters={"horizons": (1, 5)},
+                output_columns=("return_1d", "return_5d"),
+                required_columns=frozenset({"adjusted_close"}),
+            ),
+        ),
+    )
+    second = FeatureSetSpec(
+        name="example",
+        version="1",
+        blocks=(
+            FeatureBlockSpec(
+                name="returns",
+                builder=add_return_features,
+                parameters={"horizons": (1, 5)},
+                output_columns=("return_1d", "return_5d"),
+                required_columns=frozenset({"adjusted_close"}),
+            ),
+        ),
+    )
+    assert first.digest == second.digest
+
+
+def test_feature_set_digest_changes_when_parameters_change() -> None:
+    first = FeatureSetSpec(
+        name="example",
+        version="1",
+        blocks=(
+            FeatureBlockSpec(
+                name="returns",
+                builder=add_return_features,
+                parameters={"horizons": (1, 5)},
+                output_columns=("return_1d", "return_5d"),
+            ),
+        ),
+    )
+    second = FeatureSetSpec(
+        name="example",
+        version="1",
+        blocks=(
+            FeatureBlockSpec(
+                name="returns",
+                builder=add_return_features,
+                parameters={"horizons": (1, 10)},
+                output_columns=("return_1d", "return_10d"),
+            ),
+        ),
+    )
+    assert first.digest != second.digest
 
 
 def _prices() -> pd.DataFrame:

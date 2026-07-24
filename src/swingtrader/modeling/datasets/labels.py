@@ -1,16 +1,19 @@
-"""V1 forward-return labels for modeling datasets."""
+"""Target builders and execution helpers for modeling datasets."""
 
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    from swingtrader.modeling.datasets.contracts import TargetSetSpec
 
 V1_FORWARD_RETURN_HORIZONS = (5, 10, 15)
 V1_COMMISSION = 0.0025
 V1_ANNUAL_RETURN_TARGET = 0.50
 V1_TRADING_DAYS_PER_YEAR = 252
 V1_PREDICTION_HORIZON = 5
-
 V1_REQUIRED_NET_RETURN = (1 + V1_ANNUAL_RETURN_TARGET) ** (
     V1_PREDICTION_HORIZON / V1_TRADING_DAYS_PER_YEAR
 ) - 1
@@ -21,49 +24,35 @@ FORWARD_RETURN_COLUMNS = tuple(
     f"forward_return_{horizon}d" for horizon in V1_FORWARD_RETURN_HORIZONS
 )
 TARGET_SIGNIFICANT_UP_5D_COLUMN = "target_significant_up_5d"
-LABEL_COLUMNS = (*FORWARD_RETURN_COLUMNS, TARGET_SIGNIFICANT_UP_5D_COLUMN)
 
 
-def generate_v1_labels(prices: pd.DataFrame) -> pd.DataFrame:
-    """Add V1 forward returns and the primary binary target to daily prices.
+def add_forward_return_targets(
+    prices: pd.DataFrame,
+    *,
+    horizons: tuple[int, ...],
+) -> pd.DataFrame:
+    """Append adjusted-close returns over future observed sessions.
 
-    The input must contain one row per ``provider``, ``ticker``, and ``trading_date``
-    observation with an ``adjusted_close`` value. Horizons are measured in observed rows
-    within each provider/ticker group, not calendar days. The returned DataFrame preserves
-    the caller's rows and columns while appending label columns.
-
-    Parameters
-    ----------
-    prices
-        Daily price observations compatible with ``load_bronze_daily_prices()``.
-
-    Returns
-    -------
-    pandas.DataFrame
-        A copy of ``prices`` with V1 label columns appended.
-
-    Raises
-    ------
-    ValueError
-        Raised when required columns are missing or duplicate provider/ticker/trading-date
-        observations make forward-label alignment ambiguous.
+    Rows are calculated independently per provider and ticker after ordering by
+    trading date. A return is missing when either the current or required future
+    adjusted close is unavailable, non-finite, or non-positive.
     """
     _validate_required_columns(prices)
+    result = prices.copy()
+    if result.empty:
+        for horizon in horizons:
+            result[f"forward_return_{horizon}d"] = pd.Series(dtype="float64")
+        return result
 
-    labeled_prices = prices.copy()
-    if labeled_prices.empty:
-        return _append_empty_label_columns(labeled_prices)
-
-    normalized_dates = pd.to_datetime(labeled_prices["trading_date"])
-    _validate_unique_observations(labeled_prices, normalized_dates)
-
+    normalized_dates = pd.to_datetime(result["trading_date"])
+    _validate_unique_observations(result, normalized_dates)
     calculation_frame = pd.DataFrame(
         {
-            "__original_index": range(len(labeled_prices)),
-            "provider": labeled_prices["provider"].to_numpy(),
-            "ticker": labeled_prices["ticker"].to_numpy(),
+            "__original_index": range(len(result)),
+            "provider": result["provider"].to_numpy(),
+            "ticker": result["ticker"].to_numpy(),
             "trading_date": normalized_dates.to_numpy(),
-            "adjusted_close": pd.to_numeric(labeled_prices["adjusted_close"], errors="coerce"),
+            "adjusted_close": pd.to_numeric(result["adjusted_close"], errors="coerce"),
         }
     )
     adjusted_close = calculation_frame["adjusted_close"]
@@ -71,50 +60,85 @@ def generate_v1_labels(prices: pd.DataFrame) -> pd.DataFrame:
         adjusted_close.le(0) | ~np.isfinite(adjusted_close)
     )
     calculation_frame = calculation_frame.sort_values(
-        ["provider", "ticker", "trading_date", "__original_index"],
-        kind="mergesort",
+        ["provider", "ticker", "trading_date", "__original_index"], kind="mergesort"
     )
-
-    grouped_adjusted_close = calculation_frame.groupby(
-        ["provider", "ticker"],
-        sort=False,
-    )["adjusted_close"]
-
-    for horizon in V1_FORWARD_RETURN_HORIZONS:
-        forward_adjusted_close = grouped_adjusted_close.shift(-horizon)
+    grouped = calculation_frame.groupby(["provider", "ticker"], sort=False)["adjusted_close"]
+    for horizon in horizons:
         calculation_frame[f"forward_return_{horizon}d"] = (
-            forward_adjusted_close / calculation_frame["adjusted_close"] - 1
+            grouped.shift(-horizon) / calculation_frame["adjusted_close"] - 1
         )
-
     calculation_frame = calculation_frame.sort_values("__original_index", kind="mergesort")
-    calculation_frame.index = labeled_prices.index
+    calculation_frame.index = result.index
+    for horizon in horizons:
+        column = f"forward_return_{horizon}d"
+        result[column] = calculation_frame[column].astype("float64")
+    return result
 
-    for column in FORWARD_RETURN_COLUMNS:
-        labeled_prices[column] = calculation_frame[column].astype("float64")
 
-    target = pd.Series(pd.NA, index=labeled_prices.index, dtype="boolean")
-    valid_forward_return_5d = labeled_prices["forward_return_5d"].notna()
-    target.loc[valid_forward_return_5d] = (
-        labeled_prices.loc[valid_forward_return_5d, "forward_return_5d"] > V1_RETURN_THRESHOLD
-    ).astype("boolean")
-    labeled_prices[TARGET_SIGNIFICANT_UP_5D_COLUMN] = target
+def add_fixed_return_target(
+    data: pd.DataFrame,
+    *,
+    forward_return_column: str,
+    output_column: str,
+    threshold: float,
+) -> pd.DataFrame:
+    """Append a nullable Boolean target using a strict return threshold."""
+    if forward_return_column not in data.columns:
+        raise ValueError(f"Missing required target column: {forward_return_column}")
+    result = data.copy()
+    target = pd.Series(pd.NA, index=result.index, dtype="boolean")
+    valid = result[forward_return_column].notna()
+    target.loc[valid] = result.loc[valid, forward_return_column].gt(threshold).astype("boolean")
+    result[output_column] = target
+    return result
 
-    return labeled_prices
+
+def generate_target_set(
+    prices: pd.DataFrame,
+    *,
+    target_set: "TargetSetSpec",
+) -> pd.DataFrame:
+    """Execute target families in declaration order.
+
+    Before and after each family, validate required inputs, output collisions,
+    and the presence of all declared target columns.
+    """
+    result = prices
+    for family in target_set.families:
+        missing = sorted(family.required_columns.difference(result.columns))
+        if missing:
+            raise ValueError(
+                f"Target family {family.name!r} is missing required columns: {', '.join(missing)}"
+            )
+        collisions = sorted(set(family.output_columns).intersection(result.columns))
+        if collisions:
+            raise ValueError(
+                f"Target family {family.name!r} would overwrite columns: {', '.join(collisions)}"
+            )
+        result = family.apply(result)
+        missing_outputs = sorted(set(family.output_columns).difference(result.columns))
+        if missing_outputs:
+            raise ValueError(
+                f"Target family {family.name!r} did not produce columns: "
+                f"{', '.join(missing_outputs)}"
+            )
+    return result
+
+
+def generate_v1_labels(prices: pd.DataFrame) -> pd.DataFrame:
+    """Generate labels using the repository's versioned V1 target set."""
+    from swingtrader.modeling.datasets.catalog import V1_TARGET_SET
+
+    return generate_target_set(prices, target_set=V1_TARGET_SET)
 
 
 def _validate_required_columns(prices: pd.DataFrame) -> None:
     missing_columns = _missing_columns(REQUIRED_PRICE_COLUMNS, prices.columns)
-    if not missing_columns:
-        return
-
-    msg = f"Missing required price columns: {', '.join(missing_columns)}"
-    raise ValueError(msg)
+    if missing_columns:
+        raise ValueError(f"Missing required price columns: {', '.join(missing_columns)}")
 
 
-def _validate_unique_observations(
-    prices: pd.DataFrame,
-    normalized_dates: pd.Series,
-) -> None:
+def _validate_unique_observations(prices: pd.DataFrame, normalized_dates: pd.Series) -> None:
     keys = pd.DataFrame(
         {
             "provider": prices["provider"],
@@ -122,19 +146,8 @@ def _validate_unique_observations(
             "trading_date": normalized_dates,
         }
     )
-    if not keys.duplicated().any():
-        return
-
-    msg = "Duplicate provider/ticker/trading_date observations are not allowed"
-    raise ValueError(msg)
-
-
-def _append_empty_label_columns(prices: pd.DataFrame) -> pd.DataFrame:
-    labeled_prices = prices.copy()
-    for column in FORWARD_RETURN_COLUMNS:
-        labeled_prices[column] = pd.Series(dtype="float64")
-    labeled_prices[TARGET_SIGNIFICANT_UP_5D_COLUMN] = pd.Series(dtype="boolean")
-    return labeled_prices
+    if keys.duplicated().any():
+        raise ValueError("Duplicate provider/ticker/trading_date observations are not allowed")
 
 
 def _missing_columns(required_columns: Sequence[str], available_columns: pd.Index) -> list[str]:

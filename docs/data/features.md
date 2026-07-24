@@ -374,6 +374,8 @@ A selected set requires its own name and version so two different schemas cannot
 
 The JSON-serializable output of `FeatureSetSpec.to_manifest()` is intended to be embedded in later dataset and model manifests. Those broader manifests must also record the label definition, data snapshot, temporal split, code commit, preprocessing, and model parameters; this feature-layer PR does not attempt to own those modeling concerns.
 
+A feature set also exposes a deterministic SHA-256 digest of its canonical manifest for compact experiment and artifact provenance. The digest identifies the declared configuration; exact reproduction additionally requires the source revision and corresponding input data.
+
 ## Future Feature Ideas
 
 - later macro and market-context joins.
