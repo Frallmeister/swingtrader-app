@@ -259,6 +259,35 @@ def _dataset_metrics(summary: DatasetSummary) -> dict[str, float]:
     return metrics
 
 
+def _validate_dataset_summary(spec: ExperimentSpec, summary: DatasetSummary) -> None:
+    declared_ranges = {
+        "train": (spec.split.train_start, spec.split.train_end),
+        "validation": (
+            spec.split.validation_start,
+            spec.split.validation_end,
+        ),
+        "test": (spec.split.test_start, spec.split.test_end),
+    }
+    universe_size = len(spec.universe.tickers)
+
+    for split_name, (declared_start, declared_end) in declared_ranges.items():
+        observed = getattr(summary, split_name)
+        if observed.ticker_count > universe_size:
+            raise ValueError(
+                f"Dataset {split_name} ticker count must not exceed the "
+                "experiment universe size."
+            )
+        observed_start = observed.start_date
+        observed_end = observed.end_date
+        if observed_start is None or observed_end is None:
+            continue
+        if observed_start < declared_start or observed_end > declared_end:
+            raise ValueError(
+                f"Dataset {split_name} date range must fall within the declared "
+                "temporal split."
+            )
+
+
 @contextmanager
 def start_experiment_run(
     spec: ExperimentSpec,
@@ -280,6 +309,8 @@ def start_experiment_run(
         raise ValueError("MLflow experiment name must be a non-empty string.")
     if run_name is not None and (not isinstance(run_name, str) or not run_name.strip()):
         raise ValueError("MLflow run name must be a non-empty string when provided.")
+    if dataset_summary is not None:
+        _validate_dataset_summary(spec, dataset_summary)
 
     mlflow = _import_mlflow()
     resolved_uri = tracking_uri or os.getenv("MLFLOW_TRACKING_URI") or local_tracking_uri()

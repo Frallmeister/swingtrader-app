@@ -108,21 +108,21 @@ from swingtrader.modeling.experiments import (
 summary = DatasetSummary(
     train=DatasetSplitSummary(
         rows=120_000,
-        ticker_count=180,
+        ticker_count=3,
         start_date=date(2010, 1, 4),
         end_date=date(2021, 12, 30),
         class_prevalence=0.18,
     ),
     validation=DatasetSplitSummary(
         rows=24_000,
-        ticker_count=178,
+        ticker_count=3,
         start_date=date(2022, 1, 3),
         end_date=date(2023, 12, 29),
         class_prevalence=0.17,
     ),
     test=DatasetSplitSummary(
         rows=25_000,
-        ticker_count=176,
+        ticker_count=3,
         start_date=date(2024, 1, 2),
         end_date=date(2025, 12, 30),
         class_prevalence=0.16,
@@ -153,7 +153,7 @@ The initialized run records:
 - the complete canonical experiment manifest at `manifests/experiment.json`;
 - metrics and generated artifacts logged by the training workflow.
 
-Dataset summaries deliberately contain no feature or target rows. The current Yahoo Finance bronze data remains the historical source of truth, while stronger source-data versioning or materialized dataset snapshots can be added later if the data source becomes mutable or multi-provider.
+Dataset summaries deliberately contain no feature or target rows. Before a run starts, their ticker counts and observed date ranges are checked against the experiment's declared universe and temporal split. The current Yahoo Finance bronze data remains the historical source of truth, while stronger source-data versioning or materialized dataset snapshots can be added later if the data source becomes mutable or multi-provider.
 
 The lightweight project dependency intentionally does not install MLflow's server or UI. To inspect recorded runs, launch a transient full MLflow CLI against the same database:
 

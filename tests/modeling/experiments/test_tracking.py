@@ -61,21 +61,21 @@ def _dataset_summary() -> DatasetSummary:
     return DatasetSummary(
         train=DatasetSplitSummary(
             rows=1_000,
-            ticker_count=100,
+            ticker_count=2,
             start_date=date(2010, 1, 4),
             end_date=date(2021, 12, 30),
             class_prevalence=0.18,
         ),
         validation=DatasetSplitSummary(
             rows=200,
-            ticker_count=98,
+            ticker_count=2,
             start_date=date(2022, 1, 3),
             end_date=date(2023, 12, 29),
             class_prevalence=0.17,
         ),
         test=DatasetSplitSummary(
             rows=250,
-            ticker_count=97,
+            ticker_count=2,
             start_date=date(2024, 1, 2),
             end_date=date(2025, 12, 30),
             class_prevalence=0.16,
@@ -143,7 +143,7 @@ def test_start_experiment_run_logs_configuration_summary_metrics_and_artifacts(
     assert fake_mlflow.params["git.commit"] == "abc123"
     assert fake_mlflow.params["task.target_column"] == "target_tp_before_sl_5d"
     assert fake_mlflow.params["dataset.train.rows"] == 1_000
-    assert fake_mlflow.params["dataset.test.ticker_count"] == 97
+    assert fake_mlflow.params["dataset.test.ticker_count"] == 2
     prevalence_metrics = {
         "dataset.train.class_prevalence": 0.18,
         "dataset.validation.class_prevalence": 0.17,
@@ -160,6 +160,58 @@ def test_start_experiment_run_logs_configuration_summary_metrics_and_artifacts(
     assert manifest_artifact[1] == "manifests"
     assert json.loads(manifest_artifact[2])["identifier"] == "baseline:1"
     assert ("report.txt", "reports", "evaluation report") in fake_mlflow.artifacts
+
+
+def test_start_experiment_run_rejects_summary_outside_declared_split(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_mlflow = FakeMlflow()
+    valid = _dataset_summary()
+    monkeypatch.setattr(tracking, "_import_mlflow", lambda: fake_mlflow)
+    invalid = DatasetSummary(
+        train=DatasetSplitSummary(
+            rows=10,
+            ticker_count=1,
+            start_date=date(2009, 12, 31),
+            end_date=date(2021, 12, 30),
+        ),
+        validation=valid.validation,
+        test=valid.test,
+    )
+
+    with (
+        pytest.raises(ValueError, match="train date range"),
+        start_experiment_run(_experiment_spec(), dataset_summary=invalid),
+    ):
+        pass
+
+    assert fake_mlflow.tracking_uri is None
+
+
+def test_start_experiment_run_rejects_tickers_outside_universe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_mlflow = FakeMlflow()
+    valid = _dataset_summary()
+    monkeypatch.setattr(tracking, "_import_mlflow", lambda: fake_mlflow)
+    invalid = DatasetSummary(
+        train=DatasetSplitSummary(
+            rows=10,
+            ticker_count=3,
+            start_date=date(2010, 1, 4),
+            end_date=date(2021, 12, 30),
+        ),
+        validation=valid.validation,
+        test=valid.test,
+    )
+
+    with (
+        pytest.raises(ValueError, match="universe size"),
+        start_experiment_run(_experiment_spec(), dataset_summary=invalid),
+    ):
+        pass
+
+    assert fake_mlflow.tracking_uri is None
 
 
 def test_tracking_module_does_not_import_mlflow_until_a_run_starts(
