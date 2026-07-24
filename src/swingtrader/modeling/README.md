@@ -14,7 +14,11 @@ The `swingtrader.modeling.datasets` package contains:
 - `barriers.py`, which implements next-open ATR barrier-event targets, gap
   handling, and deterministic same-bar ambiguity policies.
 
-The V1 target set adds 5-, 10-, and 15-session forward adjusted-close returns plus the nullable Boolean `target_significant_up_5d` column. V2 preserves those outputs and adds ATR-scaled take-profit/stop-loss outcomes over the same horizons. Calculations remain in memory and do not load from or write to the database. Exact reproduction requires both the serialized target manifest and the source revision containing the configured builders.
+The V1 target set adds 5-, 10-, and 15-session forward adjusted-close returns plus the nullable Boolean `target_significant_up_5d` column. V2 preserves those outputs and adds ATR-scaled take-profit/stop-loss outcomes over the same horizons.
+
+Target builders consume the same canonical market-price frame as indicators and features: a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`, with those identifiers absent from ordinary columns. Builders preserve that index so features and labels align on the same observation identity. Column-oriented bronze rows are converted at the caller boundary with `set_index(...).sort_index()`.
+
+Calculations remain in memory and do not load from or write to the database. Exact reproduction requires both the serialized target manifest and the source revision containing the configured builders.
 
 See the main documentation for the current modeling plan:
 

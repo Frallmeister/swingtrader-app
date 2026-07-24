@@ -1,7 +1,7 @@
-"""Canonical in-memory market-data contract shared by indicators and features.
+"""Canonical in-memory market-data contract shared by indicators, features, and modeling.
 
 This module defines and enforces the canonical market-price representation used
-across the indicator and feature layers. It contains only pandas ``DataFrame``
+across the indicator, feature, and modeling layers. It contains only pandas ``DataFrame``
 and ``Series`` helpers; it does not introduce a custom dataframe wrapper class.
 
 The canonical multi-instrument contract is a unique, sorted ``MultiIndex`` with
@@ -21,7 +21,7 @@ MARKET_PRICE_INDEX_NAMES = ("provider", "ticker", "trading_date")
 def validate_market_price_index(data: pd.DataFrame | pd.Series) -> None:
     """Validate the canonical market-price MultiIndex.
 
-    Market-price data used by the feature layer must have a unique index sorted in
+    Market-price data used by feature and modeling builders must have a unique index sorted in
     canonical order with levels ``provider``, ``ticker``, and ``trading_date``, in
     that exact order. The identifiers must not also appear as ordinary columns.
 
@@ -54,7 +54,7 @@ def validate_market_price_index(data: pd.DataFrame | pd.Series) -> None:
     if not index.is_monotonic_increasing:
         raise ValueError(
             "Market-price data must be sorted by 'provider', 'ticker', and "
-            "'trading_date'. Call data.sort_index() before generating features."
+            "'trading_date'. Call data.sort_index() before generating features or targets."
         )
 
 

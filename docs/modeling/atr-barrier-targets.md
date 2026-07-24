@@ -43,10 +43,11 @@ construct labels.
 Horizons count observed sessions within each provider/ticker series, not calendar
 days. Session 1 is the next observed row after the signal row and supplies the
 entry open. A 5-session label therefore evaluates sessions `t+1` through `t+5`.
-The source rows may arrive unsorted; target generation sorts internally by
-provider, ticker, and trading date, while preserving the input row order in the
-returned DataFrame. Inputs require raw `open`, `high`, `low`, and `close` plus
-`adjusted_close`.
+
+Input must use the canonical, unique, sorted `MultiIndex` with levels `provider`,
+`ticker`, and `trading_date`, in that exact order. The identifiers must not also
+appear as ordinary columns. Target generation preserves this index. Value columns
+must include raw `open`, `high`, `low`, and `close` plus `adjusted_close`.
 
 A row remains unlabeled when:
 
@@ -134,6 +135,11 @@ cannot be ordered reliably without adding another path assumption.
 ```python
 from swingtrader.modeling.datasets import add_atr_barrier_targets
 
+prices = (
+    prices
+    .set_index(["provider", "ticker", "trading_date"])
+    .sort_index()
+)
 labeled = add_atr_barrier_targets(
     prices,
     atr_length=14,
@@ -154,7 +160,7 @@ from swingtrader.modeling.datasets import generate_v2_labels
 labeled = generate_v2_labels(prices)
 ```
 
-All material parameters, required columns, output columns, builder paths, and the
+All material parameters, required inputs, output columns, builder paths, and the
 maximum future horizon are serialized in the V2 target-set manifest. Changing a
 barrier parameter changes the manifest digest and should be accompanied by a new
 target-set version when it changes the intended experiment contract.

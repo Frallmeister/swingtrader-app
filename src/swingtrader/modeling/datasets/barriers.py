@@ -6,12 +6,16 @@ gaps, same-bar ambiguity, incomplete terminal horizons, and deterministic
 versioned output schemas.
 """
 
-from collections.abc import Sequence
 from typing import Literal
 
 import numpy as np
 import pandas as pd
 
+from swingtrader.data.market_frame import (
+    MARKET_PRICE_INDEX_NAMES,
+    validate_market_price_index,
+    validate_required_columns,
+)
 from swingtrader.indicators.volatility import atr
 
 EntryPriceRule = Literal["next_open"]
@@ -23,9 +27,7 @@ IntrabarPolicy = Literal[
 ]
 
 BARRIER_REQUIRED_PRICE_COLUMNS = (
-    "provider",
-    "ticker",
-    "trading_date",
+    *MARKET_PRICE_INDEX_NAMES,
     "open",
     "high",
     "low",
@@ -96,8 +98,9 @@ def add_atr_barrier_targets(
     Parameters
     ----------
     prices
-        Daily price rows containing provider, ticker, trading date, raw OHLC,
-        and adjusted close columns.
+        Daily prices using the canonical, unique, sorted MultiIndex with levels
+        ``provider``, ``ticker``, and ``trading_date``. The value columns must
+        contain raw OHLC and adjusted close.
     atr_length
         Number of completed sessions used by Wilder ATR.
     stop_atr_multiple
@@ -114,14 +117,14 @@ def add_atr_barrier_targets(
     Returns
     -------
     pd.DataFrame
-        A copy of ``prices`` with nullable barrier-event outputs appended for
-        every configured horizon.
+        A copy of ``prices`` with its canonical index preserved and nullable
+        barrier-event outputs appended for every configured horizon.
 
     Raises
     ------
     ValueError
-        If configuration values are invalid, required columns are missing, or
-        provider/ticker/trading-date observations are duplicated.
+        If configuration values are invalid, required value columns are missing,
+        or the input violates the canonical market-price index contract.
     """
     _validate_parameters(
         atr_length=atr_length,
@@ -131,6 +134,7 @@ def add_atr_barrier_targets(
         entry_price_rule=entry_price_rule,
         intrabar_policy=intrabar_policy,
     )
+    validate_market_price_index(prices)
     _validate_required_columns(prices)
 
     result = prices.copy()
@@ -138,25 +142,12 @@ def add_atr_barrier_targets(
     if result.empty:
         return _append_outputs(result, outputs, horizons=horizons)
 
-    normalized_dates = pd.to_datetime(result["trading_date"])
-    _validate_unique_observations(result, normalized_dates)
-    calculation_frame = pd.DataFrame(
-        {
-            "__position": np.arange(len(result)),
-            "provider": result["provider"].to_numpy(),
-            "ticker": result["ticker"].to_numpy(),
-            "trading_date": normalized_dates.to_numpy(),
-            "open": pd.to_numeric(result["open"], errors="coerce").to_numpy(),
-            "high": pd.to_numeric(result["high"], errors="coerce").to_numpy(),
-            "low": pd.to_numeric(result["low"], errors="coerce").to_numpy(),
-            "close": pd.to_numeric(result["close"], errors="coerce").to_numpy(),
-            "adjusted_close": pd.to_numeric(result["adjusted_close"], errors="coerce").to_numpy(),
-        }
-    )
-    calculation_frame = _adjustment_consistent_ohlc(calculation_frame).sort_values(
-        ["provider", "ticker", "trading_date", "__position"],
-        kind="mergesort",
-    )
+    calculation_frame = result.reset_index()
+    calculation_frame["__position"] = np.arange(len(result))
+    calculation_frame["trading_date"] = pd.to_datetime(calculation_frame["trading_date"])
+    for column in ("open", "high", "low", "close", "adjusted_close"):
+        calculation_frame[column] = pd.to_numeric(calculation_frame[column], errors="coerce")
+    calculation_frame = _adjustment_consistent_ohlc(calculation_frame)
 
     for _, group in calculation_frame.groupby(["provider", "ticker"], sort=False):
         _label_group(
@@ -412,22 +403,10 @@ def _validate_positive_number(value: float, *, name: str) -> None:
 
 
 def _validate_required_columns(prices: pd.DataFrame) -> None:
-    missing = _missing_columns(BARRIER_REQUIRED_PRICE_COLUMNS, prices.columns)
-    if missing:
-        raise ValueError(f"Missing required price columns: {', '.join(missing)}")
-
-
-def _validate_unique_observations(prices: pd.DataFrame, normalized_dates: pd.Series) -> None:
-    keys = pd.DataFrame(
-        {
-            "provider": prices["provider"],
-            "ticker": prices["ticker"],
-            "trading_date": normalized_dates,
-        }
+    required_value_columns = set(BARRIER_REQUIRED_PRICE_COLUMNS).difference(
+        MARKET_PRICE_INDEX_NAMES
     )
-    if keys.duplicated().any():
-        raise ValueError("Duplicate provider/ticker/trading_date observations are not allowed")
-
-
-def _missing_columns(required: Sequence[str], available: pd.Index) -> list[str]:
-    return [column for column in required if column not in available]
+    validate_required_columns(
+        prices,
+        required_columns=required_value_columns,
+    )

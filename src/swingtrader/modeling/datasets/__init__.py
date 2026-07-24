@@ -1,4 +1,4 @@
-"""Dataset construction helpers and versioned target contracts."""
+"""Canonical modeling-frame helpers and versioned target contracts."""
 
 from swingtrader.modeling.datasets.barriers import (
     BARRIER_REQUIRED_PRICE_COLUMNS,

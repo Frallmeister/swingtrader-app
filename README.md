@@ -27,6 +27,8 @@ The project currently implements the data foundation:
 * MkDocs-based project documentation
 * pytest/ruff-based local quality checks
 
+Features and targets consume the same canonical market-price DataFrame: a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`. Column-oriented bronze rows are converted once at the caller boundary with `set_index(...).sort_index()`.
+
 Feature persistence, target persistence, model training, inference, prediction storage, dashboarding, deployment, and macro/market-context features are planned.
 
 ## Documentation
