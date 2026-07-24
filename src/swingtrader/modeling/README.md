@@ -1,6 +1,6 @@
 # Modeling
 
-Model development and inference code lives here. The package owns the beginning of the modeling workflow: reusable target calculations and explicit, versioned target contracts. Dataset splitting, training, evaluation, model artifacts, and production inference remain follow-up work.
+Model development and inference code lives here. The package currently owns reusable target calculations, versioned target contracts, immutable experiment specifications, and optional local MLflow tracking. Temporal dataset construction, split purging, training, evaluation, model artifacts, and production inference remain follow-up work.
 
 ## Implemented Target Code
 
@@ -20,10 +20,27 @@ Target builders consume the same canonical market-price frame as indicators and 
 
 Calculations remain in memory and do not load from or write to the database. Exact reproduction requires both the serialized target manifest and the source revision containing the configured builders.
 
+## Implemented Experiment Code
+
+The `swingtrader.modeling.experiments` package contains:
+
+- `contracts.py`, which defines immutable universe, temporal-split, model, and
+  experiment specifications with deterministic manifests and digests;
+- `tracking.py`, which lazily imports the optional MLflow dependency and
+  initializes local runs from an `ExperimentSpec`;
+- dataset-summary contracts and a small run handle for logging metrics and
+  generated artifacts without exposing MLflow internals throughout training code.
+
+The complete experiment manifest is available before fitting. MLflow records
+runtime provenance such as the Git revision, dataset counts and date ranges,
+class prevalence, metrics, reports, and plots. It does not replace the
+repository-owned contracts or require a complete materialized dataset snapshot.
+
 See the main documentation for the current modeling plan:
 
 - [Modeling overview](../../../docs/modeling/overview.md)
 - [Target and evaluation](../../../docs/modeling/target-and-evaluation.md)
 - [ATR barrier targets](../../../docs/modeling/atr-barrier-targets.md)
+- [Experiment specifications and MLflow tracking](../../../docs/modeling/experiments.md)
 - [Ticker eligibility](../../../docs/data/eligibility.md)
 - [Roadmap](../../../docs/architecture/roadmap.md)

@@ -75,6 +75,7 @@ nav:
       - Overview: modeling/overview.md
       - Target and Evaluation: modeling/target-and-evaluation.md
       - ATR Barrier Targets: modeling/atr-barrier-targets.md
+      - Experiment Specifications and MLflow: modeling/experiments.md
   - Deployment:
       - Render: deployment/render.md
   - Operations:

@@ -3,9 +3,9 @@
 Swingtrader is a personal trading decision-support application built around a data-first workflow. The project downloads market data for a curated trading universe, stores source-oriented bronze records, builds model-ready features and targets, and will eventually present ranked trade candidates for manual review.
 
 !!! note "Current status"
-    The repository implements the local market-data foundation, runnable onboarding and daily-update jobs, bronze-backed eligibility checks, pandas loading, versioned V1 forward-return and V2 ATR barrier-event targets, and in-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation.
+    The repository implements the local market-data foundation, runnable onboarding and daily-update jobs, bronze-backed eligibility checks, pandas loading, versioned V1 forward-return and V2 ATR barrier-event targets, immutable experiment specifications, local MLflow tracking, and in-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation.
 
-    The pre-modeling contracts and corporate-action semantics are now stabilized. The next implementation work is to add repository-owned experiment specifications and local MLflow tracking, then build leakage-safe temporal datasets.
+    The pre-modeling contracts, corporate-action semantics, and experiment-provenance layer are now stabilized. The next implementation work is to build canonical leakage-safe temporal datasets and purged splits.
 
     Model training, production inference, prediction persistence, the FastAPI backend, the TypeScript/React frontend, deployed scheduling, and macro-data ingestion remain planned.
 
@@ -18,8 +18,9 @@ The long-term goal is not automatic order placement. The application should supp
 - [Architecture decisions](architecture/decisions/index.md): understand accepted design decisions and their consequences.
 - [Roadmap](architecture/roadmap.md): understand the completed stabilization work and modeling sequence.
 - [Data](data/overview.md): understand clients, ingestion, bronze storage, ticker onboarding, eligibility checks, and features.
-- [Modeling](modeling/overview.md): understand readiness, targets, and evaluation concepts.
+- [Modeling](modeling/overview.md): understand readiness, targets, experiments, and evaluation concepts.
 - [ATR barrier targets](modeling/atr-barrier-targets.md): understand the V2 next-open stop-loss and take-profit label contract.
+- [Experiment tracking](modeling/experiments.md): define reproducible experiment semantics and record local MLflow runs.
 - [Operations](operations/daily-runbook.md): run the implemented local daily workflow and understand the planned production sequence.
 - [Reference](reference/glossary.md): shared vocabulary and API reference.
 
