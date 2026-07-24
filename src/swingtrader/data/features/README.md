@@ -6,7 +6,9 @@ The features area contains reusable transformations that convert point-in-time i
 
 Reusable technical calculations live in `swingtrader.indicators`. Indicators calculate domain quantities; feature builders decide which source columns to use, how quantities are adjusted or normalized, and what the model-facing columns are named. Feature families must import indicator calculations from `swingtrader.indicators` rather than reimplementing them or importing calculations from sibling feature families.
 
-Feature generation currently includes seven in-memory families: returns, trend, momentum, volatility, price action, volume, and market structure. `pipeline.py` runs those families in an explicit fixed order. This directory should not yet be treated as a persistent feature pipeline.
+Feature generation currently includes seven in-memory families: returns, trend, momentum, volatility, price action, volume, and market structure.
+
+`feature_sets.py` defines the immutable feature-set contract types, `catalog.py` contains concrete named and versioned feature-set definitions, and `pipeline.py` executes a supplied feature-set specification in its declared block order. This directory should not yet be treated as a persistent feature pipeline.
 
 ## Design principles
 
@@ -18,7 +20,7 @@ Outputs should remain predictable, testable, and reusable. The same feature data
 
 ## Current status
 
-Features are currently calculated in memory for EDA and baseline modeling. Persistent feature tables, versioning, and feature-store-like infrastructure remain future design decisions and are not part of the current package contract.
+Features are currently calculated in memory for EDA and baseline modeling. Versioned feature-set contracts are implemented, while persistent feature tables and feature-store-like infrastructure remain future design decisions.
 
 ## Package boundaries
 

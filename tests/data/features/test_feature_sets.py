@@ -12,6 +12,9 @@ from swingtrader.data.features import (
     add_default_features,
     add_feature_set,
 )
+from swingtrader.data.features.catalog import (
+    DEFAULT_FEATURE_SET as CATALOG_DEFAULT_FEATURE_SET,
+)
 
 
 def test_default_feature_set_matches_pipeline_output_schema() -> None:
@@ -126,6 +129,22 @@ def test_feature_set_copies_blocks() -> None:
     blocks.append(second)
 
     assert feature_set.blocks == (first,)
+
+
+def test_default_feature_set_is_exported_from_catalog_and_package() -> None:
+    assert DEFAULT_FEATURE_SET == CATALOG_DEFAULT_FEATURE_SET
+
+
+def test_default_feature_set_block_names_match_execution_order() -> None:
+    assert DEFAULT_FEATURE_SET.block_names == (
+        "returns",
+        "trend",
+        "momentum",
+        "volatility",
+        "price_action",
+        "volume",
+        "market_structure",
+    )
 
 
 def _block(

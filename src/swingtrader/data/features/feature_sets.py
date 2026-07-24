@@ -8,11 +8,13 @@ computations declaratively:
 * A :class:`FeatureSetSpec` composes an ordered, name-versioned
   collection of blocks into a single reproducible feature contract.
 
-Both specs are frozen and coerce their inputs into immutable containers
-so a given ``name:version`` always describes the exact same computation.
+Both specs are frozen and normalize their declared inputs into immutable
+containers, preventing accidental mutation of an instantiated contract.
+
 Each spec can emit a deterministic, JSON-serializable manifest via
-``to_manifest``, which is the serialization boundary used to record and
-compare feature sets over time.
+``to_manifest``. The manifest records the declared feature contract; exact
+reproduction additionally requires the source revision containing the
+configured builders.
 """
 
 from __future__ import annotations
