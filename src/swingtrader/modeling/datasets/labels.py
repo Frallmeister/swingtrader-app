@@ -1,4 +1,4 @@
-"""Forward-return and fixed-threshold target builders."""
+"""Target builders and execution helpers for modeling datasets."""
 
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
@@ -31,7 +31,12 @@ def add_forward_return_targets(
     *,
     horizons: tuple[int, ...],
 ) -> pd.DataFrame:
-    """Append adjusted-close forward returns for observed-session horizons."""
+    """Append adjusted-close returns over future observed sessions.
+
+    Rows are calculated independently per provider and ticker after ordering by
+    trading date. A return is missing when either the current or required future
+    adjusted close is unavailable, non-finite, or non-positive.
+    """
     _validate_required_columns(prices)
     result = prices.copy()
     if result.empty:
@@ -93,7 +98,11 @@ def generate_target_set(
     *,
     target_set: "TargetSetSpec",
 ) -> pd.DataFrame:
-    """Execute target families in declared order with schema validation."""
+    """Execute target families in declaration order.
+
+    Before and after each family, validate required inputs, output collisions,
+    and the presence of all declared target columns.
+    """
     result = prices
     for family in target_set.families:
         missing = sorted(family.required_columns.difference(result.columns))
@@ -117,7 +126,7 @@ def generate_target_set(
 
 
 def generate_v1_labels(prices: pd.DataFrame) -> pd.DataFrame:
-    """Add the versioned V1 target set while preserving historical behavior."""
+    """Generate labels using the repository's versioned V1 target set."""
     from swingtrader.modeling.datasets.catalog import V1_TARGET_SET
 
     return generate_target_set(prices, target_set=V1_TARGET_SET)

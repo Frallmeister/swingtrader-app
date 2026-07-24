@@ -17,7 +17,13 @@ type TargetBuilder = Callable[..., pd.DataFrame]
 
 @dataclass(frozen=True, slots=True)
 class TargetFamilySpec:
-    """Declare one executable target family and its stable schema."""
+    """Describe one executable target family and its declared schema.
+
+    The builder receives a DataFrame as its first argument and the configured
+    parameters as keyword arguments. Required input columns, produced output
+    columns, and the maximum future horizon are recorded for validation and
+    deterministic manifest generation.
+    """
 
     name: str
     builder: TargetBuilder = field(repr=False, compare=False)
@@ -90,7 +96,11 @@ class TargetFamilySpec:
 
 @dataclass(frozen=True, slots=True)
 class TargetSetSpec:
-    """Declare an ordered, versioned collection of target families."""
+    """Declare an ordered, versioned collection of target families.
+
+    Families execute in declaration order, allowing later families to consume
+    outputs produced by earlier families.
+    """
 
     name: str
     version: str
@@ -124,6 +134,7 @@ class TargetSetSpec:
 
     @property
     def maximum_horizon_sessions(self) -> int:
+        """Return the greatest future horizon required by any target family."""
         return max(family.maximum_horizon_sessions for family in self.families)
 
     def to_manifest(self) -> dict[str, object]:
@@ -138,6 +149,7 @@ class TargetSetSpec:
 
     @property
     def digest(self) -> str:
+        """Return the SHA-256 digest of the canonical target-set manifest."""
         payload = json.dumps(self.to_manifest(), sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode()).hexdigest()
 
@@ -159,6 +171,7 @@ class SupervisedTaskSpec:
             raise ValueError("Task type must be 'classification' or 'regression'.")
 
     def validate_target_set(self, target_set: TargetSetSpec) -> None:
+        """Validate that the referenced target set and target column exist."""
         if (self.target_set_name, self.target_set_version) != (
             target_set.name,
             target_set.version,
@@ -168,6 +181,7 @@ class SupervisedTaskSpec:
             raise ValueError(f"Unknown target column: {self.target_column}.")
 
     def to_manifest(self) -> dict[str, str]:
+        """Return a JSON-serializable supervised-task description."""
         return {
             "name": self.name,
             "target_set_name": self.target_set_name,
