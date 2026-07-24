@@ -12,7 +12,7 @@ Both specifications are frozen and normalize their declared inputs into
 immutable containers, preventing accidental mutation after construction.
 
 Each specification can emit a deterministic, JSON-serializable manifest
-through `to_manifest`. :class:`FeatureSetSpec` also exposes a SHA-256
+through ``to_manifest``. :class:`FeatureSetSpec` also exposes a SHA-256
 digest of its canonical manifest for compact experiment and artifact
 provenance.
 
