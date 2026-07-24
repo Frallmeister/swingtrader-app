@@ -144,9 +144,7 @@ def add_atr_barrier_targets(
             "high": pd.to_numeric(result["high"], errors="coerce").to_numpy(),
             "low": pd.to_numeric(result["low"], errors="coerce").to_numpy(),
             "close": pd.to_numeric(result["close"], errors="coerce").to_numpy(),
-            "adjusted_close": pd.to_numeric(
-                result["adjusted_close"], errors="coerce"
-            ).to_numpy(),
+            "adjusted_close": pd.to_numeric(result["adjusted_close"], errors="coerce").to_numpy(),
         }
     )
     calculation_frame = _adjustment_consistent_ohlc(calculation_frame).sort_values(
@@ -383,9 +381,7 @@ def _validate_parameters(
     if tuple(sorted(set(horizons))) != horizons:
         raise ValueError("horizons must be unique and strictly increasing")
     if entry_price_rule not in SUPPORTED_ENTRY_PRICE_RULES:
-        raise ValueError(
-            f"Unsupported entry_price_rule {entry_price_rule!r}; expected 'next_open'"
-        )
+        raise ValueError(f"Unsupported entry_price_rule {entry_price_rule!r}; expected 'next_open'")
     if intrabar_policy not in SUPPORTED_INTRABAR_POLICIES:
         supported = ", ".join(sorted(SUPPORTED_INTRABAR_POLICIES))
         raise ValueError(f"Unsupported intrabar_policy {intrabar_policy!r}; expected {supported}")
