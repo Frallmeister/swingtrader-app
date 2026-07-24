@@ -274,8 +274,7 @@ def _validate_dataset_summary(spec: ExperimentSpec, summary: DatasetSummary) -> 
         observed = getattr(summary, split_name)
         if observed.ticker_count > universe_size:
             raise ValueError(
-                f"Dataset {split_name} ticker count must not exceed the "
-                "experiment universe size."
+                f"Dataset {split_name} ticker count must not exceed the experiment universe size."
             )
         observed_start = observed.start_date
         observed_end = observed.end_date
@@ -283,8 +282,7 @@ def _validate_dataset_summary(spec: ExperimentSpec, summary: DatasetSummary) -> 
             continue
         if observed_start < declared_start or observed_end > declared_end:
             raise ValueError(
-                f"Dataset {split_name} date range must fall within the declared "
-                "temporal split."
+                f"Dataset {split_name} date range must fall within the declared temporal split."
             )
 
 
