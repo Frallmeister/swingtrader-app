@@ -1,4 +1,10 @@
-"""ATR-scaled barrier-event targets for daily OHLCV modeling data."""
+"""Build ATR-scaled stop-loss and take-profit targets from daily OHLCV data.
+
+Signals use information through the completed signal session and enter at the
+next observed open. The module handles adjustment-consistent prices, opening
+gaps, same-bar ambiguity, incomplete terminal horizons, and deterministic
+versioned output schemas.
+"""
 
 from collections.abc import Sequence
 from typing import Literal

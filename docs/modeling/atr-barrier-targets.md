@@ -1,8 +1,6 @@
 # ATR Barrier Targets
 
-The versioned `ohlcv_price_targets:2` target set extends the V1 forward-return
-labels with ATR-scaled barrier-event outcomes. These targets answer an execution-
-oriented research question:
+The versioned `ohlcv_price_targets:2` target set extends the V1 forward-return labels with ATR-scaled barrier-event outcomes. These targets answer an execution-oriented research question:
 
 > If the completed bar on session `t` produced a signal and a hypothetical long
 > position entered at the next observed session's open, would a fixed take-profit
