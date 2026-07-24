@@ -1,12 +1,18 @@
 # Modeling
 
-Model development and inference code lives here. The package is planned to own dataset construction, training workflows, evaluation, model artifacts, and production inference over engineered feature data.
+Model development and inference code lives here. The package owns the beginning of the modeling workflow: reusable target calculations and explicit, versioned target contracts. Dataset splitting, training, evaluation, model artifacts, and production inference remain follow-up work.
 
-## Implemented Dataset Code
+## Implemented Target Code
 
-The `swingtrader.modeling.datasets.labels` module implements the V1 target-label contract for in-memory pandas workflows. Use `generate_v1_labels()` with a DataFrame compatible with `load_bronze_daily_prices()` and containing `provider`, `ticker`, `trading_date`, and `adjusted_close`.
+The `swingtrader.modeling.datasets` package contains:
 
-The function adds 5-, 10-, and 15-session forward returns plus the nullable Boolean `target_significant_up_5d` column. It does not load from or write to the database.
+- `contracts.py`, which defines immutable target-family, target-set, and supervised-task specifications;
+- `target_catalog.py`, which defines the concrete V1 target set and primary classification task;
+- `labels.py`, which contains reusable target builders and the compatibility wrapper `generate_v1_labels()`.
+
+The V1 target set adds 5-, 10-, and 15-session forward adjusted-close returns plus the nullable Boolean `target_significant_up_5d` column. Calculations remain in memory and do not load from or write to the database.
+
+Exact reproduction requires both the serialized target manifest and the source revision containing the configured builders.
 
 See the main documentation for the current modeling plan:
 

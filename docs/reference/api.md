@@ -134,7 +134,17 @@ analysis.
 
 ::: swingtrader.data.features.catalog
 
-## Modeling Dataset Labels
+## Modeling Targets
+
+### Contracts
+
+::: swingtrader.modeling.datasets.contracts
+
+### Catalog
+
+::: swingtrader.modeling.datasets.target_catalog
+
+### Target Builders
 
 ::: swingtrader.modeling.datasets.labels
 

@@ -1,5 +1,11 @@
 # Target And Evaluation
 
+The implemented V1 outcomes are described by the versioned `ohlcv_price_targets:1` target set. Its deterministic manifest records ordered target families, parameters, required and produced columns, builder import paths, and the maximum future horizon. The `significant_up_5d_classification` supervised-task specification selects `target_significant_up_5d` unambiguously from that set.
+
+Target sets differ from feature sets because target families intentionally use future observations and expose `maximum_horizon_sessions`, which later temporal splitting and purge logic must respect. Feature sets describe information available to the model at prediction time and must remain point-in-time safe.
+
+A behavior or parameter change that alters target meaning must create a new target-set version rather than silently changing an existing experiment contract. Exact reproduction also requires the source revision containing the configured target builders.
+
 This page defines the V1 model target and evaluation contract.
 
 The label-generation code for this contract is implemented in the modeling datasets package, and initial in-memory return features are available in the data package. Broader feature engineering, temporal dataset construction, model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
