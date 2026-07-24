@@ -192,7 +192,15 @@ class TemporalSplitSpec:
 
 @dataclass(frozen=True, slots=True)
 class ModelSpec:
-    """Describe a versioned model implementation and its hyperparameters."""
+    """Describe a versioned model implementation and its hyperparameters.
+
+    ``model_type`` records the import path of the concrete model implementation
+    so a run can be traced back to the code that produced it. ``hyperparameters``
+    must contain only JSON-compatible values (booleans, integers, finite floats,
+    strings, and nested mappings, lists, or tuples); they are deep-frozen into
+    read-only, deterministic structures so the manifest digest is stable and the
+    specification cannot be mutated after construction.
+    """
 
     name: str
     version: str
@@ -231,7 +239,20 @@ class ModelSpec:
 
 @dataclass(frozen=True, slots=True)
 class ExperimentSpec:
-    """Compose all static choices required to identify one model experiment."""
+    """Compose all static choices required to identify one model experiment.
+
+    The specification binds the feature and target contracts to a resolved
+    universe, temporal split, model configuration, and random seeds, producing a
+    single deterministic manifest and digest for experiment identity.
+
+    Construction enforces the invariants that keep the manifest coherent: the
+    supervised task must reference the supplied target set, ``data_cutoff`` must
+    not precede the end of the declared test range so the test window is fully
+    covered by available data, and at least one random seed must be provided as a
+    non-negative integer. Seeds are frozen into a read-only mapping. Runtime
+    provenance such as the Git revision is deliberately excluded because it
+    describes an execution rather than the static experiment configuration.
+    """
 
     name: str
     version: str
