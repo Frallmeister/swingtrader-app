@@ -8,11 +8,13 @@ import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
+from typing import Literal
 
 import pandas as pd
 
 type TargetParameter = bool | int | float | str | tuple[object, ...]
 type TargetBuilder = Callable[..., pd.DataFrame]
+type TaskType = Literal["classification", "regression"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,7 +164,7 @@ class SupervisedTaskSpec:
     target_set_name: str
     target_set_version: str
     target_column: str
-    task_type: str
+    task_type: TaskType
 
     def __post_init__(self) -> None:
         if not all((self.name, self.target_set_name, self.target_set_version, self.target_column)):
