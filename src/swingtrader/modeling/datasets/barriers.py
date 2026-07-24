@@ -193,7 +193,10 @@ def _label_group(
     atr_input = ohlc.loc[:, ["high", "low", "close"]].copy()
     atr_input.loc[~valid_ohlc, :] = np.nan
     atr_input.index = pd.DatetimeIndex(group["trading_date"])
-    atr_values = atr(atr_input, length=atr_length).to_numpy(dtype="float64")
+    atr_values = atr(atr_input, length=atr_length).to_numpy(
+        dtype="float64",
+        copy=True,
+    )
     atr_values[~valid_ohlc] = np.nan
 
     opens = ohlc["open"].to_numpy()
@@ -328,7 +331,7 @@ def _empty_outputs(length: int, *, horizons: tuple[int, ...]) -> dict[str, np.nd
             outputs[f"{prefix}_{horizon}d"] = values
         outputs[f"target_end_date_{horizon}d"] = np.full(
             length,
-            np.datetime64("NaT"),
+            np.datetime64("NaT", "ns"),
             dtype="datetime64[ns]",
         )
     return outputs
@@ -341,21 +344,26 @@ def _append_outputs(
     horizons: tuple[int, ...],
 ) -> pd.DataFrame:
     for horizon in horizons:
-        result[f"barrier_event_{horizon}d"] = pd.Series(
-            outputs[f"barrier_event_{horizon}d"], index=result.index, dtype="string"
+        result[f"barrier_event_{horizon}d"] = pd.array(
+            outputs[f"barrier_event_{horizon}d"],
+            dtype="string",
         )
-        result[f"target_tp_before_sl_{horizon}d"] = pd.Series(
-            outputs[f"target_tp_before_sl_{horizon}d"], index=result.index, dtype="boolean"
+        result[f"target_tp_before_sl_{horizon}d"] = pd.array(
+            outputs[f"target_tp_before_sl_{horizon}d"],
+            dtype="boolean",
         )
         for prefix in ("event_session", "time_to_event"):
-            result[f"{prefix}_{horizon}d"] = pd.Series(
-                outputs[f"{prefix}_{horizon}d"], index=result.index, dtype="Int64"
+            result[f"{prefix}_{horizon}d"] = pd.array(
+                outputs[f"{prefix}_{horizon}d"],
+                dtype="Int64",
             )
-        result[f"ambiguous_intrabar_{horizon}d"] = pd.Series(
-            outputs[f"ambiguous_intrabar_{horizon}d"], index=result.index, dtype="boolean"
+        result[f"ambiguous_intrabar_{horizon}d"] = pd.array(
+            outputs[f"ambiguous_intrabar_{horizon}d"],
+            dtype="boolean",
         )
-        result[f"target_end_date_{horizon}d"] = pd.Series(
-            outputs[f"target_end_date_{horizon}d"], index=result.index, dtype="datetime64[ns]"
+        result[f"target_end_date_{horizon}d"] = pd.array(
+            outputs[f"target_end_date_{horizon}d"],
+            dtype="datetime64[ns]",
         )
     return result
 

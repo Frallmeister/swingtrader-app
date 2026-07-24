@@ -6,7 +6,7 @@ The modeling package will own dataset construction, training workflows, evaluati
 
 ## Implemented Components
 
-The modeling datasets package defines immutable target-family, target-set, and supervised-task contracts, concrete V1 and V2 target catalogs, and target builders for daily price DataFrames compatible with the bronze daily-price loader. Target generation preserves source observations and input row order. V1 calculates 5-, 10-, and 15-session forward returns from adjusted close and adds the nullable Boolean `target_significant_up_5d` target. V2 preserves those outputs and adds next-open ATR-scaled barrier events, nullable take-profit-before- stop-loss targets, event timing, resolution dates, and measurable same-bar ambiguity for 5-, 10-, and 15-session horizons.
+The modeling datasets package defines immutable target-family, target-set, and supervised-task contracts, concrete V1 and V2 target catalogs, and target builders for daily price DataFrames compatible with the bronze daily-price loader. Target generation preserves source observations and input row order. V1 calculates 5-, 10-, and 15-session forward returns from adjusted close and adds the nullable Boolean `target_significant_up_5d` target. V2 preserves those outputs and adds next-open ATR-scaled barrier events, nullable take-profit-before-stop-loss targets, event timing, resolution dates, and measurable same-bar ambiguity for 5-, 10-, and 15-session horizons.
 
 Target generation and feature generation remain in memory for now. Feature and label persistence, database schemas, temporal splitting, model training, and evaluation reports are planned follow-up work.
 
