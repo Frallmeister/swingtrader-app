@@ -6,7 +6,7 @@ Target sets differ from feature sets because target families intentionally use f
 
 A behavior or parameter change that alters target meaning must create a new target-set version rather than silently changing an existing experiment contract. Exact reproduction also requires the source revision containing the configured target builders.
 
-This page defines the V1 model target and evaluation contract.
+This page defines the V1 model target and evaluation contract. The V2 next-open stop-loss and take-profit contract is documented in [ATR Barrier Targets](atr-barrier-targets.md).
 
 The label-generation code for this contract is implemented in the modeling datasets package, and the versioned in-memory OHLCV feature set is implemented in the data package. Temporal dataset construction, model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
 

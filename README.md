@@ -22,6 +22,7 @@ The project currently implements the data foundation:
 * daily market data updates for already-onboarded tickers
 * inference-readiness and training-eligibility checks based on bronze data quality
 * in-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation
+* versioned in-memory V1 and V2 target generation, including ATR barrier-event labels
 * local SQLite support and configurable SQLAlchemy database URLs
 * MkDocs-based project documentation
 * pytest/ruff-based local quality checks
@@ -43,6 +44,8 @@ Useful entry points:
 * [Data overview](docs/data/overview.md)
 * [Ticker onboarding](docs/data/ticker-onboarding.md)
 * [Ticker eligibility](docs/data/eligibility.md)
+* [Modeling overview](docs/modeling/overview.md)
+* [ATR barrier targets](docs/modeling/atr-barrier-targets.md)
 * [Roadmap](docs/architecture/roadmap.md)
 
 ## Quick Start

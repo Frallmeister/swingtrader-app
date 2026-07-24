@@ -132,6 +132,13 @@ def generate_v1_labels(prices: pd.DataFrame) -> pd.DataFrame:
     return generate_target_set(prices, target_set=V1_TARGET_SET)
 
 
+def generate_v2_labels(prices: pd.DataFrame) -> pd.DataFrame:
+    """Generate labels using the repository's versioned V2 target set."""
+    from swingtrader.modeling.datasets.catalog import V2_TARGET_SET
+
+    return generate_target_set(prices, target_set=V2_TARGET_SET)
+
+
 def _validate_required_columns(prices: pd.DataFrame) -> None:
     missing_columns = _missing_columns(REQUIRED_PRICE_COLUMNS, prices.columns)
     if missing_columns:

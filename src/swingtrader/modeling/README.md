@@ -7,16 +7,19 @@ Model development and inference code lives here. The package owns the beginning 
 The `swingtrader.modeling.datasets` package contains:
 
 - `contracts.py`, which defines immutable target-family, target-set, and supervised-task specifications;
-- `catalog.py`, which defines the concrete V1 target set and primary classification task;
-- `labels.py`, which contains reusable target builders and the compatibility wrapper `generate_v1_labels()`.
+- `catalog.py`, which defines the concrete V1 and V2 target sets and their
+  primary classification tasks;
+- `labels.py`, which contains reusable return-target builders, target-set
+  execution, and the `generate_v1_labels()` and `generate_v2_labels()` wrappers;
+- `barriers.py`, which implements next-open ATR barrier-event targets, gap
+  handling, and deterministic same-bar ambiguity policies.
 
-The V1 target set adds 5-, 10-, and 15-session forward adjusted-close returns plus the nullable Boolean `target_significant_up_5d` column. Calculations remain in memory and do not load from or write to the database.
-
-Exact reproduction requires both the serialized target manifest and the source revision containing the configured builders.
+The V1 target set adds 5-, 10-, and 15-session forward adjusted-close returns plus the nullable Boolean `target_significant_up_5d` column. V2 preserves those outputs and adds ATR-scaled take-profit/stop-loss outcomes over the same horizons. Calculations remain in memory and do not load from or write to the database. Exact reproduction requires both the serialized target manifest and the source revision containing the configured builders.
 
 See the main documentation for the current modeling plan:
 
 - [Modeling overview](../../../docs/modeling/overview.md)
 - [Target and evaluation](../../../docs/modeling/target-and-evaluation.md)
+- [ATR barrier targets](../../../docs/modeling/atr-barrier-targets.md)
 - [Ticker eligibility](../../../docs/data/eligibility.md)
 - [Roadmap](../../../docs/architecture/roadmap.md)

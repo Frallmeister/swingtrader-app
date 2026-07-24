@@ -148,6 +148,10 @@ analysis.
 
 ::: swingtrader.modeling.datasets.labels
 
+### ATR Barrier Targets
+
+::: swingtrader.modeling.datasets.barriers
+
 ## Universe Selection
 
 ::: swingtrader.data.ingestion.universe_selection
