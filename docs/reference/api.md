@@ -126,7 +126,11 @@ analysis.
 
 ## Versioned Feature Sets
 
+### Contract Types
+
 ::: swingtrader.data.features.contracts
+
+### Catalog
 
 ::: swingtrader.data.features.catalog
 
