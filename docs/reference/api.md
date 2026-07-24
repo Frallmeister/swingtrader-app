@@ -128,6 +128,8 @@ analysis.
 
 ::: swingtrader.data.features.feature_sets
 
+::: swingtrader.data.features.catalog
+
 ## Modeling Dataset Labels
 
 ::: swingtrader.modeling.datasets.labels

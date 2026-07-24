@@ -10,8 +10,8 @@ record which builders, parameters, and output columns define reproducible model
 inputs.
 """
 
+from swingtrader.data.features.catalog import DEFAULT_FEATURE_SET
 from swingtrader.data.features.feature_sets import (
-    DEFAULT_FEATURE_SET,
     FeatureBlockSpec,
     FeatureSetSpec,
     HistoryRequirement,

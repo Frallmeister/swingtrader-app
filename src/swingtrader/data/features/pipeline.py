@@ -7,10 +7,8 @@ Each family builder remains independently usable.
 
 import pandas as pd
 
-from swingtrader.data.features.feature_sets import (
-    DEFAULT_FEATURE_SET,
-    FeatureSetSpec,
-)
+from swingtrader.data.features.catalog import DEFAULT_FEATURE_SET
+from swingtrader.data.features.feature_sets import FeatureSetSpec
 
 
 def add_feature_set(
@@ -35,6 +33,6 @@ def add_default_features(data: pd.DataFrame) -> pd.DataFrame:
     """Return data with the versioned default OHLCV candidate set added.
 
     This compatibility wrapper delegates to :func:`add_feature_set` using
-    :data:`swingtrader.data.features.feature_sets.DEFAULT_FEATURE_SET`.
+    :data:`swingtrader.data.features.catalog.DEFAULT_FEATURE_SET`.
     """
     return add_feature_set(data)

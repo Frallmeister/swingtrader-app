@@ -1,4 +1,19 @@
-"""Versioned contracts for reproducible model feature sets."""
+"""Versioned contracts for reproducible model feature sets.
+
+This module defines the small vocabulary used to describe feature
+computations declaratively:
+
+* A :class:`FeatureBlockSpec` binds one feature-family builder to its
+  parameters and its stable input/output column schema.
+* A :class:`FeatureSetSpec` composes an ordered, name-versioned
+  collection of blocks into a single reproducible feature contract.
+
+Both specs are frozen and coerce their inputs into immutable containers
+so a given ``name:version`` always describes the exact same computation.
+Each spec can emit a deterministic, JSON-serializable manifest via
+``to_manifest``, which is the serialization boundary used to record and
+compare feature sets over time.
+"""
 
 from __future__ import annotations
 
@@ -9,20 +24,25 @@ from types import MappingProxyType
 
 import pandas as pd
 
-from swingtrader.data.features.market_structure import add_market_structure_features
-from swingtrader.data.features.momentum import add_momentum_features
-from swingtrader.data.features.price_action import add_price_action_features
-from swingtrader.data.features.returns import add_return_features
-from swingtrader.data.features.trend import add_trend_features
-from swingtrader.data.features.volatility import add_volatility_features
-from swingtrader.data.features.volume import add_volume_features
-
 type FeatureParameter = bool | int | float | str | tuple[object, ...]
 type FeatureBuilder = Callable[..., pd.DataFrame]
 
 
 class HistoryRequirement(StrEnum):
-    """Describe how much historical state a feature block may depend on."""
+    """Describe how much historical state a feature block may depend on.
+
+    The value governs how many prior rows must be supplied for a block to
+    reproduce identical results on a sliced window of data:
+
+    * ``BOUNDED``: each output depends on a fixed-size lookback, so a
+      constant warm-up prefix is sufficient (e.g. an N-period return).
+    * ``EXPANDING``: outputs depend on a growing window that reaches back
+      to the start of the series (e.g. recursive/expanding statistics),
+      so the full available history is required for exact results.
+    * ``PATH_DEPENDENT``: outputs depend on the ordered sequence of prior
+      events, not just a window, so results can differ if earlier bars
+      are truncated (e.g. zigzag/market-structure state).
+    """
 
     BOUNDED = "bounded"
     EXPANDING = "expanding"
@@ -31,7 +51,14 @@ class HistoryRequirement(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class FeatureBlockSpec:
-    """Declare one executable feature-family block and its stable schema."""
+    """Declare one executable feature-family block and its stable schema.
+
+    Invariants enforced at construction: the block name is non-empty,
+    ``output_columns`` is a non-empty tuple with no duplicates, and the
+    inputs are frozen (``output_columns`` to a tuple, ``parameters`` to a
+    read-only mapping, ``required_columns`` to a frozenset) so the spec
+    cannot be mutated after creation.
+    """
 
     name: str
     builder: FeatureBuilder = field(repr=False, compare=False)
@@ -44,6 +71,7 @@ class FeatureBlockSpec:
         if not self.name:
             raise ValueError("Feature block name must not be empty.")
 
+        # Make sure output_columns are immutable in case the caller provided e.g. a list.
         output_columns = tuple(self.output_columns)
         object.__setattr__(self, "output_columns", output_columns)
 
@@ -80,7 +108,13 @@ class FeatureBlockSpec:
 
 @dataclass(frozen=True, slots=True)
 class FeatureSetSpec:
-    """Declare an ordered, versioned collection of feature blocks."""
+    """Declare an ordered, versioned collection of feature blocks.
+
+    Invariants enforced at construction: the name and version are
+    non-empty, ``blocks`` is a non-empty tuple, block names are unique,
+    and every output column is unique across the whole set. Blocks retain
+    their declared order, which is the order features are computed.
+    """
 
     name: str
     version: str
@@ -97,7 +131,7 @@ class FeatureSetSpec:
         if not blocks:
             raise ValueError("A feature set must contain at least one block.")
 
-        block_names = tuple(block.name for block in blocks)
+        block_names = self.block_names
 
         if len(block_names) != len(set(block_names)):
             raise ValueError("Feature block names must be unique within a feature set.")
@@ -110,6 +144,11 @@ class FeatureSetSpec:
     def identifier(self) -> str:
         """Return the stable feature-set name and version identifier."""
         return f"{self.name}:{self.version}"
+
+    @property
+    def block_names(self) -> tuple[str, ...]:
+        """Return the block names in declared execution order."""
+        return tuple(block.name for block in self.blocks)
 
     @property
     def feature_columns(self) -> tuple[str, ...]:
@@ -132,7 +171,7 @@ class FeatureSetSpec:
         if not requested:
             raise ValueError("At least one feature block name is required.")
 
-        available = {block.name for block in self.blocks}
+        available = set(self.block_names)
         unknown = requested.difference(available)
         if unknown:
             names = ", ".join(sorted(unknown))
@@ -154,194 +193,6 @@ class FeatureSetSpec:
             "required_columns": sorted(self.required_columns),
             "blocks": [block.to_manifest() for block in self.blocks],
         }
-
-
-DEFAULT_FEATURE_SET = FeatureSetSpec(
-    name="ohlcv_v1_candidates",
-    version="1",
-    blocks=(
-        FeatureBlockSpec(
-            name="returns",
-            builder=add_return_features,
-            parameters={"horizons": (1, 5, 10, 20)},
-            output_columns=(
-                "return_1d",
-                "return_5d",
-                "return_10d",
-                "return_20d",
-            ),
-            required_columns=frozenset({"adjusted_close"}),
-        ),
-        FeatureBlockSpec(
-            name="trend",
-            builder=add_trend_features,
-            parameters={
-                "ma_lengths": (10, 20, 50),
-                "adx_length": 14,
-                "vwap_length": 20,
-                "vwap_bollinger_length": 20,
-                "vwap_bollinger_num_std": 2.0,
-            },
-            output_columns=(
-                "ema_fast_to_ema_mid",
-                "ema_mid_to_ema_slow",
-                "ema_mid_to_sma_mid",
-                "close_to_ema_fast",
-                "close_to_ema_mid",
-                "close_to_ema_slow",
-                "adx",
-                "plus_di",
-                "minus_di",
-                "vwap_distance",
-                "vwap_distance_percent_b",
-            ),
-            required_columns=frozenset({"high", "low", "close", "volume", "adjusted_close"}),
-            history_requirement=HistoryRequirement.EXPANDING,
-        ),
-        FeatureBlockSpec(
-            name="momentum",
-            builder=add_momentum_features,
-            parameters={
-                "ppo_lengths": (12, 26, 9),
-                "ppo_percentile_min_history": 100,
-                "rsi_length": 21,
-                "rsi_bollinger_length": 20,
-                "rsi_bollinger_num_std": 2.0,
-                "stochastic_k_length": 14,
-                "stochastic_k_smoothing": 3,
-                "stochastic_d_length": 3,
-                "mfi_length": 14,
-                "mfi_bollinger_length": 20,
-                "mfi_bollinger_num_std": 2.0,
-                "squeeze_bb_length": 20,
-                "squeeze_bb_mult": 2.0,
-                "squeeze_kc_length": 20,
-                "squeeze_kc_mult": 1.5,
-                "squeeze_atr_length": 14,
-            },
-            output_columns=(
-                "ppo",
-                "ppo_signal",
-                "ppo_histogram",
-                "ppo_percentile",
-                "rsi",
-                "rsi_percent_b",
-                "stochastic_k",
-                "stochastic_d",
-                "mfi",
-                "mfi_percent_b",
-                "squeeze_on",
-                "squeeze_off",
-                "squeeze_released",
-                "squeeze_width_ratio",
-                "squeeze_momentum_atr",
-                "squeeze_momentum_atr_change",
-                "squeeze_duration",
-                "squeeze_release_duration",
-            ),
-            required_columns=frozenset({"high", "low", "close", "adjusted_close", "volume"}),
-            history_requirement=HistoryRequirement.EXPANDING,
-        ),
-        FeatureBlockSpec(
-            name="volatility",
-            builder=add_volatility_features,
-            parameters={
-                "adr_length": 20,
-                "atr_length": 14,
-                "bollinger_length": 20,
-                "bollinger_num_std": 2.0,
-            },
-            output_columns=(
-                "adr_percent",
-                "atr_percent",
-                "bollinger_bandwidth",
-                "bollinger_percent_b",
-            ),
-            required_columns=frozenset({"high", "low", "close", "adjusted_close"}),
-            history_requirement=HistoryRequirement.EXPANDING,
-        ),
-        FeatureBlockSpec(
-            name="price_action",
-            builder=add_price_action_features,
-            parameters={
-                "atr_length": 14,
-                "range_percentile_length": 20,
-                "breakout_length": 20,
-            },
-            output_columns=(
-                "candle_signed_body_fraction",
-                "candle_upper_wick_fraction",
-                "candle_lower_wick_fraction",
-                "candle_close_location",
-                "candle_range_atr",
-                "candle_gap_atr",
-                "range_percentile_20",
-                "candle_inside_bar",
-                "candle_outside_bar",
-                "candle_engulfing_strength",
-                "candle_lower_rejection_strength",
-                "candle_upper_rejection_strength",
-                "candle_consecutive_inside_bars",
-                "candle_direction_run",
-                "candle_direction_run_return",
-                "candle_direction_run_body_atr",
-                "candle_close_to_prior_high_atr_20",
-                "candle_close_to_prior_low_atr_20",
-                "candle_breakout_high_strength_20",
-                "candle_breakout_low_strength_20",
-                "candle_failed_breakout_high_strength_20",
-                "candle_failed_breakout_low_strength_20",
-            ),
-            required_columns=frozenset({"open", "high", "low", "close", "adjusted_close"}),
-            history_requirement=HistoryRequirement.EXPANDING,
-        ),
-        FeatureBlockSpec(
-            name="volume",
-            builder=add_volume_features,
-            parameters={
-                "turnover_zscore_length": 252,
-                "turnover_zscore_log": True,
-            },
-            output_columns=("turnover_zscore",),
-            required_columns=frozenset({"close", "volume"}),
-        ),
-        FeatureBlockSpec(
-            name="market_structure",
-            builder=add_market_structure_features,
-            parameters={
-                "zigzag_deviation": 5.0,
-                "zigzag_pivot_legs": 10,
-                "zigzag_consistency_pivots": 4,
-                "zigzag_dynamics_legs": 6,
-                "zigzag_atr_length": 14,
-            },
-            output_columns=(
-                "zigzag_last_direction",
-                "zigzag_last_swing_return",
-                "zigzag_last_swing_bars",
-                "zigzag_swing_return_per_bar",
-                "zigzag_bars_since_pivot",
-                "zigzag_retracement",
-                "market_structure_high_change",
-                "market_structure_low_change",
-                "market_structure_high_rate",
-                "market_structure_low_rate",
-                "market_structure_high_consistency",
-                "market_structure_low_consistency",
-                "market_structure_leg_balance",
-                "market_structure_efficiency",
-                "market_structure_close_to_prior_high_atr",
-                "market_structure_close_to_prior_low_atr",
-                "market_structure_breakout_high_strength",
-                "market_structure_breakout_low_strength",
-                "market_structure_failed_breakout_high_strength",
-                "market_structure_failed_breakout_low_strength",
-            ),
-            required_columns=frozenset({"high", "low", "close"}),
-            history_requirement=HistoryRequirement.PATH_DEPENDENT,
-        ),
-    ),
-)
 
 
 def _json_value(value: object) -> object:
