@@ -1,10 +1,15 @@
-"""Target builders and execution helpers for modeling datasets."""
+"""Target builders and execution helpers for canonical modeling datasets."""
 
-from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+
+from swingtrader.data.market_frame import (
+    MARKET_PRICE_INDEX_NAMES,
+    validate_market_price_index,
+    validate_required_columns,
+)
 
 if TYPE_CHECKING:
     from swingtrader.modeling.datasets.contracts import TargetSetSpec
@@ -19,7 +24,9 @@ V1_REQUIRED_NET_RETURN = (1 + V1_ANNUAL_RETURN_TARGET) ** (
 ) - 1
 V1_RETURN_THRESHOLD = (1 + V1_COMMISSION + V1_REQUIRED_NET_RETURN) / (1 - V1_COMMISSION) - 1
 
-REQUIRED_PRICE_COLUMNS = ("provider", "ticker", "trading_date", "adjusted_close")
+# These are logical inputs to the versioned family manifest. The three market
+# identifiers are supplied by the canonical index rather than ordinary columns.
+REQUIRED_PRICE_COLUMNS = (*MARKET_PRICE_INDEX_NAMES, "adjusted_close")
 FORWARD_RETURN_COLUMNS = tuple(
     f"forward_return_{horizon}d" for horizon in V1_FORWARD_RETURN_HORIZONS
 )
@@ -33,45 +40,23 @@ def add_forward_return_targets(
 ) -> pd.DataFrame:
     """Append adjusted-close returns over future observed sessions.
 
-    Rows are calculated independently per provider and ticker after ordering by
-    trading date. A return is missing when either the current or required future
-    adjusted close is unavailable, non-finite, or non-positive.
+    ``prices`` must use the canonical, unique, sorted market-price MultiIndex
+    with levels ``provider``, ``ticker``, and ``trading_date``. Returns are
+    calculated independently within each provider/ticker series and the input
+    index is preserved. A return is missing when either the current or required
+    future adjusted close is unavailable, non-finite, or non-positive.
     """
-    _validate_required_columns(prices)
-    result = prices.copy()
-    if result.empty:
-        for horizon in horizons:
-            result[f"forward_return_{horizon}d"] = pd.Series(dtype="float64")
-        return result
+    validate_market_price_index(prices)
+    validate_required_columns(prices, required_columns={"adjusted_close"})
 
-    normalized_dates = pd.to_datetime(result["trading_date"])
-    _validate_unique_observations(result, normalized_dates)
-    calculation_frame = pd.DataFrame(
-        {
-            "__original_index": range(len(result)),
-            "provider": result["provider"].to_numpy(),
-            "ticker": result["ticker"].to_numpy(),
-            "trading_date": normalized_dates.to_numpy(),
-            "adjusted_close": pd.to_numeric(result["adjusted_close"], errors="coerce"),
-        }
-    )
-    adjusted_close = calculation_frame["adjusted_close"]
-    calculation_frame["adjusted_close"] = adjusted_close.mask(
-        adjusted_close.le(0) | ~np.isfinite(adjusted_close)
-    )
-    calculation_frame = calculation_frame.sort_values(
-        ["provider", "ticker", "trading_date", "__original_index"], kind="mergesort"
-    )
-    grouped = calculation_frame.groupby(["provider", "ticker"], sort=False)["adjusted_close"]
+    result = prices.copy()
+    adjusted_close = pd.to_numeric(result["adjusted_close"], errors="coerce").astype("float64")
+    adjusted_close = adjusted_close.mask(adjusted_close.le(0) | ~np.isfinite(adjusted_close))
+    grouped = adjusted_close.groupby(level=["provider", "ticker"], sort=False)
     for horizon in horizons:
-        calculation_frame[f"forward_return_{horizon}d"] = (
-            grouped.shift(-horizon) / calculation_frame["adjusted_close"] - 1
-        )
-    calculation_frame = calculation_frame.sort_values("__original_index", kind="mergesort")
-    calculation_frame.index = result.index
-    for horizon in horizons:
-        column = f"forward_return_{horizon}d"
-        result[column] = calculation_frame[column].astype("float64")
+        result[f"forward_return_{horizon}d"] = (
+            grouped.shift(-horizon) / adjusted_close - 1
+        ).astype("float64")
     return result
 
 
@@ -82,9 +67,14 @@ def add_fixed_return_target(
     output_column: str,
     threshold: float,
 ) -> pd.DataFrame:
-    """Append a nullable Boolean target using a strict return threshold."""
-    if forward_return_column not in data.columns:
-        raise ValueError(f"Missing required target column: {forward_return_column}")
+    """Append a nullable Boolean target using a strict return threshold.
+
+    The canonical market-price index is preserved. Missing forward returns stay
+    missing rather than being coerced into the negative class.
+    """
+    validate_market_price_index(data)
+    validate_required_columns(data, required_columns={forward_return_column})
+
     result = data.copy()
     target = pd.Series(pd.NA, index=result.index, dtype="boolean")
     valid = result[forward_return_column].notna()
@@ -100,15 +90,19 @@ def generate_target_set(
 ) -> pd.DataFrame:
     """Execute target families in declaration order.
 
-    Before and after each family, validate required inputs, output collisions,
-    and the presence of all declared target columns.
+    A family's declared required inputs are ordinarily value columns. The three
+    canonical market identifiers may instead be supplied by index levels. Before
+    and after each family, this function validates required inputs, output
+    collisions, and the presence of all declared target columns. Concrete
+    market-price builders enforce the complete canonical index contract.
     """
     result = prices
     for family in target_set.families:
-        missing = sorted(family.required_columns.difference(result.columns))
+        available_inputs = _available_input_names(result)
+        missing = sorted(family.required_columns.difference(available_inputs))
         if missing:
             raise ValueError(
-                f"Target family {family.name!r} is missing required columns: {', '.join(missing)}"
+                f"Target family {family.name!r} is missing required inputs: {', '.join(missing)}"
             )
         collisions = sorted(set(family.output_columns).intersection(result.columns))
         if collisions:
@@ -126,29 +120,24 @@ def generate_target_set(
 
 
 def generate_v1_labels(prices: pd.DataFrame) -> pd.DataFrame:
-    """Generate labels using the repository's versioned V1 target set."""
+    """Generate V1 labels for a canonical market-price DataFrame."""
     from swingtrader.modeling.datasets.catalog import V1_TARGET_SET
 
     return generate_target_set(prices, target_set=V1_TARGET_SET)
 
 
-def _validate_required_columns(prices: pd.DataFrame) -> None:
-    missing_columns = _missing_columns(REQUIRED_PRICE_COLUMNS, prices.columns)
-    if missing_columns:
-        raise ValueError(f"Missing required price columns: {', '.join(missing_columns)}")
+def generate_v2_labels(prices: pd.DataFrame) -> pd.DataFrame:
+    """Generate V2 labels for a canonical market-price DataFrame."""
+    from swingtrader.modeling.datasets.catalog import V2_TARGET_SET
+
+    return generate_target_set(prices, target_set=V2_TARGET_SET)
 
 
-def _validate_unique_observations(prices: pd.DataFrame, normalized_dates: pd.Series) -> None:
-    keys = pd.DataFrame(
-        {
-            "provider": prices["provider"],
-            "ticker": prices["ticker"],
-            "trading_date": normalized_dates,
-        }
-    )
-    if keys.duplicated().any():
-        raise ValueError("Duplicate provider/ticker/trading_date observations are not allowed")
-
-
-def _missing_columns(required_columns: Sequence[str], available_columns: pd.Index) -> list[str]:
-    return [column for column in required_columns if column not in available_columns]
+def _available_input_names(data: pd.DataFrame) -> set[str]:
+    available = {column for column in data.columns if isinstance(column, str)}
+    if (
+        isinstance(data.index, pd.MultiIndex)
+        and tuple(data.index.names) == MARKET_PRICE_INDEX_NAMES
+    ):
+        available.update(MARKET_PRICE_INDEX_NAMES)
+    return available

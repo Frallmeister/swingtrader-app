@@ -1,12 +1,14 @@
 # Modeling Overview
 
-Modeling code now includes reusable V1 label generation and explicit versioned target-set contracts. The V1 target and evaluation contract is documented in [Target and Evaluation](target-and-evaluation.md).
+Modeling code now includes reusable V1 and V2 label generation and explicit versioned target-set contracts. The V1 research-return contract is documented in [Target and Evaluation](target-and-evaluation.md), while the V2 execution-oriented labels are documented in [ATR Barrier Targets](atr-barrier-targets.md).
 
 The modeling package will own dataset construction, training workflows, evaluation, model artifact management, and production inference.
 
 ## Implemented Components
 
-The modeling datasets package defines immutable target-family, target-set, and supervised-task contracts, a concrete V1 target catalog, and target builders for daily price DataFrames compatible with the bronze daily-price loader. The label generator preserves source observations, calculates 5-, 10-, and 15-session forward returns from adjusted close, and adds the nullable Boolean `target_significant_up_5d` target.
+The modeling datasets package defines immutable target-family, target-set, and supervised-task contracts plus concrete V1 and V2 target catalogs. Target builders consume the same canonical market-price DataFrame as indicators and features: a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`, with identifiers absent from ordinary columns. Column-oriented bronze rows are converted once at the caller boundary. Target generation preserves the canonical index, allowing features and labels to align directly on observation identity.
+
+V1 calculates 5-, 10-, and 15-session forward returns from adjusted close and adds the nullable Boolean `target_significant_up_5d` target. V2 preserves those outputs and adds next-open ATR-scaled barrier events, nullable take-profit-before-stop-loss targets, event timing, resolution dates, and measurable same-bar ambiguity for 5-, 10-, and 15-session horizons.
 
 Target generation and feature generation remain in memory for now. Feature and label persistence, database schemas, temporal splitting, model training, and evaluation reports are planned follow-up work.
 

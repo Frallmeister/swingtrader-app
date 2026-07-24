@@ -22,9 +22,10 @@ class TargetFamilySpec:
     """Describe one executable target family and its declared schema.
 
     The builder receives a DataFrame as its first argument and the configured
-    parameters as keyword arguments. Required input columns, produced output
-    columns, and the maximum future horizon are recorded for validation and
-    deterministic manifest generation.
+    parameters as keyword arguments. Required inputs, produced output columns,
+    and the maximum future horizon are recorded for validation and deterministic
+    manifest generation. For canonical market frames, identifier inputs recorded
+    in ``required_columns`` may be supplied by index levels.
     """
 
     name: str

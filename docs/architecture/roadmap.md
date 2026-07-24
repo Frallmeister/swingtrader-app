@@ -14,10 +14,12 @@ This roadmap is a planning aid, not a replacement for GitHub issues. It describe
 - In-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation.
 - V1 model target and evaluation contract.
 - V1 forward-return and binary-target generation.
+- Versioned V1 feature-set and target-set contracts.
+- V2 ATR barrier-event target generation.
 
-## Repository Stabilization
+## Completed Repository Stabilization
 
-Complete these items before treating baseline model results as durable:
+The repository has completed the pre-modeling stabilization sequence:
 
 1. Define and apply consistent corporate-action semantics for cross-session price calculations.
 2. Add split-equivalence and generic point-in-time feature contract tests.
@@ -27,12 +29,13 @@ Complete these items before treating baseline model results as durable:
 
 ## Model Development
 
-1. Implement leakage-safe temporal train, validation, and test dataset construction.
-2. Add date-based splits with target-horizon purging.
-3. Establish dummy-classifier and date-matched random-ranking baselines.
-4. Train and evaluate the first XGBoost classifier and regression candidates.
-5. Evaluate classification quality, calibration, daily cross-sectional ranking, and stability over time.
-6. Perform feature ablation and select a reproducible OHLCV V1 feature set.
+1. Add repository-owned experiment specifications and local MLflow tracking.
+2. Implement leakage-safe temporal train, validation, and test dataset construction.
+3. Add date-based splits with target-horizon purging.
+4. Establish dummy-classifier and date-matched random-ranking baselines.
+5. Train and evaluate the first XGBoost classifier and regression candidates.
+6. Evaluate classification quality, calibration, daily cross-sectional ranking, and stability over time.
+7. Perform feature ablation and select a reproducible OHLCV feature set.
 
 ## Production Preparation
 

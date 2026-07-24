@@ -1,6 +1,24 @@
-"""Dataset construction helpers and versioned target contracts."""
+"""Canonical modeling-frame helpers and versioned target contracts."""
 
-from swingtrader.modeling.datasets.catalog import V1_PRIMARY_TASK, V1_TARGET_SET
+from swingtrader.modeling.datasets.barriers import (
+    BARRIER_REQUIRED_PRICE_COLUMNS,
+    SUPPORTED_ENTRY_PRICE_RULES,
+    SUPPORTED_INTRABAR_POLICIES,
+    add_atr_barrier_targets,
+    barrier_output_columns,
+)
+from swingtrader.modeling.datasets.catalog import (
+    V1_PRIMARY_TASK,
+    V1_TARGET_SET,
+    V2_ATR_LENGTH,
+    V2_BARRIER_HORIZONS,
+    V2_ENTRY_PRICE_RULE,
+    V2_INTRABAR_POLICY,
+    V2_PRIMARY_TASK,
+    V2_REWARD_RISK_RATIO,
+    V2_STOP_ATR_MULTIPLE,
+    V2_TARGET_SET,
+)
 from swingtrader.modeling.datasets.contracts import (
     SupervisedTaskSpec,
     TargetFamilySpec,
@@ -16,9 +34,13 @@ from swingtrader.modeling.datasets.labels import (
     V1_TRADING_DAYS_PER_YEAR,
     generate_target_set,
     generate_v1_labels,
+    generate_v2_labels,
 )
 
 __all__ = [
+    "BARRIER_REQUIRED_PRICE_COLUMNS",
+    "SUPPORTED_ENTRY_PRICE_RULES",
+    "SUPPORTED_INTRABAR_POLICIES",
     "SupervisedTaskSpec",
     "TargetFamilySpec",
     "TargetSetSpec",
@@ -31,6 +53,17 @@ __all__ = [
     "V1_RETURN_THRESHOLD",
     "V1_TARGET_SET",
     "V1_TRADING_DAYS_PER_YEAR",
+    "V2_ATR_LENGTH",
+    "V2_BARRIER_HORIZONS",
+    "V2_ENTRY_PRICE_RULE",
+    "V2_INTRABAR_POLICY",
+    "V2_PRIMARY_TASK",
+    "V2_REWARD_RISK_RATIO",
+    "V2_STOP_ATR_MULTIPLE",
+    "V2_TARGET_SET",
+    "add_atr_barrier_targets",
+    "barrier_output_columns",
     "generate_target_set",
     "generate_v1_labels",
+    "generate_v2_labels",
 ]

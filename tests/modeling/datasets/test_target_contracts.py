@@ -133,13 +133,17 @@ def test_target_families_execute_in_declared_order() -> None:
 
 
 def test_v1_wrapper_delegates_to_v1_target_set() -> None:
-    prices = pd.DataFrame(
-        {
-            "provider": ["yfinance"] * 16,
-            "ticker": ["AAA.ST"] * 16,
-            "trading_date": pd.date_range("2026-01-01", periods=16),
-            "adjusted_close": range(100, 116),
-        }
+    prices = (
+        pd.DataFrame(
+            {
+                "provider": ["yfinance"] * 16,
+                "ticker": ["AAA.ST"] * 16,
+                "trading_date": pd.date_range("2026-01-01", periods=16),
+                "adjusted_close": range(100, 116),
+            }
+        )
+        .set_index(["provider", "ticker", "trading_date"])
+        .sort_index()
     )
     pd.testing.assert_frame_equal(
         generate_target_set(prices, target_set=V1_TARGET_SET),
