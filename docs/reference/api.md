@@ -142,7 +142,7 @@ analysis.
 
 ### Catalog
 
-::: swingtrader.modeling.datasets.target_catalog
+::: swingtrader.modeling.datasets.catalog
 
 ### Target Builders
 

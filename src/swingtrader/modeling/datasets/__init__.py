@@ -16,7 +16,7 @@ from swingtrader.modeling.datasets.labels import (
     generate_target_set,
     generate_v1_labels,
 )
-from swingtrader.modeling.datasets.target_catalog import V1_PRIMARY_TASK, V1_TARGET_SET
+from swingtrader.modeling.datasets.catalog import V1_PRIMARY_TASK, V1_TARGET_SET
 
 __all__ = [
     "SupervisedTaskSpec",
