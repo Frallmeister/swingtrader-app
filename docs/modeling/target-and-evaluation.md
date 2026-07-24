@@ -8,7 +8,7 @@ A behavior or parameter change that alters target meaning must create a new targ
 
 This page defines the V1 model target and evaluation contract.
 
-The label-generation code for this contract is implemented in the modeling datasets package, and initial in-memory return features are available in the data package. Broader feature engineering, temporal dataset construction, model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
+The label-generation code for this contract is implemented in the modeling datasets package, and the versioned in-memory OHLCV feature set is implemented in the data package. Temporal dataset construction, model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
 
 ## V1 Model Objective
 

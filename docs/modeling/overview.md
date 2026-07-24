@@ -26,7 +26,7 @@ Training eligibility and inference readiness are related but separate concepts.
 
 Training code should consume eligibility checks instead of blindly training on the active trading universe. The future training universe may be broader than active tickers.
 
-Once broader feature pipelines and temporal datasets exist, training eligibility will also require enough feature rows, labels, and usable observations for the intended train, validation, and test split design.
+Once temporal modeling datasets exist, training eligibility will also require enough feature rows, labels, and usable observations for the intended train, validation, and test split design.
 
 ## Retraining Cadence
 

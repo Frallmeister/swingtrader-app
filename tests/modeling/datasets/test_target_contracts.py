@@ -55,13 +55,22 @@ def test_target_family_rejects_invalid_horizon() -> None:
         _family("invalid", "target", maximum_horizon_sessions=0)
 
 
-
 def test_target_family_rejects_unknown_parameters() -> None:
     with pytest.raises(ValueError, match="Unknown parameters"):
         TargetFamilySpec(
             name="invalid",
             builder=lambda data: data.copy(),
             parameters={"missing": 1},
+            output_columns=("target",),
+            maximum_horizon_sessions=1,
+        )
+
+
+def test_target_family_rejects_missing_required_parameters() -> None:
+    with pytest.raises(ValueError, match="Missing required parameters"):
+        TargetFamilySpec(
+            name="invalid",
+            builder=add_required_target,
             output_columns=("target",),
             maximum_horizon_sessions=1,
         )
@@ -96,7 +105,34 @@ def test_task_rejects_unknown_target_column() -> None:
         task.validate_target_set(V1_TARGET_SET)
 
 
-def test_target_set_execution_matches_v1_compatibility_wrapper() -> None:
+def test_target_families_execute_in_declared_order() -> None:
+    target_set = TargetSetSpec(
+        name="ordered",
+        version="1",
+        families=(
+            TargetFamilySpec(
+                name="first",
+                builder=add_first_target,
+                output_columns=("first",),
+                maximum_horizon_sessions=1,
+            ),
+            TargetFamilySpec(
+                name="second",
+                builder=add_second_target,
+                required_columns=frozenset({"first"}),
+                output_columns=("second",),
+                maximum_horizon_sessions=1,
+            ),
+        ),
+    )
+
+    result = generate_target_set(pd.DataFrame(index=[0]), target_set=target_set)
+
+    assert result.loc[0, "first"] == 1
+    assert result.loc[0, "second"] == 2
+
+
+def test_v1_wrapper_delegates_to_v1_target_set() -> None:
     prices = pd.DataFrame(
         {
             "provider": ["yfinance"] * 16,
@@ -109,6 +145,24 @@ def test_target_set_execution_matches_v1_compatibility_wrapper() -> None:
         generate_target_set(prices, target_set=V1_TARGET_SET),
         generate_v1_labels(prices),
     )
+
+
+def add_required_target(data: pd.DataFrame, *, threshold: float) -> pd.DataFrame:
+    result = data.copy()
+    result["target"] = threshold
+    return result
+
+
+def add_first_target(data: pd.DataFrame) -> pd.DataFrame:
+    result = data.copy()
+    result["first"] = 1
+    return result
+
+
+def add_second_target(data: pd.DataFrame) -> pd.DataFrame:
+    result = data.copy()
+    result["second"] = result["first"] + 1
+    return result
 
 
 def _family(

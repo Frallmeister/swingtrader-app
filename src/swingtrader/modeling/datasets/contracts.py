@@ -40,10 +40,30 @@ class TargetFamilySpec:
         object.__setattr__(self, "parameters", MappingProxyType(dict(self.parameters)))
         object.__setattr__(self, "required_columns", frozenset(self.required_columns))
         signature = inspect.signature(self.builder)
-        unknown_parameters = set(self.parameters).difference(signature.parameters)
+        builder_parameters = tuple(signature.parameters.values())[1:]
+        configurable_kinds = {
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        }
+        configurable_parameters = {
+            parameter.name: parameter
+            for parameter in builder_parameters
+            if parameter.kind in configurable_kinds
+        }
+        unknown_parameters = set(self.parameters).difference(configurable_parameters)
         if unknown_parameters:
             names = ", ".join(sorted(unknown_parameters))
             raise ValueError(f"Unknown parameters for target family {self.name!r}: {names}.")
+        missing_parameters = {
+            name
+            for name, parameter in configurable_parameters.items()
+            if parameter.default is inspect.Parameter.empty and name not in self.parameters
+        }
+        if missing_parameters:
+            names = ", ".join(sorted(missing_parameters))
+            raise ValueError(
+                f"Missing required parameters for target family {self.name!r}: {names}."
+            )
 
     @property
     def builder_path(self) -> str:
