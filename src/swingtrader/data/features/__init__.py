@@ -11,7 +11,7 @@ inputs.
 """
 
 from swingtrader.data.features.catalog import DEFAULT_FEATURE_SET
-from swingtrader.data.features.feature_sets import (
+from swingtrader.data.features.contracts import (
     FeatureBlockSpec,
     FeatureSetSpec,
     HistoryRequirement,

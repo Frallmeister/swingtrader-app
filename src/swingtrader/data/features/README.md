@@ -8,7 +8,7 @@ Reusable technical calculations live in `swingtrader.indicators`. Indicators cal
 
 Feature generation currently includes seven in-memory families: returns, trend, momentum, volatility, price action, volume, and market structure.
 
-`feature_sets.py` defines the immutable feature-set contract types, `catalog.py` contains concrete named and versioned feature-set definitions, and `pipeline.py` executes a supplied feature-set specification in its declared block order. This directory should not yet be treated as a persistent feature pipeline.
+`contracts.py` defines the immutable feature-set contract types, `catalog.py` contains concrete named and versioned feature-set definitions, and `pipeline.py` executes a supplied feature-set specification in its declared block order. This directory should not yet be treated as a persistent feature pipeline.
 
 ## Design principles
 

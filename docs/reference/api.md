@@ -126,7 +126,7 @@ analysis.
 
 ## Versioned Feature Sets
 
-::: swingtrader.data.features.feature_sets
+::: swingtrader.data.features.contracts
 
 ::: swingtrader.data.features.catalog
 

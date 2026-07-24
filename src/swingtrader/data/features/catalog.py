@@ -1,14 +1,14 @@
 """Concrete, versioned feature-set definitions.
 
 This module is the catalog of reproducible feature sets built from the
-contract types in :mod:`swingtrader.data.features.feature_sets`. It holds
+contract types in :mod:`swingtrader.data.features.contracts`. It holds
 configured instances such as :data:`DEFAULT_FEATURE_SET`; add new named and
 versioned sets here rather than in the module that defines the spec types.
 """
 
 from __future__ import annotations
 
-from swingtrader.data.features.feature_sets import (
+from swingtrader.data.features.contracts import (
     FeatureBlockSpec,
     FeatureSetSpec,
     HistoryRequirement,

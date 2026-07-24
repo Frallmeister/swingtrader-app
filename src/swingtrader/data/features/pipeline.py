@@ -8,7 +8,7 @@ Each family builder remains independently usable.
 import pandas as pd
 
 from swingtrader.data.features.catalog import DEFAULT_FEATURE_SET
-from swingtrader.data.features.feature_sets import FeatureSetSpec
+from swingtrader.data.features.contracts import FeatureSetSpec
 
 
 def add_feature_set(
