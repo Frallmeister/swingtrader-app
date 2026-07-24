@@ -4,21 +4,27 @@ This module defines the small vocabulary used to describe feature
 computations declaratively:
 
 * A :class:`FeatureBlockSpec` binds one feature-family builder to its
-  parameters and its stable input/output column schema.
+  parameters and stable input/output column schema.
 * A :class:`FeatureSetSpec` composes an ordered, name-versioned
-  collection of blocks into a single reproducible feature contract.
+  collection of blocks into a single feature contract.
 
-Both specs are frozen and normalize their declared inputs into immutable
-containers, preventing accidental mutation of an instantiated contract.
+Both specifications are frozen and normalize their declared inputs into
+immutable containers, preventing accidental mutation after construction.
 
-Each spec can emit a deterministic, JSON-serializable manifest via
-``to_manifest``. The manifest records the declared feature contract; exact
-reproduction additionally requires the source revision containing the
-configured builders.
+Each specification can emit a deterministic, JSON-serializable manifest
+through `to_manifest`. :class:`FeatureSetSpec` also exposes a SHA-256
+digest of its canonical manifest for compact experiment and artifact
+provenance.
+
+The manifest and digest identify the declared feature configuration.
+Exact reproduction additionally requires the source revision containing
+the configured builder implementations and the corresponding input data.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -195,6 +201,16 @@ class FeatureSetSpec:
             "required_columns": sorted(self.required_columns),
             "blocks": [block.to_manifest() for block in self.blocks],
         }
+
+    @property
+    def digest(self) -> str:
+        """Return the SHA-256 digest of the canonical feature-set manifest."""
+        payload = json.dumps(
+            self.to_manifest(),
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _json_value(value: object) -> object:

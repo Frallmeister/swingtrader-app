@@ -153,7 +153,7 @@ class TargetSetSpec:
     def digest(self) -> str:
         """Return the SHA-256 digest of the canonical target-set manifest."""
         payload = json.dumps(self.to_manifest(), sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(payload.encode()).hexdigest()
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
