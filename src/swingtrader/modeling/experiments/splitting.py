@@ -458,6 +458,7 @@ def _build_split_summary(
 
 
 def _binary_class_prevalence(target: pd.Series, *, task_type: str) -> float | None:
+    """Return positive-class prevalence for complete binary classification targets."""
     if task_type != "classification":
         return None
     if pd.api.types.is_bool_dtype(target.dtype):
