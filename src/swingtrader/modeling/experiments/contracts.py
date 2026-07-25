@@ -21,19 +21,23 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from types import MappingProxyType
+from typing import Literal
 
 from swingtrader.data.features.contracts import FeatureSetSpec
 from swingtrader.modeling.datasets.contracts import SupervisedTaskSpec, TargetSetSpec
 from swingtrader.modeling.datasets.specifications import TemporalDatasetSpec, UniverseSpec
 
 
+type TemporalSplitName = Literal["train", "validation", "test"]
+
+
 @dataclass(frozen=True, slots=True)
 class TemporalSplitSpec:
-    """Declare non-overlapping calendar ranges for train, validation, and test.
+    """Declare one purged fixed train, validation, and locked-test policy.
 
-    This contract records split semantics only. Applying the ranges and purging
-    rows whose target horizon crosses a boundary belongs to the later temporal
-    splitting implementation.
+    Calendar ranges are inclusive and shared by every ticker. ``embargo_sessions``
+    removes that many additional global observed signal dates from the end of
+    train and validation after target-horizon purging.
     """
 
     name: str
@@ -44,6 +48,7 @@ class TemporalSplitSpec:
     validation_end: date
     test_start: date
     test_end: date
+    embargo_sessions: int = 0
 
     def __post_init__(self) -> None:
         _require_text(self.name, field_name="Temporal split name")
@@ -64,12 +69,25 @@ class TemporalSplitSpec:
             raise ValueError("Training and validation ranges must not overlap.")
         if self.validation_end >= self.test_start:
             raise ValueError("Validation and test ranges must not overlap.")
+        if isinstance(self.embargo_sessions, bool) or not isinstance(self.embargo_sessions, int):
+            raise TypeError("Temporal split embargo must be an integer number of sessions.")
+        if self.embargo_sessions < 0:
+            raise ValueError("Temporal split embargo must not be negative.")
+
+    @property
+    def ranges(self) -> tuple[tuple[TemporalSplitName, date, date], ...]:
+        """Return train, validation, and test ranges in chronological order."""
+        return (
+            ("train", self.train_start, self.train_end),
+            ("validation", self.validation_start, self.validation_end),
+            ("test", self.test_start, self.test_end),
+        )
 
     @property
     def identifier(self) -> str:
         return f"{self.name}:{self.version}"
 
-    def to_manifest(self) -> dict[str, str]:
+    def to_manifest(self) -> dict[str, object]:
         return {
             "name": self.name,
             "version": self.version,
@@ -80,6 +98,7 @@ class TemporalSplitSpec:
             "validation_end": self.validation_end.isoformat(),
             "test_start": self.test_start.isoformat(),
             "test_end": self.test_end.isoformat(),
+            "embargo_sessions": self.embargo_sessions,
         }
 
     @property

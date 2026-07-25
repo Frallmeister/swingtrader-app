@@ -5,7 +5,7 @@ Swingtrader is a personal trading decision-support application built around a da
 !!! note "Current status"
     The repository implements the local market-data foundation, runnable onboarding and daily-update jobs, bronze-backed eligibility checks, pandas loading, versioned V1 forward-return and V2 ATR barrier-event targets, immutable experiment specifications, local MLflow tracking, and in-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation.
 
-    The pre-modeling contracts, corporate-action semantics, and experiment-provenance layer are now stabilized. The next implementation work is to build canonical leakage-safe temporal datasets and purged splits.
+    The pre-modeling contracts, canonical temporal dataset layer, and purged fixed split semantics are now stabilized. The next implementation work is to establish baseline models and evaluation workflows.
 
     Model training, production inference, prediction persistence, the FastAPI backend, the TypeScript/React frontend, deployed scheduling, and macro-data ingestion remain planned.
 
@@ -19,6 +19,7 @@ The long-term goal is not automatic order placement. The application should supp
 - [Roadmap](architecture/roadmap.md): understand the completed stabilization work and modeling sequence.
 - [Data](data/overview.md): understand clients, ingestion, bronze storage, ticker onboarding, eligibility checks, and features.
 - [Modeling](modeling/overview.md): understand readiness, targets, experiments, and evaluation concepts.
+- [Temporal splitting](modeling/temporal-splitting.md): understand fixed calendar ranges, target-end purging, embargo, and diagnostics.
 - [ATR barrier targets](modeling/atr-barrier-targets.md): understand the V2 next-open stop-loss and take-profit label contract.
 - [Experiment tracking](modeling/experiments.md): define reproducible experiment semantics and record local MLflow runs.
 - [Operations](operations/daily-runbook.md): run the implemented local daily workflow and understand the planned production sequence.

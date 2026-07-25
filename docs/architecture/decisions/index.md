@@ -19,3 +19,4 @@ Accepted ADRs should not be silently rewritten when the architecture changes. Ad
 - [ADR 0004: Adjustment-consistent model prices](0004-adjustment-consistent-model-prices.md)
 - [ADR 0005: Versioned feature-set contract](0005-versioned-feature-set-contract.md)
 - [ADR 0006: Canonical temporal dataset bundle](0006-canonical-temporal-dataset-bundle.md)
+- [ADR 0007: Purged fixed temporal splitting](0007-purged-fixed-temporal-splitting.md)

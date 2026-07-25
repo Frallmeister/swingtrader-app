@@ -172,6 +172,10 @@ analysis.
 
 ::: swingtrader.modeling.experiments.contracts
 
+### Purged Temporal Splitting
+
+::: swingtrader.modeling.experiments.splitting
+
 ### MLflow Tracking
 
 ::: swingtrader.modeling.experiments.tracking
