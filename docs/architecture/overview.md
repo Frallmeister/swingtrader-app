@@ -98,6 +98,8 @@ flowchart TB
     ingestion --> clients
     ingestion --> bronze
     eligibility --> bronze
+    eligibility --> ingestion
+    eligibility --> clients
     features --> indicators
     datasets --> bronze
     datasets --> eligibility
