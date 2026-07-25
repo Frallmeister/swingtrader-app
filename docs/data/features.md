@@ -24,10 +24,46 @@ records = features.reset_index()
 
 Feature code is organized into two layers with a clear responsibility boundary:
 
-- **Indicators** calculate reusable technical quantities and live in `swingtrader.indicators`. Indicators know nothing about the model feature set, so they can also be reused by notebooks, tests, future API endpoints, charting, stock screening, and backtest or trade-record analysis.
-- **Features** transform raw data and indicators into model inputs and live in `swingtrader.data.features`. A feature builder decides which source columns an indicator should use, how indicators are combined and normalized, how historical context is represented, and what the model-facing column is named.
+Rectangles are contracts, rounded boxes are computations, cylinders are data, and the
+parallelogram represents an external caller-selected input:
 
-In short: indicators calculate reusable technical quantities, and features transform raw data and indicators into model inputs.
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 45, "rankSpacing": 70}}}%%
+flowchart TB
+    market[/Caller-selected market data/]
+
+    subgraph reusable["Reusable indicator path"]
+        indicator_call([Call an indicator])
+        indicators[(Indicator values)]
+        consumers[/Charts, screening, and analysis/]
+        indicator_call --> indicators --> consumers
+    end
+
+    subgraph modeling["Model feature path"]
+        source_policy([Select sources and adjust prices])
+        feature_transform([Combine, normalize, and name features])
+        feature_set["FeatureSetSpec"]
+        feature_columns[(Model feature columns)]
+        source_policy --> feature_transform --> feature_columns
+        feature_set --> feature_transform
+    end
+
+    market --> indicator_call
+    market --> source_policy
+    source_policy --> indicator_call
+    indicators --> feature_transform
+
+    classDef input fill:#eceff1,stroke:#546e7a
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    classDef contract fill:#e3f2fd,stroke:#1565c0
+    class market,consumers input
+    class indicator_call,source_policy,feature_transform action
+    class indicators,feature_columns artifact
+    class feature_set contract
+```
+
+Indicators know nothing about the model feature set and remain reusable outside modeling. Feature builders own model-specific source selection, price adjustment, normalization, composition, historical context, and final column naming.
 
 ### Adjustment-Consistent Model Prices
 

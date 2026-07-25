@@ -15,6 +15,9 @@ theme:
     - search.suggest
     - content.code.copy
 
+extra_css:
+  - stylesheets/mermaid.css
+
 plugins:
   - search
   - mkdocstrings:
@@ -34,7 +37,11 @@ markdown_extensions:
   - pymdownx.details
   - pymdownx.highlight
   - pymdownx.inlinehilite
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tasklist:
       custom_checkbox: true
   - tables

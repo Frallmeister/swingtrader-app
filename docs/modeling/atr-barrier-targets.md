@@ -71,12 +71,60 @@ stop_price = 100 - 2 * 2 = 96
 take_profit_price = 100 + 2 * 2 * 2 = 108
 ```
 
-Suppose session 1 trades between 98 and 104, so neither barrier is reached. If
-session 2 opens at 95, the result is a `stop_loss` with `event_session = 2`: the
-opening gap is evaluated before that session's high and low, even if the price
-later trades above 108. If session 2 instead opens at 100 and trades from 95 to
-109, the bar touches both barriers and is resolved by the configured intrabar
-policy while `ambiguous_intrabar` remains true.
+The event lifecycle fixes the barriers once, then evaluates each future observed
+session until a barrier event or the complete timeout horizon resolves the label.
+Rectangles are fixed states, rounded boxes are evaluations, diamonds are decisions,
+and cylinders are emitted outcomes:
+
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 34, "rankSpacing": 48}}}%%
+flowchart TB
+    signal["Completed signal session t<br/>ATR_t = 2"]
+    entry(["Session 1 open<br/>Entry E = 100"])
+    barriers["Fixed barriers<br/>Stop = 96 · Take profit = 108"]
+    observe(["Evaluate observed session"])
+    open_check{"Open crosses a barrier?"}
+    gap_event[("Gap exit<br/>stop_loss or take_profit")]
+    range_check{"What does the intrabar range touch?"}
+    one_hit[("One barrier hit<br/>stop_loss or take_profit")]
+    both_hit["Both barriers touched<br/>ambiguous_intrabar = true"]
+    policy(["Apply intrabar policy"])
+    ambiguous_event[("take_profit, stop_loss,<br/>or ambiguous")]
+    horizon_check{"Complete horizon reached?"}
+    next_session(["Evaluate next observed session"])
+    timeout[("timeout")]
+    event_end[("target_end_date = event date")]
+    timeout_end[("target_end_date = horizon date")]
+    entry_note["Session 1 cannot gap through a barrier:<br/>its open defines E"]
+
+    signal --> entry --> barriers --> observe
+    entry_note -.-> entry
+    observe --> open_check
+    open_check -->|yes| gap_event --> event_end
+    open_check -->|no| range_check
+    range_check -->|one| one_hit --> event_end
+    range_check -->|both| both_hit --> policy --> ambiguous_event --> event_end
+    range_check -->|neither| horizon_check
+    horizon_check -->|no| next_session --> observe
+    horizon_check -->|yes| timeout --> timeout_end
+
+    classDef state fill:#e3f2fd,stroke:#1565c0
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef decision fill:#f3e5f5,stroke:#6a1b9a
+    classDef outcome fill:#e8f5e9,stroke:#2e7d32
+    classDef note fill:#eceff1,stroke:#546e7a
+    class signal,barriers,both_hit state
+    class entry,observe,policy,next_session action
+    class open_check,range_check,horizon_check decision
+    class gap_event,one_hit,ambiguous_event,timeout,event_end,timeout_end outcome
+    class entry_note note
+```
+
+For example, session 1 can trade between 98 and 104 without resolving the event.
+If session 2 opens at 95, the opening gap produces `stop_loss` with
+`event_session = 2`, even if the price later trades above 108. If it opens at 100
+and trades from 95 to 109, both barriers are touched and the configured intrabar
+policy resolves the event while `ambiguous_intrabar` remains true.
 
 ## Gap Handling
 

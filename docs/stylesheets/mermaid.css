@@ -1,0 +1,28 @@
+/* Keep dense Mermaid diagrams readable instead of scaling their text to fit the page. */
+.md-typeset .mermaid {
+  overflow-x: auto;
+  padding-block: 0.5rem;
+  text-align: center;
+}
+
+.md-typeset .mermaid svg {
+  min-width: 42rem;
+  max-width: none;
+  height: auto;
+}
+
+.md-typeset .mermaid text,
+.md-typeset .mermaid .nodeLabel,
+.md-typeset .mermaid .nodeLabel p,
+.md-typeset .mermaid .edgeLabel,
+.md-typeset .mermaid .label,
+.md-typeset .mermaid .classTitle,
+.md-typeset .mermaid .classText {
+  font-size: 18px !important;
+}
+
+@media screen and (max-width: 44rem) {
+  .md-typeset .mermaid svg {
+    min-width: 38rem;
+  }
+}

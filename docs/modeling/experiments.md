@@ -19,7 +19,7 @@ The tracking helpers import MLflow only when `start_experiment_run()` is called.
 
 ## Experiment Contracts
 
-The experiment layer composes four immutable specifications:
+The experiment package exposes four top-level immutable contracts:
 
 | Contract | Purpose |
 | --- | --- |
@@ -27,6 +27,64 @@ The experiment layer composes four immutable specifications:
 | `TemporalSplitSpec` | Declares shared, inclusive train, validation, and test calendar ranges plus an optional pre-boundary embargo. |
 | `ModelSpec` | Records the model implementation identity and JSON-compatible hyperparameters. |
 | `ExperimentSpec` | Composes the feature set, target set, selected task, universe, data cutoff, split, model, and random seeds. |
+
+The top-level and lower-level contracts compose as follows. Colors group feature, target, dataset, and experiment concerns; only fields that define important boundaries are shown.
+
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}}}%%
+classDiagram
+    direction TB
+    class FeatureBlockSpec
+    class FeatureSetSpec
+    class TargetFamilySpec
+    class TargetSetSpec
+    class SupervisedTaskSpec {
+        +target_column
+        +target_end_date_column
+    }
+    class UniverseSpec
+    class TemporalDatasetSpec {
+        +data_cutoff
+    }
+    class TemporalSplitSpec {
+        +train_range
+        +validation_range
+        +test_range
+        +embargo_sessions
+    }
+    class ModelSpec {
+        +model_type
+        +hyperparameters
+    }
+    class ExperimentSpec {
+        +random_seeds
+        +dataset_spec
+    }
+
+    FeatureSetSpec "1" *-- "1..*" FeatureBlockSpec : blocks
+    TargetSetSpec "1" *-- "1..*" TargetFamilySpec : families
+    SupervisedTaskSpec ..> TargetSetSpec : selects target from
+    TemporalDatasetSpec o-- FeatureSetSpec
+    TemporalDatasetSpec o-- TargetSetSpec
+    TemporalDatasetSpec o-- SupervisedTaskSpec
+    TemporalDatasetSpec o-- UniverseSpec
+    ExperimentSpec o-- FeatureSetSpec
+    ExperimentSpec o-- TargetSetSpec
+    ExperimentSpec o-- SupervisedTaskSpec
+    ExperimentSpec o-- UniverseSpec
+    ExperimentSpec o-- TemporalSplitSpec
+    ExperimentSpec o-- ModelSpec
+    ExperimentSpec ..> TemporalDatasetSpec : exposes dataset_spec
+
+    classDef feature fill:#e3f2fd,stroke:#1565c0
+    classDef target fill:#f3e5f5,stroke:#6a1b9a
+    classDef dataset fill:#e8f5e9,stroke:#2e7d32
+    classDef experiment fill:#fff3e0,stroke:#ef6c00
+    cssClass "FeatureBlockSpec,FeatureSetSpec" feature
+    cssClass "TargetFamilySpec,TargetSetSpec,SupervisedTaskSpec" target
+    cssClass "UniverseSpec,TemporalDatasetSpec" dataset
+    cssClass "TemporalSplitSpec,ModelSpec,ExperimentSpec" experiment
+```
 
 Each specification has a deterministic manifest and SHA-256 digest. Ticker ordering does not affect a universe digest because membership order is not meaningful. Changes such as adding a ticker, changing a split date or embargo, selecting another target, changing a hyperparameter, or changing a seed do affect the experiment digest.
 

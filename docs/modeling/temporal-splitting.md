@@ -9,28 +9,70 @@ Each declared range is inclusive and shared by every ticker. Assignment has two 
 1. the signal date must lie inside the range;
 2. the row's actual `target_end_date` must be no later than that range's end.
 
-For example:
+The signal date determines the candidate split, while the complete target window determines whether the candidate is retained:
 
-```text
-training ends:       2021-12-31
-validation begins:   2022-01-01
-signal date:         2021-12-29
-target_end_date:     2022-01-05
+Signals and target end dates are states; the final hexagon is the assignment decision:
+
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 30}}}%%
+flowchart TB
+    train["Train through<br/>2021-12-31"] --> validation["Validation from<br/>2022-01-01"]
+
+    subgraph retained["Sample A"]
+        direction LR
+        a_signal([Signal<br/>2021-12-29]) --> a_target([Target ends<br/>2021-12-31]) --> a_result{{Retain in train}}
+    end
+
+    subgraph purged["Sample B"]
+        direction LR
+        b_signal([Signal<br/>2021-12-29]) --> b_target([Target ends<br/>2022-01-05]) --> b_result{{Purge from train}}
+    end
+
+    a_target -.-> train
+    b_target -.-> validation
+
+    classDef boundary fill:#e3f2fd,stroke:#1565c0
+    classDef state fill:#eceff1,stroke:#546e7a
+    classDef retainedState fill:#e8f5e9,stroke:#2e7d32
+    classDef purgedState fill:#ffebee,stroke:#c62828
+    class train,validation boundary
+    class a_signal,a_target,b_signal,b_target state
+    class a_result retainedState
+    class b_result purgedState
 ```
 
-The row is a training candidate by signal date but is purged because its target observation window is not contained in training. The same rule removes validation rows whose targets resolve after validation, including inside the locked test period. A target ending exactly on the split end is retained.
+Both rows are training candidates by signal date. Sample A is retained because its target ends on the inclusive train boundary; Sample B is purged because its target window crosses that boundary. The same rule removes validation rows whose targets resolve after validation, including inside the locked test period.
 
 Purging uses the per-row metadata produced by the canonical dataset. It never converts a session horizon into an assumed number of calendar days.
 
 ## Embargo Semantics
 
-`embargo_sessions=0` disables embargo. A positive value removes an additional number of signal dates before each later split:
+`embargo_sessions=0` disables embargo. A positive value applies an additional global pre-boundary gap after purging:
 
-1. purge boundary-crossing rows;
-2. find the remaining distinct signal dates in train or validation across the complete panel;
-3. remove the final N dates and every surviving ticker row on those dates.
+Rounded boxes are operations, the cylinder is the surviving panel, and the final hexagon is the
+resulting boundary state:
 
-This is a global pre-boundary gap. It is not calculated per ticker, does not shift the declared validation or test ranges, and is not applied to the end of the locked test period. Dates already emptied by purging do not count toward the embargo, so N always represents N additional observed signal dates.
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 26, "rankSpacing": 32}}}%%
+flowchart TB
+    candidates[(Train or validation candidates)]
+    purge([Purge target windows crossing the split end])
+    panel[(Surviving panel dates<br/>Dec 27: AAA, BBB<br/>Dec 28: AAA, CCC<br/>Dec 29: AAA, BBB, CCC<br/>Dec 30: AAA, BBB)]
+    choose([For N = 2, select Dec 29 and Dec 30])
+    remove([Remove all surviving rows on those dates])
+    later{{Later split keeps its declared start}}
+
+    candidates --> purge --> panel --> choose --> remove --> later
+
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    classDef state fill:#f3e5f5,stroke:#6a1b9a
+    class candidates,panel artifact
+    class purge,choose,remove action
+    class later state
+```
+
+The dates are selected once across the complete panel, not separately for each ticker. The embargo does not shift validation or test ranges and is not applied after the locked test period. Dates already emptied by purging do not count, so `N` always means `N` additional observed signal dates.
 
 ## Usage
 

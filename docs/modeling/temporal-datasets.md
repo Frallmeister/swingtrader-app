@@ -31,22 +31,45 @@ Use `construct_temporal_dataset()` when a caller already owns the canonical hist
 
 ## Bundle Contract
 
-`TemporalDatasetBundle` owns four aligned outputs:
+`TemporalDatasetBundle` owns three row-aligned frames and one bundle-level manifest:
 
-- `features`: exactly the feature-set output columns in contract order;
-- `targets`: exactly the target-set output columns in contract order;
-- `samples`: `target_end_date`, `training_eligible_at_cutoff`, and eligibility failure reasons;
-- `manifest`: deterministic specification identity and dataset diagnostics.
+The bundle is a contract, the cylinders are row-aligned DataFrames, and the double-bordered box is bundle-level metadata rather than another row-aligned frame:
 
-All three frames use the same unique, sorted `MultiIndex`:
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 28, "rankSpacing": 34}}}%%
+flowchart TB
+    bundle["TemporalDatasetBundle"]
+    index{{"Shared index<br/>(provider, ticker, trading_date)"}}
+    features[(features<br/>contract-ordered columns)]
+    targets[(targets<br/>contract-ordered columns)]
+    samples[(samples<br/>target end and eligibility metadata)]
+    manifest[["manifest<br/>identity and diagnostics<br/>(not row-aligned)"]]
+    target_rule([Drop rows with a missing selected target])
+    feature_rule([Retain missing feature values])
 
-```text
-provider, ticker, trading_date
+    bundle --> features
+    bundle --> targets
+    bundle --> samples
+    bundle --> manifest
+    index -.->|aligns| features
+    index -.->|aligns| targets
+    index -.->|aligns| samples
+    target_rule -->|filters all aligned frames| bundle
+    feature_rule --> features
+
+    classDef contract fill:#e3f2fd,stroke:#1565c0
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    classDef state fill:#f3e5f5,stroke:#6a1b9a
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    class bundle contract
+    class features,targets,samples,manifest artifact
+    class index state
+    class target_rule,feature_rule action
 ```
 
-The selected supervised target is complete in every retained row. Feature missing values are not imputed or removed: warm-up periods and source-quality gaps must remain visible until split-aware preprocessing is implemented. Tickers that fail current training-eligibility gates remain in the declared universe and are marked in metadata; a completely missing declared ticker is an error.
+The selected supervised target is complete in every retained row. Feature warm-up and source-quality gaps remain visible until split-aware preprocessing. Tickers that fail current training-eligibility gates remain in the declared universe and are marked in `samples`; a completely missing declared ticker is an error.
 
-For fixed-horizon targets, `target_end_date` is derived from observed sessions within each provider/ticker history. Event targets can declare an explicit target output such as `target_end_date_5d`, allowing the bundle to retain the actual event or timeout resolution date.
+For fixed-horizon targets, `target_end_date` is derived from observed sessions within each provider/ticker history. Event targets can instead declare an explicit target output such as `target_end_date_5d`, preserving the actual event or timeout resolution date.
 
 ## Tabular Adapter
 
