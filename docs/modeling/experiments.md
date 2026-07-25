@@ -28,10 +28,12 @@ The experiment package exposes four top-level immutable contracts:
 | `ModelSpec` | Records the model implementation identity and JSON-compatible hyperparameters. |
 | `ExperimentSpec` | Composes the feature set, target set, selected task, universe, data cutoff, split, model, and random seeds. |
 
-The top-level contracts and lower-level dataset contracts compose as follows; only fields that determine important boundaries are shown:
+The top-level and lower-level contracts compose as follows. Colors group feature, target, dataset, and experiment concerns; only fields that define important boundaries are shown.
 
 ```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}}}%%
 classDiagram
+    direction TB
     class FeatureBlockSpec
     class FeatureSetSpec
     class TargetFamilySpec
@@ -40,20 +42,14 @@ classDiagram
         +target_column
         +target_end_date_column
     }
-    class UniverseSpec {
-        +provider
-        +tickers
-    }
+    class UniverseSpec
     class TemporalDatasetSpec {
         +data_cutoff
     }
     class TemporalSplitSpec {
-        +train_start
-        +train_end
-        +validation_start
-        +validation_end
-        +test_start
-        +test_end
+        +train_range
+        +validation_range
+        +test_range
         +embargo_sessions
     }
     class ModelSpec {
@@ -61,14 +57,13 @@ classDiagram
         +hyperparameters
     }
     class ExperimentSpec {
-        +data_cutoff
         +random_seeds
         +dataset_spec
     }
 
     FeatureSetSpec "1" *-- "1..*" FeatureBlockSpec : blocks
     TargetSetSpec "1" *-- "1..*" TargetFamilySpec : families
-    SupervisedTaskSpec ..> TargetSetSpec : references target set
+    SupervisedTaskSpec ..> TargetSetSpec : selects target from
     TemporalDatasetSpec o-- FeatureSetSpec
     TemporalDatasetSpec o-- TargetSetSpec
     TemporalDatasetSpec o-- SupervisedTaskSpec
@@ -80,6 +75,15 @@ classDiagram
     ExperimentSpec o-- TemporalSplitSpec
     ExperimentSpec o-- ModelSpec
     ExperimentSpec ..> TemporalDatasetSpec : exposes dataset_spec
+
+    classDef feature fill:#1565c0,stroke:#0d3d75,color:#ffffff
+    classDef target fill:#6a1b9a,stroke:#3c0f58,color:#ffffff
+    classDef dataset fill:#2e7d32,stroke:#17451c,color:#ffffff
+    classDef experiment fill:#9a4d00,stroke:#5d2e00,color:#ffffff
+    cssClass "FeatureBlockSpec,FeatureSetSpec" feature
+    cssClass "TargetFamilySpec,TargetSetSpec,SupervisedTaskSpec" target
+    cssClass "UniverseSpec,TemporalDatasetSpec" dataset
+    cssClass "TemporalSplitSpec,ModelSpec,ExperimentSpec" experiment
 ```
 
 Each specification has a deterministic manifest and SHA-256 digest. Ticker ordering does not affect a universe digest because membership order is not meaningful. Changes such as adding a ticker, changing a split date or embargo, selecting another target, changing a hyperparameter, or changing a seed do affect the experiment digest.

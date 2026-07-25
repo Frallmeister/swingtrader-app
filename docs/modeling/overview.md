@@ -6,23 +6,27 @@ The V1 research-return contract is documented in [Target and Evaluation](target-
 
 The implemented modeling path separates dataset construction from split policy and later model fitting:
 
-```mermaid
-flowchart TB
-    experiment["ExperimentSpec<br/>dataset choices, split, model, and seeds"]
-    dataset_spec["TemporalDatasetSpec<br/>feature set, target set, task, universe, cutoff"]
-    source["Bronze market history<br/>and cutoff-aware eligibility"]
-    builder["build_temporal_dataset"]
-    features["Feature-set execution"]
-    targets["Target-set execution"]
-    bundle["TemporalDatasetBundle<br/>features, targets, samples, manifest"]
-    tabular["Tabular adapter<br/>X, y, samples"]
-    splitter["FixedTemporalSplitter"]
-    train["Train positions"]
-    validation["Validation positions"]
-    test["Locked-test positions"]
-    modeling["Split-aware preprocessing, model fitting,<br/>and evaluation (planned)"]
+Rectangles are immutable specifications, rounded boxes are operations, cylinders are data
+products, and hexagons are split assignments. Dashed edges lead to planned work.
 
-    experiment -->|dataset_spec| dataset_spec
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 28, "rankSpacing": 34}}}%%
+flowchart TB
+    experiment["ExperimentSpec"]
+    dataset_spec["TemporalDatasetSpec"]
+    source[(Bronze history and eligibility)]
+    builder([Build temporal dataset])
+    features([Execute feature set])
+    targets([Execute target set])
+    bundle[(TemporalDatasetBundle)]
+    tabular([Create X, y, and sample metadata])
+    splitter([Apply fixed temporal split])
+    train{{Train positions}}
+    validation{{Validation positions}}
+    test{{Locked-test positions}}
+    modeling([Preprocess, fit, and evaluate<br/>(planned)])
+
+    experiment -->|dataset choices| dataset_spec
     dataset_spec --> builder
     source --> builder
     builder --> features
@@ -35,11 +39,22 @@ flowchart TB
     splitter --> train
     splitter --> validation
     splitter --> test
-    tabular --> modeling
-    train --> modeling
-    validation --> modeling
+    tabular -.-> modeling
+    train -.-> modeling
+    validation -.-> modeling
     test -.->|final evaluation only| modeling
     experiment -.->|model and seeds| modeling
+
+    classDef contract fill:#1565c0,stroke:#0d3d75,color:#ffffff
+    classDef action fill:#9a4d00,stroke:#5d2e00,color:#ffffff
+    classDef artifact fill:#2e7d32,stroke:#17451c,color:#ffffff
+    classDef state fill:#6a1b9a,stroke:#3c0f58,color:#ffffff
+    classDef planned fill:#424242,stroke:#9e9e9e,color:#ffffff,stroke-dasharray:6 4
+    class experiment,dataset_spec contract
+    class builder,features,targets,tabular,splitter action
+    class source,bundle artifact
+    class train,validation,test state
+    class modeling planned
 ```
 
 ## Implemented Components

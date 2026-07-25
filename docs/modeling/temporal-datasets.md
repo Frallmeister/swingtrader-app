@@ -33,26 +33,38 @@ Use `construct_temporal_dataset()` when a caller already owns the canonical hist
 
 `TemporalDatasetBundle` owns three row-aligned frames and one bundle-level manifest:
 
+The bundle is a contract, the cylinders are row-aligned DataFrames, and the double-bordered box is bundle-level metadata rather than another row-aligned frame:
+
 ```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 28, "rankSpacing": 34}}}%%
 flowchart TB
     bundle["TemporalDatasetBundle"]
-    index{{"Shared unique, sorted index<br/>(provider, ticker, trading_date)"}}
-    features["features<br/>feature-set columns in contract order"]
-    targets["targets<br/>target-set columns in contract order"]
-    samples["samples<br/>target_end_date<br/>training_eligible_at_cutoff<br/>training_eligibility_reasons"]
-    manifest["manifest<br/>bundle identity and diagnostics<br/>(not row-aligned)"]
-    target_rule["Selected target missing<br/>row excluded from all three frames"]
-    feature_rule["Feature missing values retained<br/>for split-aware preprocessing"]
+    index{{"Shared index<br/>(provider, ticker, trading_date)"}}
+    features[(features<br/>contract-ordered columns)]
+    targets[(targets<br/>contract-ordered columns)]
+    samples[(samples<br/>target end and eligibility metadata)]
+    manifest[["manifest<br/>identity and diagnostics<br/>(not row-aligned)"]]
+    target_rule([Drop rows with a missing selected target])
+    feature_rule([Retain missing feature values])
 
     bundle --> features
     bundle --> targets
     bundle --> samples
     bundle --> manifest
-    index -.->|aligns rows| features
-    index -.->|aligns rows| targets
-    index -.->|aligns rows| samples
-    target_rule -.->|filters shared rows| bundle
-    feature_rule -.-> features
+    index -.->|aligns| features
+    index -.->|aligns| targets
+    index -.->|aligns| samples
+    target_rule -->|filters all aligned frames| bundle
+    feature_rule --> features
+
+    classDef contract fill:#1565c0,stroke:#0d3d75,color:#ffffff
+    classDef artifact fill:#2e7d32,stroke:#17451c,color:#ffffff
+    classDef state fill:#6a1b9a,stroke:#3c0f58,color:#ffffff
+    classDef action fill:#9a4d00,stroke:#5d2e00,color:#ffffff
+    class bundle contract
+    class features,targets,samples,manifest artifact
+    class index state
+    class target_rule,feature_rule action
 ```
 
 The selected supervised target is complete in every retained row. Feature warm-up and source-quality gaps remain visible until split-aware preprocessing. Tickers that fail current training-eligibility gates remain in the declared universe and are marked in `samples`; a completely missing declared ticker is an error.

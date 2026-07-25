@@ -6,15 +6,31 @@ Swingtrader is a data-first decision-support application. External market data m
 
 The implemented repository currently supports the research foundation through purged temporal splitting:
 
+The shapes distinguish inputs, actions, data products, and planned work:
+
 ```mermaid
-flowchart LR
-    A[Curated ticker universes] --> B[Market-data ingestion]
-    B --> C[Bronze storage]
-    C --> D[Eligibility and loading]
-    D --> E[Feature and target generation]
-    E --> F[Canonical temporal datasets]
-    F --> G[Purged temporal splits]
-    G -.-> H[Model training and evaluation<br/>(planned)]
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 30}}}%%
+flowchart TB
+    universe[/Curated ticker universes/]
+    ingest([Ingest market data])
+    bronze[(Bronze prices)]
+    eligible([Resolve eligibility and load history])
+    generate([Generate features and targets])
+    dataset[(Canonical temporal dataset)]
+    split([Apply purged temporal split])
+    train([Train and evaluate models<br/>(planned)])
+
+    universe --> ingest --> bronze --> eligible --> generate --> dataset --> split
+    split -.-> train
+
+    classDef input fill:#455a64,stroke:#263238,color:#ffffff
+    classDef action fill:#9a4d00,stroke:#5d2e00,color:#ffffff
+    classDef artifact fill:#2e7d32,stroke:#17451c,color:#ffffff
+    classDef planned fill:#424242,stroke:#9e9e9e,color:#ffffff,stroke-dasharray:6 4
+    class universe input
+    class ingest,eligible,generate,split action
+    class bronze,dataset artifact
+    class train planned
 ```
 
 Feature and target generation currently runs in memory. Persistence of model-ready datasets remains optional and should be introduced only when reproducibility or operational evidence justifies it.
@@ -24,13 +40,24 @@ Feature and target generation currently runs in memory. Persistence of model-rea
 Production ranking should run as a scheduled workflow rather than inside an HTTP request:
 
 ```mermaid
-flowchart LR
-    A[Scheduled market update] --> B[Bronze storage]
-    B --> C[Selected feature calculation]
-    C --> D[Model inference]
-    D --> E[Persisted prediction snapshots]
-    E --> F[FastAPI backend]
-    F --> G[TypeScript and React frontend]
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 30}}}%%
+flowchart TB
+    update([Scheduled market update])
+    bronze[(Bronze prices)]
+    features([Calculate selected features])
+    inference([Run model inference])
+    predictions[(Prediction snapshots)]
+    api([FastAPI backend])
+    frontend([React frontend])
+
+    update --> bronze --> features --> inference --> predictions --> api --> frontend
+
+    classDef action fill:#9a4d00,stroke:#5d2e00,color:#ffffff
+    classDef artifact fill:#2e7d32,stroke:#17451c,color:#ffffff
+    classDef service fill:#1565c0,stroke:#0d3d75,color:#ffffff
+    class update,features,inference action
+    class bronze,predictions artifact
+    class api,frontend service
 ```
 
 The backend may serve bounded chart-data or indicator requests on demand, but it should not execute full-universe feature generation or model inference while a user waits for an API response.
@@ -67,6 +94,7 @@ The backend may serve bounded chart-data or indicator requests on demand, but it
 The main dependency direction is shown below. Arrows point from a consumer to the package or service it may depend on. Dashed edges and labels mark planned boundaries rather than implemented dependencies.
 
 ```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 22, "rankSpacing": 28}}}%%
 flowchart TB
     subgraph entrypoints["Operational entrypoints"]
         jobs["data.jobs"]
@@ -86,10 +114,10 @@ flowchart TB
         experiments["modeling.experiments"]
     end
 
-    subgraph application["Application boundary"]
-        services["Application and inference services<br/>(planned)"]
-        api["FastAPI backend<br/>(planned)"]
-        frontend["TypeScript and React frontend<br/>(planned)"]
+    subgraph application["Planned application boundary"]
+        services["Application services"]
+        api["FastAPI backend"]
+        frontend["React frontend"]
     end
 
     jobs --> ingestion
@@ -107,6 +135,15 @@ flowchart TB
     experiments --> datasets
     api -.-> services
     frontend -.-> api
+
+    classDef entry fill:#455a64,stroke:#263238,color:#ffffff
+    classDef dataNode fill:#2e7d32,stroke:#17451c,color:#ffffff
+    classDef modelNode fill:#1565c0,stroke:#0d3d75,color:#ffffff
+    classDef planned fill:#424242,stroke:#9e9e9e,color:#ffffff,stroke-dasharray:6 4
+    class jobs entry
+    class clients,ingestion,bronze,eligibility,indicators,features dataNode
+    class datasets,experiments modelNode
+    class services,api,frontend planned
 ```
 
 The data layer must not import API or frontend implementation code. The API must not own numerical feature algorithms or model training. The React frontend must not access the database or depend on Python internals.
