@@ -1,6 +1,7 @@
 from datetime import date
 
 import pandas as pd
+import pytest
 
 from swingtrader.data.features.contracts import FeatureBlockSpec, FeatureSetSpec
 from swingtrader.modeling.datasets.contracts import (
@@ -94,7 +95,35 @@ def test_experiment_exposes_lower_level_dataset_spec() -> None:
     assert experiment.dataset_spec.feature_set is feature_set
     assert experiment.dataset_spec.target_set is target_set
     assert experiment.dataset_spec.universe is universe
-    manifest_text = experiment.dataset_spec.to_json()
-    assert "split" not in manifest_text
-    assert "model" not in manifest_text
-    assert "random_seeds" not in manifest_text
+    manifest = experiment.dataset_spec.to_manifest()
+    forbidden_keys = {
+        "split",
+        "temporal_split",
+        "model",
+        "model_spec",
+        "random_seed",
+        "random_seeds",
+        "mlflow",
+    }
+    assert forbidden_keys.isdisjoint(manifest)
+
+    horizonless_task = SupervisedTaskSpec(
+        name="horizonless_task",
+        target_set_name=target_set.name,
+        target_set_version=target_set.version,
+        target_column="target",
+        task_type="classification",
+    )
+    with pytest.raises(ValueError, match="horizon_sessions"):
+        ExperimentSpec(
+            name="invalid_experiment",
+            version="1",
+            feature_set=feature_set,
+            target_set=target_set,
+            task=horizonless_task,
+            universe=universe,
+            data_cutoff=experiment.data_cutoff,
+            split=experiment.split,
+            model=experiment.model,
+            random_seeds=experiment.random_seeds,
+        )

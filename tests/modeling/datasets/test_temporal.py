@@ -62,6 +62,35 @@ def add_event_target(data: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def test_ticker_eligibility_rejects_eligible_state_with_failure_reasons() -> None:
+    with pytest.raises(ValueError, match="must not declare failure reasons"):
+        TickerEligibility(
+            ticker="AAA",
+            eligible=True,
+            failure_reasons=("insufficient_history",),
+        )
+
+
+def test_ticker_eligibility_rejects_ineligible_state_without_failure_reasons() -> None:
+    with pytest.raises(ValueError, match="must declare at least one failure reason"):
+        TickerEligibility(
+            ticker="AAA",
+            eligible=False,
+        )
+
+
+def test_ticker_eligibility_rejects_duplicate_failure_reasons() -> None:
+    with pytest.raises(ValueError, match="must be unique"):
+        TickerEligibility(
+            ticker="AAA",
+            eligible=False,
+            failure_reasons=(
+                "insufficient_history",
+                "insufficient_history",
+            ),
+        )
+
+
 def test_build_temporal_dataset_loads_required_history_through_the_cutoff(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

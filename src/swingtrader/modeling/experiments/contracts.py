@@ -143,10 +143,10 @@ class ExperimentSpec:
     single deterministic manifest and digest for experiment identity.
 
     Construction enforces the invariants that keep the manifest coherent: the
-    supervised task must reference the supplied target set, ``data_cutoff`` must
-    not precede the end of the declared test range so the test window is fully
-    covered by available data, and at least one random seed must be provided as a
-    non-negative integer. Seeds are frozen into a read-only mapping. Runtime
+    feature set, target set, task, universe, and cutoff must form a valid temporal
+    dataset specification, ``data_cutoff`` must not precede the end of the declared
+    test range, and at least one random seed must be provided as a non-negative
+    integer. Seeds are frozen into a read-only mapping. Runtime
     provenance such as the Git revision is deliberately excluded because it
     describes an execution rather than the static experiment configuration.
     """
@@ -165,8 +165,13 @@ class ExperimentSpec:
     def __post_init__(self) -> None:
         _require_text(self.name, field_name="Experiment name")
         _require_text(self.version, field_name="Experiment version")
-        self.task.validate_target_set(self.target_set)
-        _require_date(self.data_cutoff, field_name="Data cutoff")
+        _ = TemporalDatasetSpec(
+            feature_set=self.feature_set,
+            target_set=self.target_set,
+            task=self.task,
+            universe=self.universe,
+            data_cutoff=self.data_cutoff,
+        )
 
         if self.data_cutoff < self.split.test_end:
             raise ValueError("Data cutoff must not precede the end of the declared test range.")

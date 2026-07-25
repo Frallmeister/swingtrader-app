@@ -47,10 +47,21 @@ class TickerEligibility:
             raise TypeError("Eligibility status must be a boolean.")
         if isinstance(self.failure_reasons, str):
             raise TypeError("Eligibility failure reasons must be an iterable of strings.")
-        reasons = tuple(sorted(self.failure_reasons))
+        try:
+            reasons = tuple(self.failure_reasons)
+        except TypeError as exc:
+            raise TypeError(
+                "Eligibility failure reasons must be an iterable of strings."
+            ) from exc
         if any(not isinstance(reason, str) or not reason for reason in reasons):
             raise ValueError("Eligibility failure reasons must be non-empty strings.")
-        object.__setattr__(self, "failure_reasons", reasons)
+        if len(reasons) != len(set(reasons)):
+            raise ValueError("Eligibility failure reasons must be unique.")
+        if self.eligible and reasons:
+            raise ValueError("Eligible tickers must not declare failure reasons.")
+        if not self.eligible and not reasons:
+            raise ValueError("Ineligible tickers must declare at least one failure reason.")
+        object.__setattr__(self, "failure_reasons", tuple(sorted(reasons)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,7 +148,32 @@ def build_temporal_dataset(
     engine: Engine,
     spec: TemporalDatasetSpec,
 ) -> TemporalDatasetBundle:
-    """Load bronze history through the cutoff and construct an unsplit bundle."""
+    """Build an unsplit temporal dataset from bronze market data.
+
+    The complete available history through ``spec.data_cutoff`` is loaded for
+    the exact resolved universe. Features, targets, and training eligibility
+    are therefore evaluated against the same inclusive data cutoff.
+
+    Parameters
+    ----------
+    engine
+        SQLAlchemy engine containing the bronze daily-price table.
+    spec
+        Immutable description of the feature set, target set, supervised
+        task, resolved universe, and data cutoff.
+
+    Returns
+    -------
+    TemporalDatasetBundle
+        Aligned feature, target, and sample-metadata frames together with the
+        deterministic dataset manifest.
+
+    Raises
+    ------
+    ValueError
+        If a declared ticker is missing or the loaded data violates a source,
+        target, or temporal contract.
+    """
     from swingtrader.data.bronze.loaders import load_bronze_daily_prices
     from swingtrader.data.eligibility import (
         TrainingEligibilityStatus,
@@ -176,7 +212,35 @@ def construct_temporal_dataset(
     spec: TemporalDatasetSpec,
     eligibility: Mapping[str, TickerEligibility],
 ) -> TemporalDatasetBundle:
-    """Construct an aligned bundle from one canonical historical market frame."""
+    """Construct an unsplit temporal dataset from an in-memory market frame.
+
+    The input must use the canonical market index schema, although its rows
+    may be unordered. The constructor sorts the frame, calculates features
+    and targets independently over the full history, and retains only rows
+    where the selected supervised target and its resolution date exist.
+    Feature missing values are preserved.
+
+    Parameters
+    ----------
+    prices
+        Market history indexed by provider, ticker, and trading date.
+    spec
+        Immutable temporal dataset specification.
+    eligibility
+        Cutoff-aware eligibility metadata for every ticker in the resolved
+        universe.
+
+    Returns
+    -------
+    TemporalDatasetBundle
+        Independently owned and index-aligned dataset frames and manifest.
+
+    Raises
+    ------
+    ValueError
+        If the source frame, eligibility mapping, generated columns, aligned
+        indexes, or target-resolution dates violate the dataset contract.
+    """
     prices = prices.copy(deep=True).sort_index()
     validate_market_price_index(prices)
     _validate_source_scope(prices, spec=spec, eligibility=eligibility)
