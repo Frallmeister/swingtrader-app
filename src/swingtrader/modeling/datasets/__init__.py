@@ -43,9 +43,9 @@ from swingtrader.modeling.datasets.temporal import (
     TARGET_END_DATE_COLUMN,
     TRAINING_ELIGIBILITY_REASONS_COLUMN,
     TRAINING_ELIGIBLE_COLUMN,
-    TickerEligibility,
     TemporalDatasetBundle,
     TemporalDatasetManifest,
+    TickerEligibility,
     build_temporal_dataset,
     construct_temporal_dataset,
 )

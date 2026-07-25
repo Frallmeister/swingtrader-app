@@ -219,9 +219,7 @@ class SupervisedTaskSpec:
             self.target_end_date_column is not None
             and self.target_end_date_column not in target_set.target_columns
         ):
-            raise ValueError(
-                f"Unknown target end-date column: {self.target_end_date_column}."
-            )
+            raise ValueError(f"Unknown target end-date column: {self.target_end_date_column}.")
 
     def to_manifest(self) -> dict[str, object]:
         """Return a JSON-serializable supervised-task description."""

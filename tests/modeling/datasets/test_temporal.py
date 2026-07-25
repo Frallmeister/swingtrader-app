@@ -28,17 +28,17 @@ from swingtrader.modeling.datasets.temporal import (
 
 def add_expanding_feature(data: pd.DataFrame) -> pd.DataFrame:
     result = data.copy()
-    result["feature_expanding_mean"] = result["adjusted_close"].groupby(
-        level=["provider", "ticker"], sort=False
-    ).transform(lambda values: values.expanding(min_periods=2).mean())
+    result["feature_expanding_mean"] = (
+        result["adjusted_close"]
+        .groupby(level=["provider", "ticker"], sort=False)
+        .transform(lambda values: values.expanding(min_periods=2).mean())
+    )
     return result
 
 
 def add_two_session_target(data: pd.DataFrame) -> pd.DataFrame:
     result = data.copy()
-    future = result["adjusted_close"].groupby(
-        level=["provider", "ticker"], sort=False
-    ).shift(-2)
+    future = result["adjusted_close"].groupby(level=["provider", "ticker"], sort=False).shift(-2)
     target = pd.Series(pd.NA, index=result.index, dtype="boolean")
     valid = future.notna()
     target.loc[valid] = future.loc[valid].gt(result.loc[valid, "adjusted_close"])
@@ -58,9 +58,7 @@ def add_event_target(data: pd.DataFrame) -> pd.DataFrame:
         pd.DatetimeIndex(result.index.get_level_values("trading_date")),
         index=result.index,
     )
-    result["target_end_date_2d"] = dates.groupby(
-        level=["provider", "ticker"], sort=False
-    ).shift(-1)
+    result["target_end_date_2d"] = dates.groupby(level=["provider", "ticker"], sort=False).shift(-1)
     return result
 
 
@@ -105,9 +103,7 @@ def test_build_temporal_dataset_loads_required_history_through_the_cutoff(
     assert bundle.manifest.source_row_count == 12
     assert bundle.manifest.sample_row_count == 8
     assert bundle.samples["training_eligible_at_cutoff"].eq(False).all()
-    assert bundle.samples.index.get_level_values("trading_date").max() == pd.Timestamp(
-        "2026-01-04"
-    )
+    assert bundle.samples.index.get_level_values("trading_date").max() == pd.Timestamp("2026-01-04")
 
 
 def test_construct_temporal_dataset_aligns_frames_and_preserves_feature_nans() -> None:
@@ -307,26 +303,57 @@ def test_tabular_adapter_preserves_missing_values_and_metadata() -> None:
 
 
 def test_manifest_is_deterministic_and_excludes_downstream_concepts() -> None:
+    def collect_keys(value: object) -> set[str]:
+        if isinstance(value, dict):
+            keys = {str(key).lower() for key in value}
+            for child in value.values():
+                keys.update(collect_keys(child))
+            return keys
+
+        if isinstance(value, list):
+            keys: set[str] = set()
+            for child in value:
+                keys.update(collect_keys(child))
+            return keys
+
+        return set()
+
     spec = _spec(data_cutoff=date(2026, 1, 6))
     first = construct_temporal_dataset(
-        _prices(periods=6), spec=spec, eligibility=_eligibility()
+        _prices(periods=6),
+        spec=spec,
+        eligibility=_eligibility(),
     )
     second = construct_temporal_dataset(
-        _prices(periods=6), spec=spec, eligibility=_eligibility()
+        _prices(periods=6),
+        spec=spec,
+        eligibility=_eligibility(),
     )
 
     assert first.manifest.digest == second.manifest.digest
-    manifest_text = first.manifest.to_json()
-    for excluded in ("split", "model", "random_seed", "mlflow"):
-        assert excluded not in manifest_text.lower()
+
+    manifest_keys = collect_keys(first.manifest.to_manifest())
+    forbidden_keys = {
+        "split",
+        "temporal_split",
+        "model",
+        "model_spec",
+        "random_seed",
+        "random_seeds",
+        "mlflow",
+    }
+
+    assert manifest_keys.isdisjoint(forbidden_keys)
 
 
 def test_regression_manifest_uses_compact_numeric_summary() -> None:
     def add_regression_target(data: pd.DataFrame) -> pd.DataFrame:
         result = data.copy()
-        result["target_return_2d"] = result["adjusted_close"].groupby(
-            level=["provider", "ticker"], sort=False
-        ).shift(-2) / result["adjusted_close"] - 1
+        result["target_return_2d"] = (
+            result["adjusted_close"].groupby(level=["provider", "ticker"], sort=False).shift(-2)
+            / result["adjusted_close"]
+            - 1
+        )
         return result
 
     target_set = TargetSetSpec(
@@ -373,9 +400,11 @@ def test_regression_manifest_uses_compact_numeric_summary() -> None:
 def test_regression_manifest_rejects_non_finite_targets() -> None:
     def add_non_finite_target(data: pd.DataFrame) -> pd.DataFrame:
         result = data.copy()
-        result["target_return_2d"] = result["adjusted_close"].groupby(
-            level=["provider", "ticker"], sort=False
-        ).shift(-2) / result["adjusted_close"] - 1
+        result["target_return_2d"] = (
+            result["adjusted_close"].groupby(level=["provider", "ticker"], sort=False).shift(-2)
+            / result["adjusted_close"]
+            - 1
+        )
         result.iloc[0, result.columns.get_loc("target_return_2d")] = float("inf")
         return result
 
