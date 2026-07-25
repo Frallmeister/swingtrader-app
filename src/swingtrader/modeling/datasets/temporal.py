@@ -50,9 +50,7 @@ class TickerEligibility:
         try:
             reasons = tuple(self.failure_reasons)
         except TypeError as exc:
-            raise TypeError(
-                "Eligibility failure reasons must be an iterable of strings."
-            ) from exc
+            raise TypeError("Eligibility failure reasons must be an iterable of strings.") from exc
         if any(not isinstance(reason, str) or not reason for reason in reasons):
             raise ValueError("Eligibility failure reasons must be non-empty strings.")
         if len(reasons) != len(set(reasons)):
