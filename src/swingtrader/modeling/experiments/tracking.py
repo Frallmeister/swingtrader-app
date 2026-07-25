@@ -15,7 +15,7 @@ import math
 import os
 import subprocess
 import tempfile
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
@@ -158,6 +158,67 @@ def resolve_git_revision(repository_root: str | Path | None = None) -> str | Non
     return revision or None
 
 
+@contextmanager
+def start_experiment_run(
+    spec: ExperimentSpec,
+    *,
+    experiment_name: str = "swingtrader",
+    run_name: str | None = None,
+    tracking_uri: str | None = None,
+    dataset_summary: DatasetSummary | None = None,
+    repository_root: str | Path | None = None,
+    tags: Mapping[str, str] | None = None,
+) -> Generator[ExperimentRun, None, None]:
+    """Start and initialize an MLflow run from an experiment specification.
+
+    The complete canonical manifest is logged under ``manifests/``. Dataset
+    summaries record counts, date ranges, and optional class prevalence while
+    deliberately omitting complete materialized datasets.
+    """
+    if not isinstance(experiment_name, str) or not experiment_name.strip():
+        raise ValueError("MLflow experiment name must be a non-empty string.")
+    if run_name is not None and (not isinstance(run_name, str) or not run_name.strip()):
+        raise ValueError("MLflow run name must be a non-empty string when provided.")
+    if dataset_summary is not None:
+        _validate_dataset_summary(spec, dataset_summary)
+
+    mlflow = _import_mlflow()
+    resolved_uri = tracking_uri or os.getenv("MLFLOW_TRACKING_URI") or local_tracking_uri()
+    mlflow.set_tracking_uri(resolved_uri)
+    mlflow.set_experiment(experiment_name)
+
+    git_revision = resolve_git_revision(repository_root)
+    resolved_run_name = run_name or f"{spec.name}-{spec.version}-{spec.digest[:8]}"
+
+    with mlflow.start_run(run_name=resolved_run_name) as active_run:
+        run_id = active_run.info.run_id
+        mlflow.log_params(_experiment_parameters(spec, git_revision=git_revision))
+
+        run_tags = dict(tags or {})
+        run_tags.update(
+            {
+                "experiment.identifier": spec.identifier,
+                "experiment.digest": spec.digest,
+            }
+        )
+        if git_revision is not None:
+            run_tags["mlflow.source.git.commit"] = git_revision
+        mlflow.set_tags(run_tags)
+
+        if dataset_summary is not None:
+            mlflow.log_params(_dataset_parameters(dataset_summary))
+            prevalence_metrics = _dataset_metrics(dataset_summary)
+            if prevalence_metrics:
+                mlflow.log_metrics(prevalence_metrics)
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            manifest_path = Path(temporary_directory, "experiment.json")
+            manifest_path.write_text(f"{spec.to_json()}\n", encoding="utf-8")
+            mlflow.log_artifact(str(manifest_path), artifact_path="manifests")
+
+        yield ExperimentRun(mlflow, run_id)
+
+
 def _import_mlflow() -> ModuleType:
     try:
         return importlib.import_module("mlflow")
@@ -284,64 +345,3 @@ def _validate_dataset_summary(spec: ExperimentSpec, summary: DatasetSummary) -> 
             raise ValueError(
                 f"Dataset {split_name} date range must fall within the declared temporal split."
             )
-
-
-@contextmanager
-def start_experiment_run(
-    spec: ExperimentSpec,
-    *,
-    experiment_name: str = "swingtrader",
-    run_name: str | None = None,
-    tracking_uri: str | None = None,
-    dataset_summary: DatasetSummary | None = None,
-    repository_root: str | Path | None = None,
-    tags: Mapping[str, str] | None = None,
-) -> Iterator[ExperimentRun]:
-    """Start and initialize an MLflow run from an experiment specification.
-
-    The complete canonical manifest is logged under ``manifests/``. Dataset
-    summaries record counts, date ranges, and optional class prevalence while
-    deliberately omitting complete materialized datasets.
-    """
-    if not isinstance(experiment_name, str) or not experiment_name.strip():
-        raise ValueError("MLflow experiment name must be a non-empty string.")
-    if run_name is not None and (not isinstance(run_name, str) or not run_name.strip()):
-        raise ValueError("MLflow run name must be a non-empty string when provided.")
-    if dataset_summary is not None:
-        _validate_dataset_summary(spec, dataset_summary)
-
-    mlflow = _import_mlflow()
-    resolved_uri = tracking_uri or os.getenv("MLFLOW_TRACKING_URI") or local_tracking_uri()
-    mlflow.set_tracking_uri(resolved_uri)
-    mlflow.set_experiment(experiment_name)
-
-    git_revision = resolve_git_revision(repository_root)
-    resolved_run_name = run_name or f"{spec.name}-{spec.version}-{spec.digest[:8]}"
-
-    with mlflow.start_run(run_name=resolved_run_name) as active_run:
-        run_id = active_run.info.run_id
-        mlflow.log_params(_experiment_parameters(spec, git_revision=git_revision))
-
-        run_tags = dict(tags or {})
-        run_tags.update(
-            {
-                "experiment.identifier": spec.identifier,
-                "experiment.digest": spec.digest,
-            }
-        )
-        if git_revision is not None:
-            run_tags["mlflow.source.git.commit"] = git_revision
-        mlflow.set_tags(run_tags)
-
-        if dataset_summary is not None:
-            mlflow.log_params(_dataset_parameters(dataset_summary))
-            prevalence_metrics = _dataset_metrics(dataset_summary)
-            if prevalence_metrics:
-                mlflow.log_metrics(prevalence_metrics)
-
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            manifest_path = Path(temporary_directory, "experiment.json")
-            manifest_path.write_text(f"{spec.to_json()}\n", encoding="utf-8")
-            mlflow.log_artifact(str(manifest_path), artifact_path="manifests")
-
-        yield ExperimentRun(mlflow, run_id)

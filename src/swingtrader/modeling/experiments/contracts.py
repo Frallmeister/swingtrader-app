@@ -26,57 +26,6 @@ from swingtrader.data.features.contracts import FeatureSetSpec
 from swingtrader.modeling.datasets.contracts import SupervisedTaskSpec, TargetSetSpec
 
 
-def _require_text(value: str, *, field_name: str) -> None:
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{field_name} must be a non-empty string.")
-
-
-def _require_date(value: date, *, field_name: str) -> None:
-    if type(value) is not date:
-        raise TypeError(f"{field_name} must be a datetime.date.")
-
-
-def _freeze_value(value: object, *, path: str) -> object:
-    """Validate and freeze one JSON-compatible configuration value."""
-    if value is None or isinstance(value, (bool, int, str)):
-        return value
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise ValueError(f"{path} must not contain NaN or infinite values.")
-        return value
-    if isinstance(value, Mapping):
-        frozen: dict[str, object] = {}
-        for key, item in value.items():
-            if not isinstance(key, str) or not key.strip():
-                raise ValueError(f"{path} mapping keys must be non-empty strings.")
-            frozen[key] = _freeze_value(item, path=f"{path}.{key}")
-        return MappingProxyType(frozen)
-    if isinstance(value, (list, tuple)):
-        return tuple(
-            _freeze_value(item, path=f"{path}[{position}]") for position, item in enumerate(value)
-        )
-    raise TypeError(
-        f"{path} contains unsupported value {value!r}; use JSON-compatible "
-        "scalars, mappings, lists, or tuples."
-    )
-
-
-def _manifest_value(value: object) -> object:
-    if isinstance(value, Mapping):
-        return {key: _manifest_value(item) for key, item in sorted(value.items())}
-    if isinstance(value, tuple):
-        return [_manifest_value(item) for item in value]
-    return value
-
-
-def _canonical_json(manifest: Mapping[str, object]) -> str:
-    return json.dumps(manifest, sort_keys=True, separators=(",", ":"))
-
-
-def _digest(manifest: Mapping[str, object]) -> str:
-    return hashlib.sha256(_canonical_json(manifest).encode("utf-8")).hexdigest()
-
-
 @dataclass(frozen=True, slots=True)
 class UniverseSpec:
     """Identify one resolved, versioned training universe.
@@ -321,3 +270,54 @@ class ExperimentSpec:
     def digest(self) -> str:
         """Return the SHA-256 digest of the canonical experiment manifest."""
         return _digest(self.to_manifest())
+
+
+def _require_text(value: str, *, field_name: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string.")
+
+
+def _require_date(value: date, *, field_name: str) -> None:
+    if type(value) is not date:
+        raise TypeError(f"{field_name} must be a datetime.date.")
+
+
+def _freeze_value(value: object, *, path: str) -> object:
+    """Validate and freeze one JSON-compatible configuration value."""
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError(f"{path} must not contain NaN or infinite values.")
+        return value
+    if isinstance(value, Mapping):
+        frozen: dict[str, object] = {}
+        for key, item in value.items():
+            if not isinstance(key, str) or not key.strip():
+                raise ValueError(f"{path} mapping keys must be non-empty strings.")
+            frozen[key] = _freeze_value(item, path=f"{path}.{key}")
+        return MappingProxyType(frozen)
+    if isinstance(value, (list, tuple)):
+        return tuple(
+            _freeze_value(item, path=f"{path}[{position}]") for position, item in enumerate(value)
+        )
+    raise TypeError(
+        f"{path} contains unsupported value {value!r}; use JSON-compatible "
+        "scalars, mappings, lists, or tuples."
+    )
+
+
+def _manifest_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {key: _manifest_value(item) for key, item in sorted(value.items())}
+    if isinstance(value, tuple):
+        return [_manifest_value(item) for item in value]
+    return value
+
+
+def _canonical_json(manifest: Mapping[str, object]) -> str:
+    return json.dumps(manifest, sort_keys=True, separators=(",", ":"))
+
+
+def _digest(manifest: Mapping[str, object]) -> str:
+    return hashlib.sha256(_canonical_json(manifest).encode("utf-8")).hexdigest()
