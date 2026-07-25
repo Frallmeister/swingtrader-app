@@ -1,6 +1,6 @@
 # Temporal Datasets
 
-The temporal dataset layer creates the canonical unsplit modeling product between feature/target generation and later temporal splitting or model training.
+The temporal dataset layer creates the canonical unsplit modeling product between feature/target generation and downstream temporal splitting or model training.
 
 ## Dataset Specification
 
@@ -59,7 +59,7 @@ y = tabular.y
 samples = tabular.samples
 ```
 
-The adapter performs no split, purging, imputation, scaling, sampling, or model-specific dtype conversion. Those operations must be fitted or applied inside the later temporal training workflow.
+The adapter performs no split, purging, imputation, scaling, sampling, or model-specific dtype conversion. Those operations must be fitted or applied inside the split-aware temporal training workflow.
 
 ## Current Boundary
 
@@ -72,9 +72,10 @@ Implemented:
 - cutoff-aware training-eligibility metadata;
 - manifest diagnostics and a framework-neutral tabular adapter.
 
+Fixed train/validation/test assignment, actual-target-end purging, and optional embargo are implemented downstream in [Temporal Splitting](temporal-splitting.md).
+
 Still planned:
 
-- date-based train, validation, and test assignment;
-- target-horizon purging and expanding-window folds;
+- expanding-window folds;
 - model-specific preprocessing and training;
 - persisted or content-addressed dataset snapshots.

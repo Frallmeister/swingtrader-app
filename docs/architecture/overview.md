@@ -4,7 +4,7 @@ Swingtrader is a data-first decision-support application. External market data m
 
 ## Research Flow
 
-The implemented repository currently supports the data and feature portions of this flow:
+The implemented repository currently supports the research foundation through purged temporal splitting:
 
 ```mermaid
 flowchart LR
@@ -12,8 +12,9 @@ flowchart LR
     B --> C[Bronze storage]
     C --> D[Eligibility and loading]
     D --> E[Feature and target generation]
-    E --> F[Temporal datasets]
-    F --> G[Model training and evaluation]
+    E --> F[Canonical temporal datasets]
+    F --> G[Purged temporal splits]
+    G --> H[Model training and evaluation]
 ```
 
 Feature and target generation currently runs in memory. Persistence of model-ready datasets remains optional and should be introduced only when reproducibility or operational evidence justifies it.
@@ -44,15 +45,15 @@ The backend may serve bounded chart-data or indicator requests on demand, but it
 - Pandas loading from bronze daily prices.
 - Reusable technical indicators.
 - In-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation.
-- In-memory V1 forward-return and binary-target generation.
+- Versioned V1 forward-return and V2 ATR barrier-event target generation.
+- Canonical unsplit temporal dataset construction.
+- Purged fixed train, validation, and locked-test splitting with diagnostics.
+- Immutable experiment specifications and optional local MLflow tracking.
 - Local SQLite and configurable SQLAlchemy database URLs.
 - Automated Ruff, pytest, and strict MkDocs checks.
 
 ## Planned
 
-- Consistent corporate-action semantics across cross-session indicators and features.
-- Versioned feature-set definitions and model experiment manifests.
-- Leakage-safe temporal train, validation, and test dataset construction.
 - Baseline model training, evaluation, and feature selection.
 - Local and scheduled production inference with prediction persistence.
 - A FastAPI backend under `swingtrader.api`.
@@ -73,7 +74,8 @@ jobs -> feature and inference services
 ingestion -> bronze
 eligibility -> bronze
 features -> indicators and shared numerical contracts
-modeling -> data outputs and feature specifications
+modeling.datasets -> data outputs and feature specifications
+modeling.experiments -> modeling.datasets
 api -> application services and persisted outputs
 frontend -> HTTP API only
 ```

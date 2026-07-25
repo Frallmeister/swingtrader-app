@@ -2,13 +2,13 @@
 
 The implemented V1 outcomes are described by the versioned `ohlcv_price_targets:1` target set. Its deterministic manifest records ordered target families, parameters, required inputs, produced columns, builder import paths, and the maximum future horizon. The `significant_up_5d_classification` supervised-task specification selects `target_significant_up_5d` unambiguously from that set.
 
-Target sets differ from feature sets because target families intentionally use future observations and expose `maximum_horizon_sessions`, which later temporal splitting and purge logic must respect. Feature sets describe information available to the model at prediction time and must remain point-in-time safe.
+Target sets differ from feature sets because target families intentionally use future observations and expose `maximum_horizon_sessions`, which dataset construction uses to validate the selected task horizon. Temporal splitting uses each retained sample's actual `target_end_date`. Feature sets describe information available to the model at prediction time and must remain point-in-time safe.
 
 A behavior or parameter change that alters target meaning must create a new target-set version rather than silently changing an existing experiment contract. Exact reproduction also requires the source revision containing the configured target builders.
 
 This page defines the V1 model target and evaluation contract. The V2 next-open stop-loss and take-profit contract is documented in [ATR Barrier Targets](atr-barrier-targets.md).
 
-The label-generation code for this contract is implemented in the modeling datasets package, the versioned in-memory OHLCV feature set is implemented in the data package, and canonical unsplit temporal dataset construction is documented in [Temporal Datasets](temporal-datasets.md). Model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
+The label-generation code for this contract is implemented in the modeling datasets package, the versioned in-memory OHLCV feature set is implemented in the data package, canonical unsplit temporal dataset construction is documented in [Temporal Datasets](temporal-datasets.md), and fixed leakage-safe assignment is documented in [Temporal Splitting](temporal-splitting.md). Model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
 
 ## Input Frame Contract
 
@@ -165,7 +165,7 @@ Evaluation must use chronological validation. Random row-level splitting is not 
 
 The canonical temporal dataset records each retained sample's target resolution date without assigning a split.
 
-The later splitting implementation must apply chronological ranges and purge rows whose target end date crosses a boundary. The exact walk-forward schedule, split dates, and any embargo remain downstream decisions.
+`FixedTemporalSplitter` applies shared chronological ranges and retains a row only when both its signal date and actual `target_end_date` are contained in the same split. Boundary-crossing rows are purged. An optional embargo removes additional global observed signal dates from the end of train and validation; the exact expanding-window schedule remains a downstream decision. See [Temporal Splitting](temporal-splitting.md).
 
 Evaluation reports should include:
 
@@ -283,4 +283,4 @@ This contract does not implement or define production behavior for:
 - production inference;
 - a web interface.
 
-Database persistence, temporal splitting and purging, and executable training/evaluation workflows should be handled by separate follow-up implementation issues.
+Database persistence and executable training/evaluation workflows should be handled by separate follow-up implementation issues. Fixed temporal splitting and purging are handled by [Temporal Splitting](temporal-splitting.md).

@@ -24,11 +24,11 @@ The experiment layer composes four immutable specifications:
 | Contract | Purpose |
 | --- | --- |
 | `UniverseSpec` | Records provider and concrete ticker membership; it is owned by the lower-level dataset package and re-exported here. |
-| `TemporalSplitSpec` | Declares non-overlapping train, validation, and test calendar ranges. |
+| `TemporalSplitSpec` | Declares shared, inclusive train, validation, and test calendar ranges plus an optional pre-boundary embargo. |
 | `ModelSpec` | Records the model implementation identity and JSON-compatible hyperparameters. |
 | `ExperimentSpec` | Composes the feature set, target set, selected task, universe, data cutoff, split, model, and random seeds. |
 
-Each specification has a deterministic manifest and SHA-256 digest. Ticker ordering does not affect a universe digest because membership order is not meaningful. Changes such as adding a ticker, changing a split date, selecting another target, changing a hyperparameter, or changing a seed do affect the experiment digest.
+Each specification has a deterministic manifest and SHA-256 digest. Ticker ordering does not affect a universe digest because membership order is not meaningful. Changes such as adding a ticker, changing a split date or embargo, selecting another target, changing a hyperparameter, or changing a seed do affect the experiment digest.
 
 The Git revision is intentionally not part of the static `ExperimentSpec`. It describes the code used for a particular execution and is logged by the MLflow adapter when Git metadata is available.
 
@@ -70,6 +70,7 @@ experiment_spec = ExperimentSpec(
         validation_end=date(2023, 12, 31),
         test_start=date(2024, 1, 1),
         test_end=date(2025, 12, 31),
+        embargo_sessions=0,
     ),
     model=ModelSpec(
         name="logistic_regression",
@@ -89,18 +90,24 @@ print(experiment_spec.digest)
 print(experiment_spec.to_json())
 ```
 
-Build the canonical unsplit dataset from the lower-level part of the experiment specification:
+Build the canonical unsplit dataset from the lower-level part of the experiment specification, then apply the experiment's fixed split policy:
 
 ```python
 from swingtrader.modeling.datasets import build_temporal_dataset
+from swingtrader.modeling.experiments import FixedTemporalSplitter
 
 bundle = build_temporal_dataset(
     engine=engine,
     spec=experiment_spec.dataset_spec,
 )
+splitter = FixedTemporalSplitter(experiment_spec.split)
+split_result = splitter.assign(bundle)
+train_index = split_result.indices("train")
+validation_index = split_result.indices("validation")
+locked_test_index = split_result.indices("test")
 ```
 
-The dataset builder computes `target_end_date` and aligned sample metadata. The split contract still records intended calendar ranges only; applying those ranges and purging labels that cross split boundaries remain later work.
+The dataset builder computes each row's actual `target_end_date` and aligned sample metadata. The splitter applies the same inclusive calendar ranges to every ticker, then purges a candidate row when its target ends after that split's end. Optional embargo removes additional global observed signal dates from the end of train and validation. The locked test indices are explicit and are not yielded by `splitter.split(bundle)`. See [Temporal Splitting](temporal-splitting.md) for the complete boundary semantics and diagnostics.
 
 ## Start a Local MLflow Run
 
@@ -192,13 +199,14 @@ Implemented here:
 
 - immutable experiment specifications;
 - canonical unsplit temporal dataset specifications and construction;
+- purged fixed train/validation/locked-test assignment with optional embargo and diagnostics;
 - deterministic manifests and identities;
 - local MLflow run initialization;
 - Git-revision, parameter, summary, metric, and artifact logging.
 
 Still planned:
 
-- target-horizon purging and expanding-window folds;
+- expanding-window folds;
 - baseline and XGBoost training workflows;
 - standardized evaluation reports;
 - remote tracking, registry promotion, and production serving.
