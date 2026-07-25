@@ -28,9 +28,9 @@ from swingtrader.modeling.experiments.splitting import (
     OUTSIDE_SPLIT_RANGES_REASON,
     SPLIT_COLUMN,
     SPLIT_EXCLUSION_REASON_COLUMN,
-    TemporalSplitResult,
     TARGET_END_AFTER_SPLIT_REASON,
     FixedTemporalSplitter,
+    TemporalSplitResult,
     split_temporal_dataset,
 )
 
@@ -195,8 +195,7 @@ def test_split_purges_using_each_rows_actual_target_end_date() -> None:
     for split_name, split_end in ends.items():
         assigned = result.samples[SPLIT_COLUMN].eq(split_name).fillna(False)
         assert (
-            pd.DatetimeIndex(result.samples.loc[assigned, TARGET_END_DATE_COLUMN]).date
-            <= split_end
+            pd.DatetimeIndex(result.samples.loc[assigned, TARGET_END_DATE_COLUMN]).date <= split_end
         ).all()
 
 
@@ -226,9 +225,7 @@ def test_embargo_removes_additional_global_dates_after_purging() -> None:
     validation_embargo = result.samples.index.get_level_values("trading_date") == pd.Timestamp(
         "2022-01-05"
     )
-    assert set(result.samples.loc[train_embargo, SPLIT_EXCLUSION_REASON_COLUMN]) == {
-        EMBARGO_REASON
-    }
+    assert set(result.samples.loc[train_embargo, SPLIT_EXCLUSION_REASON_COLUMN]) == {EMBARGO_REASON}
     assert set(result.samples.loc[validation_embargo, SPLIT_EXCLUSION_REASON_COLUMN]) == {
         EMBARGO_REASON
     }

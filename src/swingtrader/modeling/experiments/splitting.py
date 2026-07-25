@@ -195,9 +195,7 @@ class TemporalSplitManifest:
             "outside_range_row_count": self.outside_range_row_count,
             "purged_row_count": self.purged_row_count,
             "embargoed_row_count": self.embargoed_row_count,
-            "splits": {
-                summary.name: summary.to_manifest() for summary in self.summaries
-            },
+            "splits": {summary.name: summary.to_manifest() for summary in self.summaries},
         }
 
     def to_json(self, *, indent: int | None = 2) -> str:
@@ -245,9 +243,7 @@ class TemporalSplitResult:
             TARGET_END_AFTER_SPLIT_REASON,
             EMBARGO_REASON,
         }
-        observed_reasons = set(
-            samples.loc[excluded, SPLIT_EXCLUSION_REASON_COLUMN].astype(str)
-        )
+        observed_reasons = set(samples.loc[excluded, SPLIT_EXCLUSION_REASON_COLUMN].astype(str))
         if not observed_reasons.issubset(expected_reasons):
             raise ValueError("Split sample metadata contains an unknown exclusion reason.")
         if int(assigned.sum()) != self.manifest.assigned_row_count:

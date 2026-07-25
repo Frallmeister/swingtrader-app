@@ -27,7 +27,6 @@ from swingtrader.data.features.contracts import FeatureSetSpec
 from swingtrader.modeling.datasets.contracts import SupervisedTaskSpec, TargetSetSpec
 from swingtrader.modeling.datasets.specifications import TemporalDatasetSpec, UniverseSpec
 
-
 type TemporalSplitName = Literal["train", "validation", "test"]
 
 
