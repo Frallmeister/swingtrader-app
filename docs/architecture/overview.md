@@ -18,15 +18,15 @@ flowchart TB
     generate([Generate features and targets])
     dataset[(Canonical temporal dataset)]
     split([Apply purged temporal split])
-    train([Train and evaluate models<br/>(planned)])
+    train(["Train and evaluate models<br/>(planned)"])
 
     universe --> ingest --> bronze --> eligible --> generate --> dataset --> split
     split -.-> train
 
-    classDef input fill:#455a64,stroke:#263238,color:#ffffff
-    classDef action fill:#9a4d00,stroke:#5d2e00,color:#ffffff
-    classDef artifact fill:#2e7d32,stroke:#17451c,color:#ffffff
-    classDef planned fill:#424242,stroke:#9e9e9e,color:#ffffff,stroke-dasharray:6 4
+    classDef input fill:#eceff1,stroke:#546e7a
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    classDef planned fill:#fafafa,stroke:#9e9e9e,color:#616161,stroke-dasharray:6 4
     class universe input
     class ingest,eligible,generate,split action
     class bronze,dataset artifact
@@ -52,9 +52,9 @@ flowchart TB
 
     update --> bronze --> features --> inference --> predictions --> api --> frontend
 
-    classDef action fill:#9a4d00,stroke:#5d2e00,color:#ffffff
-    classDef artifact fill:#2e7d32,stroke:#17451c,color:#ffffff
-    classDef service fill:#1565c0,stroke:#0d3d75,color:#ffffff
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    classDef service fill:#e1f5fe,stroke:#0277bd
     class update,features,inference action
     class bronze,predictions artifact
     class api,frontend service
@@ -94,7 +94,7 @@ The backend may serve bounded chart-data or indicator requests on demand, but it
 The main dependency direction is shown below. Arrows point from a consumer to the package or service it may depend on. Dashed edges and labels mark planned boundaries rather than implemented dependencies.
 
 ```mermaid
-%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 22, "rankSpacing": 28}}}%%
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 45, "rankSpacing": 70}}}%%
 flowchart TB
     subgraph entrypoints["Operational entrypoints"]
         jobs["data.jobs"]
@@ -136,10 +136,10 @@ flowchart TB
     api -.-> services
     frontend -.-> api
 
-    classDef entry fill:#455a64,stroke:#263238,color:#ffffff
-    classDef dataNode fill:#2e7d32,stroke:#17451c,color:#ffffff
-    classDef modelNode fill:#1565c0,stroke:#0d3d75,color:#ffffff
-    classDef planned fill:#424242,stroke:#9e9e9e,color:#ffffff,stroke-dasharray:6 4
+    classDef entry fill:#eceff1,stroke:#546e7a
+    classDef dataNode fill:#e8f5e9,stroke:#2e7d32
+    classDef modelNode fill:#e3f2fd,stroke:#1565c0
+    classDef planned fill:#fafafa,stroke:#9e9e9e,color:#616161,stroke-dasharray:6 4
     class jobs entry
     class clients,ingestion,bronze,eligibility,indicators,features dataNode
     class datasets,experiments modelNode

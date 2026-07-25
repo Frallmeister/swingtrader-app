@@ -24,7 +24,7 @@ flowchart TB
     train{{Train positions}}
     validation{{Validation positions}}
     test{{Locked-test positions}}
-    modeling([Preprocess, fit, and evaluate<br/>(planned)])
+    modeling(["Preprocess, fit, and evaluate<br/>(planned)"])
 
     experiment -->|dataset choices| dataset_spec
     dataset_spec --> builder
@@ -45,11 +45,11 @@ flowchart TB
     test -.->|final evaluation only| modeling
     experiment -.->|model and seeds| modeling
 
-    classDef contract fill:#1565c0,stroke:#0d3d75,color:#ffffff
-    classDef action fill:#9a4d00,stroke:#5d2e00,color:#ffffff
-    classDef artifact fill:#2e7d32,stroke:#17451c,color:#ffffff
-    classDef state fill:#6a1b9a,stroke:#3c0f58,color:#ffffff
-    classDef planned fill:#424242,stroke:#9e9e9e,color:#ffffff,stroke-dasharray:6 4
+    classDef contract fill:#e3f2fd,stroke:#1565c0
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    classDef state fill:#f3e5f5,stroke:#6a1b9a
+    classDef planned fill:#fafafa,stroke:#9e9e9e,color:#616161,stroke-dasharray:6 4
     class experiment,dataset_spec contract
     class builder,features,targets,tabular,splitter action
     class source,bundle artifact

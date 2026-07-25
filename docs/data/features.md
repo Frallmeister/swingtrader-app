@@ -28,7 +28,7 @@ Rectangles are contracts, rounded boxes are computations, cylinders are data, an
 parallelogram represents an external caller-selected input:
 
 ```mermaid
-%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 28, "rankSpacing": 34}}}%%
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 45, "rankSpacing": 70}}}%%
 flowchart TB
     market[/Caller-selected market data/]
 
@@ -53,10 +53,10 @@ flowchart TB
     source_policy --> indicator_call
     indicators --> feature_transform
 
-    classDef input fill:#455a64,stroke:#263238,color:#ffffff
-    classDef action fill:#9a4d00,stroke:#5d2e00,color:#ffffff
-    classDef artifact fill:#2e7d32,stroke:#17451c,color:#ffffff
-    classDef contract fill:#1565c0,stroke:#0d3d75,color:#ffffff
+    classDef input fill:#eceff1,stroke:#546e7a
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    classDef contract fill:#e3f2fd,stroke:#1565c0
     class market,consumers input
     class indicator_call,source_policy,feature_transform action
     class indicators,feature_columns artifact

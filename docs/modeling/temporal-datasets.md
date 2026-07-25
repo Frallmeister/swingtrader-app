@@ -57,10 +57,10 @@ flowchart TB
     target_rule -->|filters all aligned frames| bundle
     feature_rule --> features
 
-    classDef contract fill:#1565c0,stroke:#0d3d75,color:#ffffff
-    classDef artifact fill:#2e7d32,stroke:#17451c,color:#ffffff
-    classDef state fill:#6a1b9a,stroke:#3c0f58,color:#ffffff
-    classDef action fill:#9a4d00,stroke:#5d2e00,color:#ffffff
+    classDef contract fill:#e3f2fd,stroke:#1565c0
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    classDef state fill:#f3e5f5,stroke:#6a1b9a
+    classDef action fill:#fff3e0,stroke:#ef6c00
     class bundle contract
     class features,targets,samples,manifest artifact
     class index state

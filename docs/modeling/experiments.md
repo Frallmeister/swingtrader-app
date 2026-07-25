@@ -76,10 +76,10 @@ classDiagram
     ExperimentSpec o-- ModelSpec
     ExperimentSpec ..> TemporalDatasetSpec : exposes dataset_spec
 
-    classDef feature fill:#1565c0,stroke:#0d3d75,color:#ffffff
-    classDef target fill:#6a1b9a,stroke:#3c0f58,color:#ffffff
-    classDef dataset fill:#2e7d32,stroke:#17451c,color:#ffffff
-    classDef experiment fill:#9a4d00,stroke:#5d2e00,color:#ffffff
+    classDef feature fill:#e3f2fd,stroke:#1565c0
+    classDef target fill:#f3e5f5,stroke:#6a1b9a
+    classDef dataset fill:#e8f5e9,stroke:#2e7d32
+    classDef experiment fill:#fff3e0,stroke:#ef6c00
     cssClass "FeatureBlockSpec,FeatureSetSpec" feature
     cssClass "TargetFamilySpec,TargetSetSpec,SupervisedTaskSpec" target
     cssClass "UniverseSpec,TemporalDatasetSpec" dataset
