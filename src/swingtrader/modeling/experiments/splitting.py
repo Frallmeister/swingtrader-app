@@ -39,7 +39,13 @@ _SPLIT_NAMES: tuple[TemporalSplitName, ...] = ("train", "validation", "test")
 
 @dataclass(frozen=True, slots=True)
 class TemporalSplitSummary:
-    """Summarize one materialized split and its exclusions."""
+    """Summarize one materialized split and its exclusions.
+
+    ``candidate_row_count`` covers every row whose signal date falls in the
+    declared range: assigned rows plus rows removed by target-end purging or
+    embargo. Date ranges, ticker counts, and class prevalence describe only
+    the assigned rows.
+    """
 
     name: TemporalSplitName
     candidate_row_count: int
@@ -126,7 +132,12 @@ class TemporalSplitSummary:
 
 @dataclass(frozen=True, slots=True)
 class TemporalSplitManifest:
-    """Deterministic diagnostics for one split assignment."""
+    """Record deterministic diagnostics for one split assignment.
+
+    The manifest binds the split specification to the source dataset manifest
+    digest and accounts for every source row through outside-range counts or
+    ordered train, validation, and test summaries.
+    """
 
     spec: TemporalSplitSpec
     dataset_manifest_digest: str
@@ -280,7 +291,13 @@ class TemporalSplitResult:
 
 @dataclass(frozen=True, slots=True)
 class FixedTemporalSplitter:
-    """Apply one purged fixed train/validation/test split specification."""
+    """Apply one purged fixed train/validation/test split specification.
+
+    ``assign`` materializes all three splits and their diagnostics. The
+    scikit-learn-style ``split`` iterator yields only train and validation
+    indices; locked-test indices require explicit access through the assignment
+    result.
+    """
 
     spec: TemporalSplitSpec
 

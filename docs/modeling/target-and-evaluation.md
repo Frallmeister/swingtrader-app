@@ -2,7 +2,7 @@
 
 The implemented V1 outcomes are described by the versioned `ohlcv_price_targets:1` target set. Its deterministic manifest records ordered target families, parameters, required inputs, produced columns, builder import paths, and the maximum future horizon. The `significant_up_5d_classification` supervised-task specification selects `target_significant_up_5d` unambiguously from that set.
 
-Target sets differ from feature sets because target families intentionally use future observations and expose `maximum_horizon_sessions`, which temporal splitting must respect. Feature sets describe information available to the model at prediction time and must remain point-in-time safe.
+Target sets differ from feature sets because target families intentionally use future observations and expose `maximum_horizon_sessions`, which dataset construction uses to validate the selected task horizon. Temporal splitting uses each retained sample's actual `target_end_date`. Feature sets describe information available to the model at prediction time and must remain point-in-time safe.
 
 A behavior or parameter change that alters target meaning must create a new target-set version rather than silently changing an existing experiment contract. Exact reproduction also requires the source revision containing the configured target builders.
 

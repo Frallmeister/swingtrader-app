@@ -40,6 +40,7 @@ def _identity(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def _bundle() -> TemporalDatasetBundle:
+    target_end_column = "target_resolution_date"
     rows = [
         ("yfinance", "AAA.ST", "2021-12-28", "2021-12-30", False),
         ("yfinance", "AAA.ST", "2021-12-29", "2022-01-05", True),
@@ -68,7 +69,13 @@ def _bundle() -> TemporalDatasetBundle:
     target_end_dates = pd.to_datetime([target_end_date for *_, target_end_date, _ in rows])
     target = pd.Series([value for *_, value in rows], index=index, dtype="boolean")
     features = pd.DataFrame({"feature": np.arange(len(index), dtype=float)}, index=index)
-    targets = pd.DataFrame({"target": target}, index=index)
+    targets = pd.DataFrame(
+        {
+            "target": target,
+            target_end_column: pd.Series(target_end_dates, index=index),
+        },
+        index=index,
+    )
     samples = pd.DataFrame(
         {
             TARGET_END_DATE_COLUMN: target_end_dates,
@@ -97,8 +104,8 @@ def _bundle() -> TemporalDatasetBundle:
             TargetFamilySpec(
                 name="identity",
                 builder=_identity,
-                output_columns=("target",),
-                maximum_horizon_sessions=1,
+                output_columns=("target", target_end_column),
+                maximum_horizon_sessions=5,
             ),
         ),
     )
@@ -108,7 +115,8 @@ def _bundle() -> TemporalDatasetBundle:
         target_set_version=target_set.version,
         target_column="target",
         task_type="classification",
-        horizon_sessions=1,
+        horizon_sessions=5,
+        target_end_date_column=target_end_column,
     )
     spec = TemporalDatasetSpec(
         feature_set=feature_set,
@@ -125,7 +133,7 @@ def _bundle() -> TemporalDatasetBundle:
     manifest = TemporalDatasetManifest(
         spec=spec,
         feature_columns=("feature",),
-        target_columns=("target",),
+        target_columns=("target", target_end_column),
         sample_columns=SAMPLE_METADATA_COLUMNS,
         source_row_count=len(index),
         sample_row_count=len(index),
