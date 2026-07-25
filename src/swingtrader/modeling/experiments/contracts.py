@@ -24,59 +24,7 @@ from types import MappingProxyType
 
 from swingtrader.data.features.contracts import FeatureSetSpec
 from swingtrader.modeling.datasets.contracts import SupervisedTaskSpec, TargetSetSpec
-
-
-@dataclass(frozen=True, slots=True)
-class UniverseSpec:
-    """Identify one resolved, versioned training universe.
-
-    ``tickers`` contains the concrete membership used by an experiment rather
-    than only the path to a mutable YAML file. Tickers are sorted because
-    membership order has no modeling meaning; adding, removing, or renaming a
-    ticker still changes the manifest digest.
-    """
-
-    name: str
-    version: str
-    provider: str
-    tickers: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        _require_text(self.name, field_name="Universe name")
-        _require_text(self.version, field_name="Universe version")
-        _require_text(self.provider, field_name="Universe provider")
-
-        if isinstance(self.tickers, str):
-            raise TypeError("Universe tickers must be an iterable of ticker strings.")
-        try:
-            tickers = tuple(self.tickers)
-        except TypeError as exc:
-            raise TypeError("Universe tickers must be an iterable of ticker strings.") from exc
-        if not tickers:
-            raise ValueError("A universe must contain at least one ticker.")
-        if any(not isinstance(ticker, str) or not ticker.strip() for ticker in tickers):
-            raise ValueError("Universe tickers must be non-empty strings.")
-        tickers = tuple(sorted(ticker.strip() for ticker in tickers))
-        if len(tickers) != len(set(tickers)):
-            raise ValueError("Universe tickers must be unique.")
-        object.__setattr__(self, "tickers", tickers)
-
-    @property
-    def identifier(self) -> str:
-        return f"{self.name}:{self.version}"
-
-    def to_manifest(self) -> dict[str, object]:
-        return {
-            "name": self.name,
-            "version": self.version,
-            "identifier": self.identifier,
-            "provider": self.provider,
-            "tickers": list(self.tickers),
-        }
-
-    @property
-    def digest(self) -> str:
-        return _digest(self.to_manifest())
+from swingtrader.modeling.datasets.specifications import TemporalDatasetSpec, UniverseSpec
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,8 +32,8 @@ class TemporalSplitSpec:
     """Declare non-overlapping calendar ranges for train, validation, and test.
 
     This contract records split semantics only. Applying the ranges and purging
-    rows whose target horizon crosses a boundary belongs to the temporal dataset
-    and splitting implementation.
+    rows whose target horizon crosses a boundary belongs to the later temporal
+    splitting implementation.
     """
 
     name: str
@@ -238,6 +186,17 @@ class ExperimentSpec:
     @property
     def identifier(self) -> str:
         return f"{self.name}:{self.version}"
+
+    @property
+    def dataset_spec(self) -> TemporalDatasetSpec:
+        """Return the lower-level unsplit dataset specification."""
+        return TemporalDatasetSpec(
+            feature_set=self.feature_set,
+            target_set=self.target_set,
+            task=self.task,
+            universe=self.universe,
+            data_cutoff=self.data_cutoff,
+        )
 
     def to_manifest(self) -> dict[str, object]:
         """Return the complete deterministic experiment configuration."""

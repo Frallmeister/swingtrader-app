@@ -62,6 +62,7 @@ nav:
           - Research and Execution Evaluation: architecture/decisions/0003-separate-research-targets-from-executable-evaluation.md
           - Adjustment-Consistent Model Prices: architecture/decisions/0004-adjustment-consistent-model-prices.md
           - Versioned Feature-Set Contract: architecture/decisions/0005-versioned-feature-set-contract.md
+          - Canonical Temporal Dataset Bundle: architecture/decisions/0006-canonical-temporal-dataset-bundle.md
       - Trading Objective: architecture/trading-objective.md
       - Ticker Universes: architecture/ticker-universes.md
   - Data:
@@ -73,6 +74,7 @@ nav:
       - Features: data/features.md
   - Modeling:
       - Overview: modeling/overview.md
+      - Temporal Datasets: modeling/temporal-datasets.md
       - Target and Evaluation: modeling/target-and-evaluation.md
       - ATR Barrier Targets: modeling/atr-barrier-targets.md
       - Experiment Specifications and MLflow: modeling/experiments.md

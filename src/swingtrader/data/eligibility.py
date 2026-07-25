@@ -1,8 +1,9 @@
 """Ticker inference readiness and training eligibility checks.
 
 Active ticker configuration is desired production/trading state. This module evaluates actual
-stored data state for model inference and training. The first implementation is bronze-backed;
-feature and label table checks should become additional hard blockers once those tables exist.
+stored data state for model inference and training. Current checks are bronze-backed; temporal
+dataset construction records cutoff-aware results, while later split-aware workflows may add
+retained-sample requirements.
 """
 
 from collections.abc import Sequence
@@ -229,12 +230,12 @@ def check_training_eligibility(
     config_dir: ConfigDir | None = None,
     database_url: str | None = None,
     engine: Engine | None = None,
+    data_cutoff: date | None = None,
 ) -> TrainingEligibilityResult:
     """Check whether requested tickers are eligible for model training.
 
-    This first version uses bronze history and quality gates only. Future feature and label
-    tables should add feature-history and label-count gates before model training consumes
-    these results.
+    This version uses bronze history and quality gates only. Later split-aware training
+    workflows may add retained-sample requirements without changing bronze onboarding.
 
     Parameters
     ----------
@@ -252,6 +253,8 @@ def check_training_eligibility(
     engine
         Optional SQLAlchemy engine. Passing an engine is useful for tests and callers that
         already manage database connections. Mutually exclusive with ``database_url``.
+    data_cutoff
+        Optional inclusive upper bound used to evaluate historical eligibility.
 
     Returns
     -------
@@ -268,12 +271,14 @@ def check_training_eligibility(
         engine=resolved_engine,
         provider=provider,
         tickers=resolved_tickers,
+        end_date=data_cutoff,
     )
     quality_by_ticker = load_daily_price_quality_state_by_ticker(
         engine=resolved_engine,
         provider=provider,
         tickers=resolved_tickers,
         turnover_lookback_rows=QUALITY_TURNOVER_LOOKBACK_ROWS,
+        end_date=data_cutoff,
     )
     return TrainingEligibilityResult(
         provider=provider,
@@ -323,8 +328,9 @@ def get_training_eligible_tickers(
     config_dir: ConfigDir | None = None,
     database_url: str | None = None,
     engine: Engine | None = None,
+    data_cutoff: date | None = None,
 ) -> tuple[str, ...]:
-    """Return only tickers currently eligible for model training.
+    """Return only tickers eligible at an optional cutoff for model training.
 
     This is a convenience wrapper around ``check_training_eligibility`` that preserves the
     same ticker resolution and filtering semantics.
@@ -336,6 +342,7 @@ def get_training_eligible_tickers(
         config_dir=config_dir,
         database_url=database_url,
         engine=engine,
+        data_cutoff=data_cutoff,
     ).eligible_tickers
 
 

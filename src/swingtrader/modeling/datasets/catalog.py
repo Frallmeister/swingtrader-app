@@ -53,6 +53,7 @@ V1_PRIMARY_TASK = SupervisedTaskSpec(
     target_set_version=V1_TARGET_SET.version,
     target_column=TARGET_SIGNIFICANT_UP_5D_COLUMN,
     task_type="classification",
+    horizon_sessions=5,
 )
 V1_PRIMARY_TASK.validate_target_set(V1_TARGET_SET)
 
@@ -94,5 +95,7 @@ V2_PRIMARY_TASK = SupervisedTaskSpec(
     target_set_version=V2_TARGET_SET.version,
     target_column="target_tp_before_sl_5d",
     task_type="classification",
+    horizon_sessions=5,
+    target_end_date_column="target_end_date_5d",
 )
 V2_PRIMARY_TASK.validate_target_set(V2_TARGET_SET)

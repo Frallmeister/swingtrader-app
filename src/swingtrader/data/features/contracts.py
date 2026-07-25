@@ -165,8 +165,23 @@ class FeatureSetSpec:
 
     @property
     def required_columns(self) -> frozenset[str]:
-        """Return the union of source columns required by all blocks."""
+        """Return the union of all inputs declared by the feature blocks."""
         return frozenset(column for block in self.blocks for column in block.required_columns)
+
+    @property
+    def source_columns(self) -> tuple[str, ...]:
+        """Return external inputs needed before the feature set executes.
+
+        Inputs produced by an earlier block are dependencies within the feature
+        pipeline and therefore are not source columns that a data loader must
+        request.
+        """
+        produced: set[str] = set()
+        source_columns: set[str] = set()
+        for block in self.blocks:
+            source_columns.update(block.required_columns.difference(produced))
+            produced.update(block.output_columns)
+        return tuple(sorted(source_columns))
 
     def select(
         self,
