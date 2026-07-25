@@ -19,11 +19,11 @@ The tracking helpers import MLflow only when `start_experiment_run()` is called.
 
 ## Experiment Contracts
 
-The experiment package defines four immutable specifications:
+The experiment layer composes four immutable specifications:
 
 | Contract | Purpose |
 | --- | --- |
-| `UniverseSpec` | Records the provider and concrete resolved ticker membership. |
+| `UniverseSpec` | Records provider and concrete ticker membership; it is owned by the lower-level dataset package and re-exported here. |
 | `TemporalSplitSpec` | Declares non-overlapping train, validation, and test calendar ranges. |
 | `ModelSpec` | Records the model implementation identity and JSON-compatible hyperparameters. |
 | `ExperimentSpec` | Composes the feature set, target set, selected task, universe, data cutoff, split, model, and random seeds. |
@@ -89,7 +89,18 @@ print(experiment_spec.digest)
 print(experiment_spec.to_json())
 ```
 
-The split contract records intended calendar ranges only. Applying those ranges, computing `target_end_date`, and purging labels that cross split boundaries belong to the temporal dataset implementation.
+Build the canonical unsplit dataset from the lower-level part of the experiment specification:
+
+```python
+from swingtrader.modeling.datasets import build_temporal_dataset
+
+bundle = build_temporal_dataset(
+    engine=engine,
+    spec=experiment_spec.dataset_spec,
+)
+```
+
+The dataset builder computes `target_end_date` and aligned sample metadata. The split contract still records intended calendar ranges only; applying those ranges and purging labels that cross split boundaries remain later work.
 
 ## Start a Local MLflow Run
 
@@ -180,13 +191,13 @@ A metric difference is not attributable to the model when the underlying experim
 Implemented here:
 
 - immutable experiment specifications;
+- canonical unsplit temporal dataset specifications and construction;
 - deterministic manifests and identities;
 - local MLflow run initialization;
 - Git-revision, parameter, summary, metric, and artifact logging.
 
 Still planned:
 
-- canonical temporal dataset construction;
 - target-horizon purging and expanding-window folds;
 - baseline and XGBoost training workflows;
 - standardized evaluation reports;

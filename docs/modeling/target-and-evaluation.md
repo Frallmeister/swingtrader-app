@@ -8,7 +8,7 @@ A behavior or parameter change that alters target meaning must create a new targ
 
 This page defines the V1 model target and evaluation contract. The V2 next-open stop-loss and take-profit contract is documented in [ATR Barrier Targets](atr-barrier-targets.md).
 
-The label-generation code for this contract is implemented in the modeling datasets package, and the versioned in-memory OHLCV feature set is implemented in the data package. Temporal dataset construction, model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
+The label-generation code for this contract is implemented in the modeling datasets package, the versioned in-memory OHLCV feature set is implemented in the data package, and canonical unsplit temporal dataset construction is documented in [Temporal Datasets](temporal-datasets.md). Model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
 
 ## Input Frame Contract
 
@@ -163,9 +163,9 @@ Index-relative labels are deferred. The initial objective is to determine whethe
 
 Evaluation must use chronological validation. Random row-level splitting is not acceptable.
 
-The eventual temporal-dataset implementation must ensure that future observations used to construct labels cannot leak into training features or cross-validation boundaries.
+The canonical temporal dataset records each retained sample's target resolution date without assigning a split.
 
-The exact walk-forward schedule, split dates, and any purge or embargo implementation should be defined by the later temporal-dataset task.
+The later splitting implementation must apply chronological ranges and purge rows whose target end date crosses a boundary. The exact walk-forward schedule, split dates, and any embargo remain downstream decisions.
 
 Evaluation reports should include:
 
@@ -269,7 +269,6 @@ These limitations should be retained when interpreting initial model results.
 This contract does not implement or define production behavior for:
 
 - feature engineering;
-- temporal dataset construction;
 - dataset splitting;
 - model training or tuning;
 - backtesting;
@@ -284,4 +283,4 @@ This contract does not implement or define production behavior for:
 - production inference;
 - a web interface.
 
-Database persistence, temporal dataset construction, and executable training/evaluation workflows should be handled by separate follow-up implementation issues.
+Database persistence, temporal splitting and purging, and executable training/evaluation workflows should be handled by separate follow-up implementation issues.

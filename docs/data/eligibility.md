@@ -14,7 +14,7 @@ The future training universe may be broader than the active trading universe. It
 
 ## Version 1 Bronze Rules
 
-The first implementation checks bronze daily price state only. Feature and label tables do not exist yet, so feature and label rules are documented as future hard blockers.
+The current implementation checks bronze daily price state only. The temporal dataset layer records the cutoff-aware result as sample metadata; later split-aware training rules may add usable-feature and target-count gates.
 
 For inference readiness, a ticker must have:
 
@@ -55,19 +55,24 @@ print(result.not_ready_tickers)
 Use `check_training_eligibility(...)` to evaluate training candidates:
 
 ```python
+from datetime import date
+
 from swingtrader.data.eligibility import check_training_eligibility
 
-result = check_training_eligibility(tickers=("AAK.ST", "BOL.ST"))
+result = check_training_eligibility(
+    tickers=("AAK.ST", "BOL.ST"),
+    data_cutoff=date(2026, 7, 4),
+)
 
 print(result.eligible_tickers)
 ```
 
-When no explicit tickers are passed, the checks resolve the active trading universe. Passing explicit tickers lets future dataset code evaluate a broader training universe without treating active status as a training rule.
+When no explicit tickers are passed, the checks resolve the active trading universe. Passing explicit tickers lets dataset code evaluate a broader training universe without treating active status as a training rule. `data_cutoff` is an inclusive upper bound for training coverage and quality queries.
 
-## Future Feature And Label Rules
+## Future Eligibility Rules
 
-Once feature and label tables exist, inference readiness must also require recent feature rows for the production model input window.
+Production inference must eventually require recent feature rows for the deployed model input window.
 
-Training eligibility must also require enough feature and label rows for the intended train, validation, and test split design.
+Training workflows must also require enough retained temporal-dataset samples for the intended train, validation, and test split design.
 
 Those future checks should extend the eligibility module rather than changing bronze onboarding. Onboarding remains responsible only for deciding whether active tickers have any bronze daily price rows.

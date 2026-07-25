@@ -1,44 +1,32 @@
 # Modeling
 
-Model development and inference code lives here. The package currently owns reusable target calculations, versioned target contracts, immutable experiment specifications, and optional local MLflow tracking. Temporal dataset construction, split purging, training, evaluation, model artifacts, and production inference remain follow-up work.
+Model development and inference code lives here. The package owns reusable target calculations, versioned target contracts, canonical unsplit temporal dataset construction, immutable experiment specifications, and optional local MLflow tracking. Target-horizon purging, training, evaluation, model artifacts, and production inference remain follow-up work.
 
-## Implemented Target Code
+## Implemented Dataset Code
 
 The `swingtrader.modeling.datasets` package contains:
 
 - `contracts.py`, which defines immutable target-family, target-set, and supervised-task specifications;
-- `catalog.py`, which defines the concrete V1 and V2 target sets and their
-  primary classification tasks;
-- `labels.py`, which contains reusable return-target builders, target-set
-  execution, and the `generate_v1_labels()` and `generate_v2_labels()` wrappers;
-- `barriers.py`, which implements next-open ATR barrier-event targets, gap
-  handling, and deterministic same-bar ambiguity policies.
+- `catalog.py`, which defines the concrete V1 and V2 target sets and their primary classification tasks;
+- `labels.py` and `barriers.py`, which implement forward-return and next-open ATR barrier targets;
+- `specifications.py`, which binds a feature set, target set, selected task, resolved universe, and data cutoff;
+- `temporal.py`, which builds aligned feature, target, and sample-metadata frames over the full historical prefix;
+- `tabular.py`, which exposes framework-neutral `X`, `y`, and sample metadata without splitting or preprocessing.
 
-The V1 target set adds 5-, 10-, and 15-session forward adjusted-close returns plus the nullable Boolean `target_significant_up_5d` column. V2 preserves those outputs and adds ATR-scaled take-profit/stop-loss outcomes over the same horizons.
+Features, targets, and sample metadata use the same unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`. The builder retains feature warm-up missing values, removes only rows where the selected supervised target is unavailable, records each sample's `target_end_date`, and evaluates ticker training eligibility using data at or before the dataset cutoff.
 
-Target builders consume the same canonical market-price frame as indicators and features: a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`, with those identifiers absent from ordinary columns. Builders preserve that index so features and labels align on the same observation identity. Column-oriented bronze rows are converted at the caller boundary with `set_index(...).sort_index()`.
-
-Calculations remain in memory and do not load from or write to the database. Exact reproduction requires both the serialized target manifest and the source revision containing the configured builders.
+`build_temporal_dataset()` loads the required bronze columns. `construct_temporal_dataset()` is the source-independent constructor used by tests and callers that already own a canonical historical frame. Both return an unsplit `TemporalDatasetBundle`; date splitting, purging, imputation, scaling, and model-specific conversion are deliberately downstream responsibilities.
 
 ## Implemented Experiment Code
 
-The `swingtrader.modeling.experiments` package contains:
+The `swingtrader.modeling.experiments` package defines temporal-split, model, and experiment specifications with deterministic manifests and digests. `UniverseSpec` is owned by the lower-level dataset specification package and re-exported from `swingtrader.modeling.experiments` for compatibility. `ExperimentSpec.dataset_spec` exposes exactly the subset required to construct the canonical unsplit dataset.
 
-- `contracts.py`, which defines immutable universe, temporal-split, model, and
-  experiment specifications with deterministic manifests and digests;
-- `tracking.py`, which lazily imports the optional MLflow dependency and
-  initializes local runs from an `ExperimentSpec`;
-- dataset-summary contracts and a small run handle for logging metrics and
-  generated artifacts without exposing MLflow internals throughout training code.
+The optional MLflow adapter records runtime provenance such as the Git revision, dataset summaries, metrics, reports, and plots. It does not own dataset semantics or require a complete materialized dataset snapshot.
 
-The complete experiment manifest is available before fitting. MLflow records
-runtime provenance such as the Git revision, dataset counts and date ranges,
-class prevalence, metrics, reports, and plots. It does not replace the
-repository-owned contracts or require a complete materialized dataset snapshot.
-
-See the main documentation for the current modeling plan:
+See the main documentation:
 
 - [Modeling overview](../../../docs/modeling/overview.md)
+- [Temporal datasets](../../../docs/modeling/temporal-datasets.md)
 - [Target and evaluation](../../../docs/modeling/target-and-evaluation.md)
 - [ATR barrier targets](../../../docs/modeling/atr-barrier-targets.md)
 - [Experiment specifications and MLflow tracking](../../../docs/modeling/experiments.md)

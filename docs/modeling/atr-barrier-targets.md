@@ -126,6 +126,8 @@ For each configured horizon `h`, the family adds:
 `target_tp_before_sl_{h}d` is false for both stop losses and timeouts, missing for
 excluded ambiguous bars, and missing for all otherwise unlabeled rows.
 
+The V2 primary supervised task selects `target_tp_before_sl_5d` and declares `target_end_date_5d` as its resolution-date output. Canonical temporal dataset construction copies that actual event or timeout date into aligned sample metadata for later purging.
+
 MFE and MAE are intentionally not emitted in this first implementation. With
 only daily OHLC, excursions after a gap exit or after the first intrabar barrier
 cannot be ordered reliably without adding another path assumption.

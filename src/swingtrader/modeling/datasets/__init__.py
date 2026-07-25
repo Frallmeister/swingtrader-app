@@ -36,14 +36,37 @@ from swingtrader.modeling.datasets.labels import (
     generate_v1_labels,
     generate_v2_labels,
 )
+from swingtrader.modeling.datasets.specifications import TemporalDatasetSpec, UniverseSpec
+from swingtrader.modeling.datasets.tabular import TabularDataset, to_tabular_dataset
+from swingtrader.modeling.datasets.temporal import (
+    SAMPLE_METADATA_COLUMNS,
+    TARGET_END_DATE_COLUMN,
+    TRAINING_ELIGIBILITY_REASONS_COLUMN,
+    TRAINING_ELIGIBLE_COLUMN,
+    TemporalDatasetBundle,
+    TemporalDatasetManifest,
+    TickerEligibility,
+    build_temporal_dataset,
+    construct_temporal_dataset,
+)
 
 __all__ = [
     "BARRIER_REQUIRED_PRICE_COLUMNS",
+    "SAMPLE_METADATA_COLUMNS",
     "SUPPORTED_ENTRY_PRICE_RULES",
     "SUPPORTED_INTRABAR_POLICIES",
+    "TickerEligibility",
     "SupervisedTaskSpec",
+    "TARGET_END_DATE_COLUMN",
+    "TRAINING_ELIGIBILITY_REASONS_COLUMN",
+    "TRAINING_ELIGIBLE_COLUMN",
+    "TabularDataset",
     "TargetFamilySpec",
     "TargetSetSpec",
+    "TemporalDatasetBundle",
+    "TemporalDatasetManifest",
+    "TemporalDatasetSpec",
+    "UniverseSpec",
     "V1_ANNUAL_RETURN_TARGET",
     "V1_COMMISSION",
     "V1_FORWARD_RETURN_HORIZONS",
@@ -63,7 +86,10 @@ __all__ = [
     "V2_TARGET_SET",
     "add_atr_barrier_targets",
     "barrier_output_columns",
+    "build_temporal_dataset",
+    "construct_temporal_dataset",
     "generate_target_set",
     "generate_v1_labels",
     "generate_v2_labels",
+    "to_tabular_dataset",
 ]

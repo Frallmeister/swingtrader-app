@@ -60,6 +60,7 @@ def load_daily_price_state_by_ticker(
     engine: Engine,
     provider: str,
     tickers: tuple[str, ...],
+    end_date: date | None = None,
 ) -> dict[str, BronzeDailyPriceState]:
     """Load stored bronze daily price coverage for requested tickers.
 
@@ -73,6 +74,8 @@ def load_daily_price_state_by_ticker(
         Market data provider to filter by, such as ``"yfinance"``.
     tickers
         Requested ticker symbols.
+    end_date
+        Optional inclusive upper bound for stored trading dates.
 
     Returns
     -------
@@ -94,6 +97,8 @@ def load_daily_price_state_by_ticker(
         .where(bronze_market_daily_prices.c.ticker.in_(tickers))
         .group_by(bronze_market_daily_prices.c.ticker)
     )
+    if end_date is not None:
+        statement = statement.where(bronze_market_daily_prices.c.trading_date <= end_date)
     with engine.connect() as connection:
         rows = connection.execute(statement).mappings().all()
     return {
@@ -113,6 +118,7 @@ def load_daily_price_quality_state_by_ticker(
     provider: str,
     tickers: tuple[str, ...],
     turnover_lookback_rows: int = 60,
+    end_date: date | None = None,
 ) -> dict[str, BronzeDailyPriceQualityState]:
     """Load bronze daily price quality summaries for requested tickers.
 
@@ -130,6 +136,8 @@ def load_daily_price_quality_state_by_ticker(
         Requested ticker symbols.
     turnover_lookback_rows
         Number of latest stored rows per ticker to inspect for turnover quality.
+    end_date
+        Optional inclusive upper bound for stored trading dates.
 
     Returns
     -------
@@ -184,6 +192,10 @@ def load_daily_price_quality_state_by_ticker(
             bronze_market_daily_prices.c.trading_date.desc(),
         )
     )
+    if end_date is not None:
+        cutoff_filter = bronze_market_daily_prices.c.trading_date <= end_date
+        aggregate_statement = aggregate_statement.where(cutoff_filter)
+        turnover_statement = turnover_statement.where(cutoff_filter)
     with engine.connect() as connection:
         aggregate_rows = connection.execute(aggregate_statement).mappings().all()
         turnover_rows = connection.execute(turnover_statement).mappings().all()

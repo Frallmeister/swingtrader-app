@@ -23,6 +23,7 @@ The project currently implements the data and initial modeling foundation:
 * inference-readiness and training-eligibility checks based on bronze data quality
 * in-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation
 * versioned in-memory V1 and V2 target generation, including ATR barrier-event labels
+* canonical unsplit temporal dataset construction with aligned sample metadata
 * immutable experiment specifications and optional local MLflow tracking
 * local SQLite support and configurable SQLAlchemy database URLs
 * MkDocs-based project documentation
@@ -30,7 +31,7 @@ The project currently implements the data and initial modeling foundation:
 
 Features and targets consume the same canonical market-price DataFrame: a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`. Column-oriented bronze rows are converted once at the caller boundary with `set_index(...).sort_index()`.
 
-Feature persistence, target persistence, temporal modeling-dataset construction, model training, inference, prediction storage, dashboarding, deployment, and macro/market-context features are planned.
+Feature persistence, target persistence, temporal splitting and purging, model training, inference, prediction storage, dashboarding, deployment, and macro/market-context features are planned.
 
 ## Documentation
 
@@ -48,6 +49,7 @@ Useful entry points:
 * [Ticker onboarding](docs/data/ticker-onboarding.md)
 * [Ticker eligibility](docs/data/eligibility.md)
 * [Modeling overview](docs/modeling/overview.md)
+* [Temporal datasets](docs/modeling/temporal-datasets.md)
 * [ATR barrier targets](docs/modeling/atr-barrier-targets.md)
 * [Experiment specifications and MLflow tracking](docs/modeling/experiments.md)
 * [Roadmap](docs/architecture/roadmap.md)
@@ -139,12 +141,12 @@ inference_result = check_inference_readiness(reference_date=date(2026, 7, 4))
 print(inference_result.ready_tickers)
 print(inference_result.not_ready_tickers)
 
-training_result = check_training_eligibility()
+training_result = check_training_eligibility(data_cutoff=date(2026, 7, 4))
 print(training_result.eligible_tickers)
 print(training_result.not_eligible_tickers)
 ```
 
-The current eligibility checks are based on bronze daily price state and data quality. Future feature and label checks should extend this layer rather than changing bronze onboarding semantics.
+Training eligibility can be evaluated through an inclusive historical cutoff so temporal dataset metadata is not influenced by later bronze rows. Later usable-sample and split-specific gates should extend this layer rather than changing bronze onboarding semantics.
 
 ### Feature Generation
 
@@ -190,6 +192,22 @@ from swingtrader.indicators import adx, atr, ema, macd, pivot_points_high_low, r
 ```
 
 Each public indicator accepts either a single ordered instrument or a canonical multi-instrument market frame, and preserves the input index and row order.
+
+### Temporal Dataset Construction
+
+Build the canonical unsplit modeling product from an experiment's lower-level dataset specification:
+
+```python
+from swingtrader.modeling.datasets import build_temporal_dataset, to_tabular_dataset
+
+bundle = build_temporal_dataset(
+    engine=engine,
+    spec=experiment_spec.dataset_spec,
+)
+tabular = to_tabular_dataset(bundle)
+```
+
+The bundle aligns feature, target, and sample-metadata frames on the canonical market index. It computes features and targets over the full historical prefix through the data cutoff, keeps feature warm-up missing values, and excludes only rows where the selected supervised target is unavailable. Temporal splitting, purging, and preprocessing remain downstream responsibilities.
 
 ## Project Layout
 

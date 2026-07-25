@@ -17,6 +17,7 @@ This roadmap is a planning aid, not a replacement for GitHub issues. It describe
 - Versioned feature-set and target-set contracts.
 - V2 ATR barrier-event target generation.
 - Repository-owned experiment specifications and local MLflow tracking.
+- Canonical unsplit temporal dataset bundles with cutoff-aware eligibility metadata.
 
 ## Completed Repository Stabilization
 
@@ -30,12 +31,11 @@ The repository has completed the pre-modeling stabilization sequence:
 
 ## Model Development
 
-1. Implement leakage-safe temporal train, validation, and test dataset construction.
-2. Add date-based splits with target-horizon purging.
-3. Establish dummy-classifier and date-matched random-ranking baselines.
-4. Train and evaluate the first XGBoost classifier and regression candidates.
-5. Evaluate classification quality, calibration, daily cross-sectional ranking, and stability over time.
-6. Perform feature ablation and select a reproducible OHLCV feature set.
+1. Add date-based splits with target-horizon purging.
+2. Establish dummy-classifier and date-matched random-ranking baselines.
+3. Train and evaluate the first XGBoost classifier and regression candidates.
+4. Evaluate classification quality, calibration, daily cross-sectional ranking, and stability over time.
+5. Perform feature ablation and select a reproducible OHLCV feature set.
 
 ## Production Preparation
 

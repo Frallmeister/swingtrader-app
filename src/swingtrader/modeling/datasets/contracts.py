@@ -140,6 +140,16 @@ class TargetSetSpec:
         """Return the greatest future horizon required by any target family."""
         return max(family.maximum_horizon_sessions for family in self.families)
 
+    @property
+    def source_columns(self) -> tuple[str, ...]:
+        """Return external inputs needed before the target set executes."""
+        produced: set[str] = set()
+        source_columns: set[str] = set()
+        for family in self.families:
+            source_columns.update(family.required_columns.difference(produced))
+            produced.update(family.output_columns)
+        return tuple(sorted(source_columns))
+
     def to_manifest(self) -> dict[str, object]:
         return {
             "name": self.name,
@@ -159,22 +169,45 @@ class TargetSetSpec:
 
 @dataclass(frozen=True, slots=True)
 class SupervisedTaskSpec:
-    """Identify one model task against one versioned target column."""
+    """Identify one model task and its target-resolution semantics.
+
+    ``horizon_sessions`` identifies the selected target's own future horizon,
+    which can be shorter than the maximum horizon of its target set. When
+    ``target_end_date_column`` is set, that generated target column records the
+    actual event or timeout date. Otherwise a dataset builder derives the fixed
+    observed-session horizon from the canonical index.
+    """
 
     name: str
     target_set_name: str
     target_set_version: str
     target_column: str
     task_type: TaskType
+    horizon_sessions: int | None = None
+    target_end_date_column: str | None = None
 
     def __post_init__(self) -> None:
         if not all((self.name, self.target_set_name, self.target_set_version, self.target_column)):
             raise ValueError("Supervised task identifiers must not be empty.")
         if self.task_type not in {"classification", "regression"}:
             raise ValueError("Task type must be 'classification' or 'regression'.")
+        if self.horizon_sessions is not None:
+            if isinstance(self.horizon_sessions, bool) or not isinstance(
+                self.horizon_sessions, int
+            ):
+                raise TypeError("Task horizon must be an integer number of sessions.")
+            if self.horizon_sessions < 1:
+                raise ValueError("Task horizon must be at least one session.")
+        if self.target_end_date_column is not None:
+            if not isinstance(self.target_end_date_column, str):
+                raise TypeError("Target end-date column must be a string.")
+            if not self.target_end_date_column:
+                raise ValueError("Target end-date column must not be empty.")
+            if self.target_end_date_column == self.target_column:
+                raise ValueError("Target end-date column must differ from the target column.")
 
     def validate_target_set(self, target_set: TargetSetSpec) -> None:
-        """Validate that the referenced target set and target column exist."""
+        """Validate that referenced target outputs belong to the target set."""
         if (self.target_set_name, self.target_set_version) != (
             target_set.name,
             target_set.version,
@@ -182,8 +215,13 @@ class SupervisedTaskSpec:
             raise ValueError("Supervised task references a different target set.")
         if self.target_column not in target_set.target_columns:
             raise ValueError(f"Unknown target column: {self.target_column}.")
+        if (
+            self.target_end_date_column is not None
+            and self.target_end_date_column not in target_set.target_columns
+        ):
+            raise ValueError(f"Unknown target end-date column: {self.target_end_date_column}.")
 
-    def to_manifest(self) -> dict[str, str]:
+    def to_manifest(self) -> dict[str, object]:
         """Return a JSON-serializable supervised-task description."""
         return {
             "name": self.name,
@@ -191,6 +229,8 @@ class SupervisedTaskSpec:
             "target_set_version": self.target_set_version,
             "target_column": self.target_column,
             "task_type": self.task_type,
+            "horizon_sessions": self.horizon_sessions,
+            "target_end_date_column": self.target_end_date_column,
         }
 
 
