@@ -29,7 +29,11 @@ data = [
 postgres = [
     "psycopg[binary]>=3.3.4",
 ]
-# Add a `modeling` extra when model training is introduced.
+modeling = [
+    "alembic>=1.13.0,<2",
+    "mlflow-skinny==3.14.0",
+    "sqlalchemy>=2.0.51,<3",
+]
 # Add an `api` extra when the FastAPI backend is introduced.
 
 [dependency-groups]

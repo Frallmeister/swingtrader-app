@@ -222,5 +222,9 @@ __marimo__/
 *.sqlite
 /data
 
+# Local MLflow tracking
+/mlflow.db*
+/mlruns/
+
 # Temporary files
 temp_*.py

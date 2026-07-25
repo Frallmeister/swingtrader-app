@@ -19,6 +19,18 @@ uv sync --all-extras --dev --group notebook --group docs
 
 This installs application extras, development tools, notebook tooling, and documentation tooling. Day-to-day documentation commands are listed in the [development workflow](development.md).
 
+The optional `modeling` extra installs the lightweight MLflow client and the SQL
+storage dependencies used by local experiment tracking. Install it by itself when
+you only need the modeling workflow:
+
+```powershell
+uv sync --extra modeling --dev
+```
+
+The full MLflow server and UI are intentionally not part of the project environment.
+See [Experiment Specifications and MLflow Tracking](../modeling/experiments.md) for
+the local SQLite workflow and the optional command for launching the UI.
+
 ## Windows Hardlink Warning
 
 On Windows, `uv` may report a hardlink fallback warning. To avoid that warning for the current PowerShell session:

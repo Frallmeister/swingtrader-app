@@ -1,6 +1,6 @@
 # Modeling Overview
 
-Modeling code now includes reusable V1 and V2 label generation and explicit versioned target-set contracts. The V1 research-return contract is documented in [Target and Evaluation](target-and-evaluation.md), while the V2 execution-oriented labels are documented in [ATR Barrier Targets](atr-barrier-targets.md).
+Modeling code now includes reusable V1 and V2 label generation, explicit versioned target-set contracts, immutable experiment specifications, and optional local MLflow tracking. The V1 research-return contract is documented in [Target and Evaluation](target-and-evaluation.md), the V2 execution-oriented labels are documented in [ATR Barrier Targets](atr-barrier-targets.md), and experiment provenance is documented in [Experiment Specifications and MLflow Tracking](experiments.md).
 
 The modeling package will own dataset construction, training workflows, evaluation, model artifact management, and production inference.
 
@@ -10,7 +10,9 @@ The modeling datasets package defines immutable target-family, target-set, and s
 
 V1 calculates 5-, 10-, and 15-session forward returns from adjusted close and adds the nullable Boolean `target_significant_up_5d` target. V2 preserves those outputs and adds next-open ATR-scaled barrier events, nullable take-profit-before-stop-loss targets, event timing, resolution dates, and measurable same-bar ambiguity for 5-, 10-, and 15-session horizons.
 
-Target generation and feature generation remain in memory for now. Feature and label persistence, database schemas, temporal splitting, model training, and evaluation reports are planned follow-up work.
+The experiment package composes feature and target identities with a resolved universe, data cutoff, temporal split, selected task, model configuration, and random seeds. Its deterministic manifests can be serialized before fitting. A thin optional MLflow adapter records executions, Git revision, dataset summaries, metrics, reports, and the canonical experiment manifest through a local SQLite backend and artifact directory.
+
+Target generation and feature generation remain in memory for now. Feature and label persistence, database schemas, temporal dataset construction, split purging, model training, and standardized evaluation reports are planned follow-up work.
 
 ## Inference Readiness
 
@@ -36,8 +38,8 @@ The expected retraining cadence is local/manual a few times per year, not contin
 
 ## Planned Components
 
-- feature readers;
-- train, validation, and test split builder;
+- canonical temporal dataset builder;
+- purged train, validation, and test splits;
 - baseline ranking model;
 - evaluation reports;
 - local model registry;
