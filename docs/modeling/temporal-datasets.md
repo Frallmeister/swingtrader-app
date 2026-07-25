@@ -31,22 +31,33 @@ Use `construct_temporal_dataset()` when a caller already owns the canonical hist
 
 ## Bundle Contract
 
-`TemporalDatasetBundle` owns four aligned outputs:
+`TemporalDatasetBundle` owns three row-aligned frames and one bundle-level manifest:
 
-- `features`: exactly the feature-set output columns in contract order;
-- `targets`: exactly the target-set output columns in contract order;
-- `samples`: `target_end_date`, `training_eligible_at_cutoff`, and eligibility failure reasons;
-- `manifest`: deterministic specification identity and dataset diagnostics.
+```mermaid
+flowchart TB
+    bundle["TemporalDatasetBundle"]
+    index{{"Shared unique, sorted index<br/>(provider, ticker, trading_date)"}}
+    features["features<br/>feature-set columns in contract order"]
+    targets["targets<br/>target-set columns in contract order"]
+    samples["samples<br/>target_end_date<br/>training_eligible_at_cutoff<br/>training_eligibility_reasons"]
+    manifest["manifest<br/>bundle identity and diagnostics<br/>(not row-aligned)"]
+    target_rule["Selected target missing<br/>row excluded from all three frames"]
+    feature_rule["Feature missing values retained<br/>for split-aware preprocessing"]
 
-All three frames use the same unique, sorted `MultiIndex`:
-
-```text
-provider, ticker, trading_date
+    bundle --> features
+    bundle --> targets
+    bundle --> samples
+    bundle --> manifest
+    index -.->|aligns rows| features
+    index -.->|aligns rows| targets
+    index -.->|aligns rows| samples
+    target_rule -.->|filters shared rows| bundle
+    feature_rule -.-> features
 ```
 
-The selected supervised target is complete in every retained row. Feature missing values are not imputed or removed: warm-up periods and source-quality gaps must remain visible until split-aware preprocessing is implemented. Tickers that fail current training-eligibility gates remain in the declared universe and are marked in metadata; a completely missing declared ticker is an error.
+The selected supervised target is complete in every retained row. Feature warm-up and source-quality gaps remain visible until split-aware preprocessing. Tickers that fail current training-eligibility gates remain in the declared universe and are marked in `samples`; a completely missing declared ticker is an error.
 
-For fixed-horizon targets, `target_end_date` is derived from observed sessions within each provider/ticker history. Event targets can declare an explicit target output such as `target_end_date_5d`, allowing the bundle to retain the actual event or timeout resolution date.
+For fixed-horizon targets, `target_end_date` is derived from observed sessions within each provider/ticker history. Event targets can instead declare an explicit target output such as `target_end_date_5d`, preserving the actual event or timeout resolution date.
 
 ## Tabular Adapter
 

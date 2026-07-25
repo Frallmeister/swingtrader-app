@@ -24,10 +24,27 @@ records = features.reset_index()
 
 Feature code is organized into two layers with a clear responsibility boundary:
 
-- **Indicators** calculate reusable technical quantities and live in `swingtrader.indicators`. Indicators know nothing about the model feature set, so they can also be reused by notebooks, tests, future API endpoints, charting, stock screening, and backtest or trade-record analysis.
-- **Features** transform raw data and indicators into model inputs and live in `swingtrader.data.features`. A feature builder decides which source columns an indicator should use, how indicators are combined and normalized, how historical context is represented, and what the model-facing column is named.
+```mermaid
+flowchart LR
+    market["Caller-supplied market data"]
+    standalone["Standalone indicator call"]
+    indicators["swingtrader.indicators<br/>reusable numerical quantities"]
+    consumers["Notebooks, charts, screening,<br/>and trade analysis"]
+    source_policy["Feature layer<br/>selects sources and creates<br/>adjustment-consistent prices"]
+    feature_transform["Feature layer<br/>combines, normalizes, adds context,<br/>and assigns model-facing names"]
+    feature_set["Model-facing columns<br/>declared by FeatureSetSpec"]
 
-In short: indicators calculate reusable technical quantities, and features transform raw data and indicators into model inputs.
+    market --> standalone
+    standalone --> indicators
+    indicators --> consumers
+    market --> source_policy
+    source_policy --> indicators
+    indicators --> feature_transform
+    source_policy --> feature_transform
+    feature_transform --> feature_set
+```
+
+Indicators know nothing about the model feature set and remain reusable outside modeling. Feature builders own model-specific source selection, price adjustment, normalization, composition, historical context, and final column naming.
 
 ### Adjustment-Consistent Model Prices
 

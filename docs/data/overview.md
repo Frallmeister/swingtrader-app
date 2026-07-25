@@ -7,7 +7,7 @@ data/
   clients/    Provider-specific API clients and HTTP wrappers.
   ingestion/  Retrieval and normalization workflows.
   bronze/     Source-oriented schemas and writers.
-  features/   Planned model-ready transformations.
+  features/   Implemented in-memory model-ready transformations.
   jobs/       Thin runnable entrypoints for local data workflows.
 ```
 
@@ -26,10 +26,11 @@ Provider details belong in `clients`. Retrieval decisions belong in `ingestion`.
 - Pandas loading from bronze daily prices for notebook inspection and EDA.
 - Bronze-backed ticker inference readiness and training eligibility checks.
 - Ready-to-use data database initialization through `swingtrader.data.db`.
+- In-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation.
+- Versioned feature-set contracts and deterministic feature manifests.
 
 ## Planned Data Paths
 
-- Model-ready feature generation.
 - Feature persistence, if justified by later modeling workflows.
 - Macro data clients and ingestion.
 - Market data quality summaries, such as available history length per ticker.

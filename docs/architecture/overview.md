@@ -14,7 +14,7 @@ flowchart LR
     D --> E[Feature and target generation]
     E --> F[Canonical temporal datasets]
     F --> G[Purged temporal splits]
-    G --> H[Model training and evaluation]
+    G -.-> H[Model training and evaluation<br/>(planned)]
 ```
 
 Feature and target generation currently runs in memory. Persistence of model-ready datasets remains optional and should be introduced only when reproducibility or operational evidence justifies it.
@@ -64,20 +64,47 @@ The backend may serve bounded chart-data or indicator requests on demand, but it
 
 ## Package Boundaries
 
-The intended dependency direction is:
+The main dependency direction is shown below. Arrows point from a consumer to the package or service it may depend on. Dashed edges and labels mark planned boundaries rather than implemented dependencies.
 
-```text
-jobs -> ingestion -> clients
-jobs -> bronze
-jobs -> feature and inference services
+```mermaid
+flowchart TB
+    subgraph entrypoints["Operational entrypoints"]
+        jobs["data.jobs"]
+    end
 
-ingestion -> bronze
-eligibility -> bronze
-features -> indicators and shared numerical contracts
-modeling.datasets -> data outputs and feature specifications
-modeling.experiments -> modeling.datasets
-api -> application services and persisted outputs
-frontend -> HTTP API only
+    subgraph data["Data and numerical layer"]
+        clients["data.clients"]
+        ingestion["data.ingestion"]
+        bronze["data.bronze"]
+        eligibility["data.eligibility"]
+        indicators["indicators"]
+        features["data.features"]
+    end
+
+    subgraph modeling["Modeling layer"]
+        datasets["modeling.datasets"]
+        experiments["modeling.experiments"]
+    end
+
+    subgraph application["Application boundary"]
+        services["Application and inference services<br/>(planned)"]
+        api["FastAPI backend<br/>(planned)"]
+        frontend["TypeScript and React frontend<br/>(planned)"]
+    end
+
+    jobs --> ingestion
+    jobs --> bronze
+    jobs -.-> services
+    ingestion --> clients
+    ingestion --> bronze
+    eligibility --> bronze
+    features --> indicators
+    datasets --> bronze
+    datasets --> eligibility
+    datasets --> features
+    experiments --> datasets
+    api -.-> services
+    frontend -.-> api
 ```
 
 The data layer must not import API or frontend implementation code. The API must not own numerical feature algorithms or model training. The React frontend must not access the database or depend on Python internals.
