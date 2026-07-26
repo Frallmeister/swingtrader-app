@@ -1,25 +1,24 @@
 # Modeling Overview
 
-Modeling code now includes reusable V1 and V2 target generation, explicit versioned target-set contracts, canonical unsplit temporal dataset construction, purged fixed temporal splitting, immutable experiment specifications, and optional local MLflow tracking.
+The modeling layer turns point-in-time-safe market history into reproducible supervised-learning datasets, assigns leakage-safe temporal splits, and will later train and evaluate ranking models. The individual contracts and operations are described on focused pages; this page provides the end-to-end red line.
 
-The V1 research-return contract is documented in [Target and Evaluation](target-and-evaluation.md), V2 execution-oriented labels in [ATR Barrier Targets](atr-barrier-targets.md), dataset construction in [Temporal Datasets](temporal-datasets.md), split semantics in [Temporal Splitting](temporal-splitting.md), and experiment provenance in [Experiment Specifications and MLflow Tracking](experiments.md).
+The implemented target contracts are grouped under [Targets](targets/index.md), dataset construction is documented in [Temporal Datasets](temporal-datasets.md), split semantics in [Temporal Splitting](temporal-splitting.md), and experiment provenance in [Experiment Specifications and MLflow Tracking](experiments.md). [Modeling Workflows](workflows.md) describes how these components are composed, while the [Modeling Object Model](../reference/modeling-object-model.md) is the canonical reference for relationships between specifications and runtime artifacts.
 
-The implemented modeling path separates dataset construction from split policy and later model fitting:
-
-Rectangles are immutable specifications, rounded boxes are operations, cylinders are data
-products, and hexagons are split assignments. Dashed edges lead to planned work.
+Rectangles are specifications or runtime containers, rounded boxes are operations, cylinders are tabular data, double-bordered boxes are manifests, and hexagons are split assignments. Dashed edges lead to planned work.
 
 ```mermaid
-%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 28, "rankSpacing": 34}}}%%
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 32, "rankSpacing": 48}}}%%
 flowchart TB
     experiment["ExperimentSpec"]
-    dataset_spec["TemporalDatasetSpec"]
-    source[(Bronze history and eligibility)]
+    dataset_spec["Derived TemporalDatasetSpec"]
+    source[(Bronze history)]
+    eligibility[(Cutoff-aware eligibility)]
     builder([Build temporal dataset])
-    features([Execute feature set])
-    targets([Execute target set])
-    bundle[(TemporalDatasetBundle)]
-    tabular([Create X, y, and sample metadata])
+    bundle["TemporalDatasetBundle"]
+    features[(features)]
+    targets[(targets)]
+    samples[(samples)]
+    manifest[[TemporalDatasetManifest]]
     splitter([Apply fixed temporal split])
     train{{Train positions}}
     validation{{Validation positions}}
@@ -29,17 +28,21 @@ flowchart TB
     experiment -->|dataset choices| dataset_spec
     dataset_spec --> builder
     source --> builder
-    builder --> features
-    builder --> targets
-    features --> bundle
-    targets --> bundle
-    bundle --> tabular
+    builder --> eligibility
+    builder --> bundle
+    bundle --> features
+    bundle --> targets
+    bundle --> samples
+    eligibility --> samples
+    bundle --> manifest
     experiment -->|split policy| splitter
     bundle --> splitter
     splitter --> train
     splitter --> validation
     splitter --> test
-    tabular -.-> modeling
+    features -.-> modeling
+    targets -.-> modeling
+    samples -.-> modeling
     train -.-> modeling
     validation -.-> modeling
     test -.->|final evaluation only| modeling
@@ -50,9 +53,9 @@ flowchart TB
     classDef artifact fill:#e8f5e9,stroke:#2e7d32
     classDef state fill:#f3e5f5,stroke:#6a1b9a
     classDef planned fill:#fafafa,stroke:#9e9e9e,color:#616161,stroke-dasharray:6 4
-    class experiment,dataset_spec contract
-    class builder,features,targets,tabular,splitter action
-    class source,bundle artifact
+    class experiment,dataset_spec,bundle contract
+    class builder,splitter action
+    class source,eligibility,features,targets,samples,manifest artifact
     class train,validation,test state
     class modeling planned
 ```
@@ -69,11 +72,11 @@ Feature and target persistence, materialized dataset snapshots, expanding-window
 
 ## Inference Readiness
 
-Inference readiness currently evaluates bronze daily-price state only. Production inference will later add model-ready feature availability, recency, and input-window requirements.
+Inference readiness currently evaluates bronze daily-price state only. Production inference will later add model-ready feature availability, recency, and input-window requirements. The current bronze conditions are defined under [Ticker Eligibility — Version 1 Bronze Rules](../data/eligibility.md#version-1-bronze-rules).
 
 ## Training Eligibility
 
-Training eligibility remains distinct from active-universe membership and inference readiness. The temporal dataset records cutoff-aware eligibility as sample metadata rather than silently filtering declared universe members. The splitter preserves this metadata without filtering it; training code can add minimum usable-sample rules appropriate to the selected task and split design.
+Training eligibility remains distinct from active-universe membership and inference readiness. The temporal dataset records cutoff-aware eligibility as sample metadata rather than silently filtering declared universe members. The splitter preserves this metadata without filtering it; training code can add minimum usable-sample rules appropriate to the selected task and split design. The current bronze conditions are defined under [Ticker Eligibility — Version 1 Bronze Rules](../data/eligibility.md#version-1-bronze-rules).
 
 ## Planned Components
 

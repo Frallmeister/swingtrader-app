@@ -58,6 +58,7 @@ nav:
       - Run Local Checks: tutorials/run-local-checks.md
       - Update Dependencies: tutorials/update-dependencies.md
       - Update Market Data: tutorials/update-market-data.md
+      - Modeling Notebooks: tutorials/modeling-notebooks.md
       - Preview Documentation: tutorials/preview-documentation.md
   - Architecture:
       - Overview: architecture/overview.md
@@ -82,10 +83,14 @@ nav:
       - Features: data/features.md
   - Modeling:
       - Overview: modeling/overview.md
+      - Workflows: modeling/workflows.md
       - Temporal Datasets: modeling/temporal-datasets.md
       - Temporal Splitting: modeling/temporal-splitting.md
-      - Target and Evaluation: modeling/target-and-evaluation.md
-      - ATR Barrier Targets: modeling/atr-barrier-targets.md
+      - Targets:
+          - Overview: modeling/targets/index.md
+          - V1 Significant Forward Return: modeling/targets/v1-forward-return.md
+          - V2 ATR Barrier: modeling/targets/v2-atr-barrier.md
+      - Evaluation: modeling/evaluation.md
       - Experiment Specifications and MLflow: modeling/experiments.md
   - Deployment:
       - Render: deployment/render.md
@@ -93,5 +98,6 @@ nav:
       - Daily Runbook: operations/daily-runbook.md
       - Troubleshooting: operations/troubleshooting.md
   - Reference:
+      - Modeling Object Model: reference/modeling-object-model.md
       - Glossary: reference/glossary.md
       - API Reference: reference/api.md

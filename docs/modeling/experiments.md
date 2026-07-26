@@ -30,6 +30,8 @@ The experiment package exposes four top-level immutable contracts:
 
 The top-level and lower-level contracts compose as follows. Colors group feature, target, dataset, and experiment concerns; only fields that define important boundaries are shown.
 
+For the canonical specification and runtime-artifact reference, see [Modeling Object Model](../reference/modeling-object-model.md).
+
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "18px"}}}%%
 classDiagram

@@ -9,7 +9,7 @@ Each declared range is inclusive and shared by every ticker. Assignment has two 
 1. the signal date must lie inside the range;
 2. the row's actual `target_end_date` must be no later than that range's end.
 
-The signal date determines the candidate split, while the complete target window determines whether the candidate is retained:
+The signal date determines the candidate split, while the complete target window determines whether the candidate is retained. In the example below, the training range ends inclusively on `2021-12-31`, and the validation range begins on `2022-01-01`.
 
 Signals and target end dates are states; the final hexagon is the assignment decision:
 
@@ -47,19 +47,20 @@ Purging uses the per-row metadata produced by the canonical dataset. It never co
 
 ## Embargo Semantics
 
+An embargo introduces additional temporal separation between consecutive splits. After rows whose target windows cross the split boundary have been purged, the embargo removes the final configured number of observed signal dates from the remaining train or validation panel.
+
 `embargo_sessions=0` disables embargo. A positive value applies an additional global pre-boundary gap after purging:
 
-Rounded boxes are operations, the cylinder is the surviving panel, and the final hexagon is the
-resulting boundary state:
+Rounded boxes are operations, the cylinder is the panel that remains after purging, and the final hexagon is the resulting boundary state:
 
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 26, "rankSpacing": 32}}}%%
 flowchart TB
     candidates[(Train or validation candidates)]
     purge([Purge target windows crossing the split end])
-    panel[(Surviving panel dates<br/>Dec 27: AAA, BBB<br/>Dec 28: AAA, CCC<br/>Dec 29: AAA, BBB, CCC<br/>Dec 30: AAA, BBB)]
+    panel[(Remaining panel dates<br/>Dec 27: AAA, BBB<br/>Dec 28: AAA, CCC<br/>Dec 29: AAA, BBB, CCC<br/>Dec 30: AAA, BBB)]
     choose([For N = 2, select Dec 29 and Dec 30])
-    remove([Remove all surviving rows on those dates])
+    remove([Remove all remaining rows on those dates])
     later{{Later split keeps its declared start}}
 
     candidates --> purge --> panel --> choose --> remove --> later
@@ -72,12 +73,24 @@ flowchart TB
     class later state
 ```
 
-The dates are selected once across the complete panel, not separately for each ticker. The embargo does not shift validation or test ranges and is not applied after the locked test period. Dates already emptied by purging do not count, so `N` always means `N` additional observed signal dates.
+The dates are selected once across the complete panel, not separately for each ticker. The embargo does not shift validation or test ranges and is not applied after the locked test period. Dates already emptied by purging do not count, so `N` always means `N` additional observed signal dates. See the glossary definitions of [panel](../reference/glossary.md#panel), [purge](../reference/glossary.md#purge), and [embargo](../reference/glossary.md#embargo).
 
 ## Usage
 
+`bundle` is the canonical unsplit `TemporalDatasetBundle` produced by `build_temporal_dataset()`. Its `features`, `targets`, and `samples` frames have identical row indexes, so the returned positional indices can be applied to each frame consistently:
+
 ```python
+from swingtrader.modeling.datasets import (
+    TemporalDatasetBundle,
+    build_temporal_dataset,
+)
 from swingtrader.modeling.experiments import FixedTemporalSplitter
+
+bundle: TemporalDatasetBundle = build_temporal_dataset(
+    engine=engine,
+    spec=experiment_spec.dataset_spec,
+)
+
 
 splitter = FixedTemporalSplitter(experiment_spec.split)
 split_result = splitter.assign(bundle)
@@ -87,7 +100,7 @@ validation_index = split_result.indices("validation")
 locked_test_index = split_result.indices("test")
 
 X_train = bundle.features.iloc[train_index]
-y_train = bundle.targets.iloc[train_index]
+y_train = bundle.targets[experiment_spec.task.target_column].iloc[train_index]
 ```
 
 For scikit-learn-style model selection, the splitter yields one train/validation pair and deliberately omits test:

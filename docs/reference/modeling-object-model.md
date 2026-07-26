@@ -1,0 +1,108 @@
+# Modeling Object Model
+
+This page is the canonical reference for relationships between modeling specifications and runtime artifacts. Workflow order is documented separately under [Modeling Workflows](../modeling/workflows.md).
+
+Rectangles represent contracts or runtime containers, cylinders represent row-aligned tabular data, double-bordered boxes represent manifests, and rounded boxes represent operations. A dashed edge denotes a derived object or planned consumer rather than a stored field.
+
+## Specification Object Model
+
+`ExperimentSpec` stores the complete static experiment configuration. Its `dataset_spec` property constructs a `TemporalDatasetSpec` from the five dataset-defining fields; `TemporalDatasetSpec` is not a separately stored field on the experiment.
+
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 34, "rankSpacing": 48}}}%%
+classDiagram
+    class FeatureBlockSpec
+    class FeatureSetSpec
+    class TargetFamilySpec
+    class TargetSetSpec
+    class SupervisedTaskSpec
+    class UniverseSpec
+    class TemporalDatasetSpec
+    class TemporalSplitSpec
+    class ModelSpec
+    class ExperimentSpec
+
+    FeatureSetSpec *-- FeatureBlockSpec : ordered blocks
+    TargetSetSpec *-- TargetFamilySpec : ordered blocks
+    TemporalDatasetSpec *-- FeatureSetSpec : feature_set
+    TemporalDatasetSpec *-- TargetSetSpec : target_set
+    TemporalDatasetSpec *-- SupervisedTaskSpec : task
+    TemporalDatasetSpec *-- UniverseSpec : universe
+    ExperimentSpec *-- FeatureSetSpec : feature_set
+    ExperimentSpec *-- TargetSetSpec : target_set
+    ExperimentSpec *-- SupervisedTaskSpec : task
+    ExperimentSpec *-- UniverseSpec : universe
+    ExperimentSpec *-- TemporalSplitSpec : split
+    ExperimentSpec *-- ModelSpec : model
+    ExperimentSpec ..> TemporalDatasetSpec : dataset_spec property
+
+    classDef feature fill:#e3f2fd,stroke:#1565c0
+    classDef target fill:#f3e5f5,stroke:#6a1b9a
+    classDef dataset fill:#e8f5e9,stroke:#2e7d32
+    classDef experiment fill:#fff3e0,stroke:#ef6c00
+    cssClass "FeatureBlockSpec,FeatureSetSpec" feature
+    cssClass "TargetFamilySpec,TargetSetSpec,SupervisedTaskSpec" target
+    cssClass "UniverseSpec,TemporalDatasetSpec" dataset
+    cssClass "TemporalSplitSpec,ModelSpec,ExperimentSpec" experiment
+```
+
+Every specification is versioned or composed from versioned contracts and can be serialized into deterministic manifest data. The experiment digest covers static choices; runtime provenance such as the Git revision belongs to the tracking layer.
+
+## Runtime Artifact Object Model
+
+Dataset construction produces an aligned bundle. Temporal splitting does not copy feature or target data into separate split objects; it annotates sample metadata and returns positional indices into the original bundle.
+
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 30, "rankSpacing": 44}}}%%
+flowchart TB
+    dataset_spec["TemporalDatasetSpec"]
+    build([build_temporal_dataset])
+    bundle["TemporalDatasetBundle"]
+    features[(features DataFrame)]
+    targets[(targets DataFrame)]
+    samples[(samples DataFrame)]
+    dataset_manifest[[TemporalDatasetManifest]]
+    adapter([to_tabular_dataset])
+    tabular["TabularDataset"]
+    X[(X DataFrame)]
+    y[(y Series)]
+    tabular_samples[(samples DataFrame)]
+    split_spec["TemporalSplitSpec"]
+    splitter([FixedTemporalSplitter.assign])
+    split_result["TemporalSplitResult"]
+    split_samples[(split-annotated samples)]
+    split_manifest[[TemporalSplitManifest]]
+    summaries["TemporalSplitSummary × 3"]
+    positions{{Train, validation, and test positions}}
+
+    dataset_spec --> build --> bundle
+    bundle --> features
+    bundle --> targets
+    bundle --> samples
+    bundle --> dataset_manifest
+    bundle --> adapter --> tabular
+    tabular --> X
+    tabular --> y
+    tabular --> tabular_samples
+    bundle --> splitter
+    split_spec --> splitter
+    splitter --> split_result
+    split_result --> split_samples
+    split_result --> split_manifest
+    split_manifest --> summaries
+    split_result --> positions
+    positions -.->|index original aligned frames| features
+    positions -.->|index original aligned frames| targets
+    positions -.->|index original aligned frames| samples
+
+    classDef contract fill:#e3f2fd,stroke:#1565c0
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    classDef state fill:#f3e5f5,stroke:#6a1b9a
+    class dataset_spec,bundle,tabular,split_spec,split_result,summaries contract
+    class build,adapter,splitter action
+    class features,targets,samples,dataset_manifest,X,y,tabular_samples,split_samples,split_manifest artifact
+    class positions state
+```
+
+`TemporalDatasetBundle` and `TemporalSplitResult` are frozen dataclass containers that take deep copies of their pandas frames during construction. Freezing prevents field reassignment but does not make the contained DataFrames deeply immutable.

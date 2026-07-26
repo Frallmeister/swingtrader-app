@@ -1,4 +1,4 @@
-# ATR Barrier Targets
+# V2 ATR Barrier Target
 
 The versioned `ohlcv_price_targets:2` target set extends the V1 forward-return labels with ATR-scaled barrier-event outcomes. These targets answer an execution-oriented research question:
 
@@ -7,6 +7,22 @@ The versioned `ohlcv_price_targets:2` target set extends the V1 forward-return l
 > barrier be reached before a fixed stop-loss barrier within the selected horizon?
 
 They are research labels, not a production order simulator or portfolio backtest.
+
+| Property | Value |
+| --- | --- |
+| Target version | V2 (`ohlcv_price_targets:2`) |
+| Learning task | Binary classification |
+| Selected task output | One selected target value per sample; not multiclass or multilabel |
+| Primary target | `target_tp_before_sl_5d` |
+| Supporting outputs | Barrier event, event session, ambiguity flag, and target end date per horizon |
+| Signal date | Completed daily bar on session `t` |
+| Entry rule | Next observed session open |
+| Resolution date | First barrier event or the configured timeout session |
+| Positive class | Take-profit is reached before stop-loss |
+| Intended use | Execution-oriented probability estimation and candidate ranking |
+| Main limitation | Daily OHLC cannot identify intrabar ordering when both barriers are touched |
+
+The V1 contract is documented in [V1 Significant Forward Return Target](v1-forward-return.md). Shared reporting guidance is documented in [Model Evaluation](../evaluation.md).
 
 ## Default Contract
 
