@@ -91,6 +91,7 @@ nav:
           - Overview: modeling/targets/index.md
           - V1 Significant Forward Return: modeling/targets/v1-forward-return.md
           - V2 ATR Barrier: modeling/targets/v2-atr-barrier.md
+      - Baseline Models and Harness: modeling/baseline-models.md
       - Evaluation: modeling/evaluation.md
       - Experiment Specifications and MLflow: modeling/experiments.md
   - Deployment:

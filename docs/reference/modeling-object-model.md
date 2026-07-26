@@ -2,7 +2,7 @@
 
 This page is the canonical reference for relationships between modeling specifications and runtime artifacts. Workflow order is documented separately under [Modeling Workflows](../modeling/workflows.md).
 
-Rectangles represent contracts or runtime containers, cylinders represent row-aligned tabular data, double-bordered boxes represent manifests, and rounded boxes represent operations. A dashed edge denotes a derived object or planned consumer rather than a stored field.
+Rectangles represent contracts or runtime containers, cylinders represent row-aligned tabular data, double-bordered boxes represent manifests or reports, and rounded boxes represent operations. A dashed edge denotes a derived or non-owning relationship rather than a stored field.
 
 ## Specification Object Model
 
@@ -106,3 +106,51 @@ flowchart TB
 ```
 
 `TemporalDatasetBundle` and `TemporalSplitResult` are frozen dataclass containers that take deep copies of their pandas frames during construction. Freezing prevents field reassignment but does not make the contained DataFrames deeply immutable.
+
+
+## Baseline Runtime Artifacts
+
+`run_baseline_experiment()` combines the experiment specification, canonical bundle, and split result without copying split-specific datasets into new long-lived containers. It fits one baseline artifact on train positions and creates an independent standardized prediction frame and `EvaluationReport` for each requested evaluation split. Validation is always requested; test is optional.
+
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 32, "rankSpacing": 46}}}%%
+flowchart TB
+    experiment["ExperimentSpec"]
+    bundle["TemporalDatasetBundle"]
+    split_result["TemporalSplitResult"]
+    tabular["TabularDataset"]
+    harness([run_baseline_experiment])
+    model["BaselineModelArtifact"]
+    result["BaselineExperimentResult"]
+    validation_predictions[(Validation prediction frame)]
+    test_predictions[(Test prediction frame)]
+    validation_report[[Validation EvaluationReport]]
+    test_report[[Test EvaluationReport]]
+    artifacts[(JSON, CSV, Markdown, and SVG artifacts)]
+    mlflow([ExperimentRun logging])
+
+    bundle --> tabular
+    experiment --> harness
+    bundle --> harness
+    split_result --> harness
+    tabular -.->|train, validation, and optional test positions| harness
+    harness --> model
+    harness --> validation_predictions --> validation_report
+    harness -->|explicit opt-in| test_predictions --> test_report
+    model --> result
+    validation_report --> result
+    test_report --> result
+    result --> artifacts
+    result --> mlflow
+
+    classDef contract fill:#e3f2fd,stroke:#1565c0
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    class experiment,bundle,split_result,tabular,model,result contract
+    class harness,mlflow action
+    class validation_predictions,test_predictions,validation_report,test_report,artifacts artifact
+```
+
+The prediction frame has the stable ordered columns `split`, `target`, `score`, `predicted_class`, and `ranking_return`. `EvaluationReport` retains the exact `EvaluationConfig`, pooled metrics, dataset context, source predictions, per-date metrics, calibration buckets, daily and aggregate score-quantile tables, top-`k` and random selections, and feature missingness.
+
+`BaselineModelArtifact` is a structural interface rather than a persistence framework. Each concrete baseline exposes `predict_scores()` and a JSON-compatible `to_manifest()`. The logistic artifact includes its train-fitted medians and scales so validation and test transformations do not depend on either evaluation split.

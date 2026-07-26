@@ -4,12 +4,12 @@ Swingtrader is a data-first decision-support application. External market data m
 
 ## Research Flow
 
-The implemented repository currently supports the research foundation through purged temporal splitting:
+The implemented repository supports the first complete research loop through deterministic baselines and reusable validation reports:
 
 The shapes distinguish inputs, actions, data products, and planned work:
 
 ```mermaid
-%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 30}}}%%
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 34}}}%%
 flowchart TB
     universe[/Curated ticker universes/]
     ingest([Ingest market data])
@@ -18,22 +18,25 @@ flowchart TB
     generate([Generate features and targets])
     dataset[(Canonical temporal dataset)]
     split([Apply purged temporal split])
-    train(["Train and evaluate models<br/>(planned)"])
+    baseline([Fit and evaluate baselines])
+    reports[(Predictions, metrics, tables, and plots)]
+    nonlinear([Train nonlinear candidates<br/>(planned)])
 
     universe --> ingest --> bronze --> eligible --> generate --> dataset --> split
-    split -.-> train
+    split --> baseline --> reports
+    reports -.-> nonlinear
 
     classDef input fill:#eceff1,stroke:#546e7a
     classDef action fill:#fff3e0,stroke:#ef6c00
     classDef artifact fill:#e8f5e9,stroke:#2e7d32
     classDef planned fill:#fafafa,stroke:#9e9e9e,color:#616161,stroke-dasharray:6 4
     class universe input
-    class ingest,eligible,generate,split action
-    class bronze,dataset artifact
-    class train planned
+    class ingest,eligible,generate,split,baseline action
+    class bronze,dataset,reports artifact
+    class nonlinear planned
 ```
 
-Feature and target generation currently runs in memory. Persistence of model-ready datasets remains optional and should be introduced only when reproducibility or operational evidence justifies it.
+Feature and target generation currently runs in memory. Persistence of model-ready datasets remains optional and should be introduced only when reproducibility or operational evidence justifies it. Baseline outputs are persisted as compact model manifests and evaluation artifacts rather than a second copy of the full modeling dataset.
 
 ## Planned Production Flow
 
@@ -49,7 +52,6 @@ flowchart TB
     predictions[(Prediction snapshots)]
     api([FastAPI backend])
     frontend([React frontend])
-
     update --> bronze --> features --> inference --> predictions --> api --> frontend
 
     classDef action fill:#fff3e0,stroke:#ef6c00
@@ -76,12 +78,17 @@ The backend may serve bounded chart-data or indicator requests on demand, but it
 - Canonical unsplit temporal dataset construction.
 - Purged fixed train, validation, and locked-test splitting with diagnostics.
 - Immutable experiment specifications and optional local MLflow tracking.
+- Constant-prior, deterministic random-ranking, and regularized-logistic baselines.
+- Train-only imputation and scaling retained with the fitted logistic artifact.
+- Standardized classification, calibration, daily ranking, random-comparison, and dataset-context reports.
+- Deterministic JSON, CSV, Markdown, and SVG artifacts with validation-only default behavior.
 - Local SQLite and configurable SQLAlchemy database URLs.
 - Automated Ruff, pytest, and strict MkDocs checks.
 
 ## Planned
 
-- Baseline model training, evaluation, and feature selection.
+- XGBoost candidates, feature ablation, and selection of the first reproducible model.
+- Expanding-window experiment folds.
 - Local and scheduled production inference with prediction persistence.
 - A FastAPI backend under `swingtrader.api`.
 - A separate TypeScript and React application under `frontend/`.
@@ -99,7 +106,6 @@ flowchart TB
     subgraph entrypoints["Operational entrypoints"]
         jobs["data.jobs"]
     end
-
     subgraph data["Data and numerical layer"]
         clients["data.clients"]
         ingestion["data.ingestion"]
@@ -112,8 +118,8 @@ flowchart TB
     subgraph modeling["Modeling layer"]
         datasets["modeling.datasets"]
         experiments["modeling.experiments"]
+        training["modeling.training"]
     end
-
     subgraph application["Planned application boundary"]
         services["Application services"]
         api["FastAPI backend"]
@@ -133,6 +139,8 @@ flowchart TB
     datasets --> eligibility
     datasets --> features
     experiments --> datasets
+    training --> datasets
+    training --> experiments
     api -.-> services
     frontend -.-> api
 
@@ -142,7 +150,7 @@ flowchart TB
     classDef planned fill:#fafafa,stroke:#9e9e9e,color:#616161,stroke-dasharray:6 4
     class jobs entry
     class clients,ingestion,bronze,eligibility,indicators,features dataNode
-    class datasets,experiments modelNode
+    class datasets,experiments,training modelNode
     class services,api,frontend planned
 ```
 

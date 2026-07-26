@@ -1,10 +1,10 @@
 # Modeling Overview
 
-The modeling layer turns point-in-time-safe market history into reproducible supervised-learning datasets, assigns leakage-safe temporal splits, and will later train and evaluate ranking models. The individual contracts and operations are described on focused pages; this page provides the end-to-end red line.
+The modeling layer turns point-in-time-safe market history into reproducible supervised-learning datasets, assigns leakage-safe temporal splits, and trains and evaluates reference models through a standardized baseline harness. The individual contracts and operations are described on focused pages; this page provides the end-to-end red line.
 
-The implemented target contracts are grouped under [Targets](targets/index.md), dataset construction is documented in [Temporal Datasets](temporal-datasets.md), split semantics in [Temporal Splitting](temporal-splitting.md), and experiment provenance in [Experiment Specifications and MLflow Tracking](experiments.md). [Modeling Workflows](workflows.md) describes how these components are composed, while the [Modeling Object Model](../reference/modeling-object-model.md) is the canonical reference for relationships between specifications and runtime artifacts.
+The implemented target contracts are grouped under [Targets](targets/index.md), dataset construction is documented in [Temporal Datasets](temporal-datasets.md), split semantics in [Temporal Splitting](temporal-splitting.md), baseline fitting in [Baseline Models and Evaluation Harness](baseline-models.md), and experiment provenance in [Experiment Specifications and MLflow Tracking](experiments.md). [Modeling Workflows](workflows.md) describes how these components are composed, while the [Modeling Object Model](../reference/modeling-object-model.md) is the canonical reference for relationships between specifications and runtime artifacts.
 
-Rectangles are specifications or runtime containers, rounded boxes are operations, cylinders are tabular data, double-bordered boxes are manifests, and hexagons are split assignments. Dashed edges lead to planned work.
+Rectangles are specifications or runtime containers, rounded boxes are operations, cylinders are tabular data, double-bordered boxes are manifests or reports, and hexagons are split assignments. Dashed edges lead to planned work.
 
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 32, "rankSpacing": 48}}}%%
@@ -23,7 +23,11 @@ flowchart TB
     train{{Train positions}}
     validation{{Validation positions}}
     test{{Locked-test positions}}
-    modeling(["Preprocess, fit, and evaluate<br/>(planned)"])
+    harness([Run baseline experiment])
+    model[[Fitted model artifact]]
+    validation_report[[Validation report]]
+    test_report[[Locked-test report]]
+    advanced([Train nonlinear candidates<br/>planned])
 
     experiment -->|dataset choices| dataset_spec
     dataset_spec --> builder
@@ -40,13 +44,17 @@ flowchart TB
     splitter --> train
     splitter --> validation
     splitter --> test
-    features -.-> modeling
-    targets -.-> modeling
-    samples -.-> modeling
-    train -.-> modeling
-    validation -.-> modeling
-    test -.->|final evaluation only| modeling
-    experiment -.->|model and seeds| modeling
+    experiment -->|model, parameters, seeds| harness
+    bundle --> harness
+    train --> harness
+    validation --> harness
+    test -->|explicit final opt-in| harness
+    harness --> model
+    harness --> validation_report
+    harness --> test_report
+    bundle -.-> advanced
+    splitter -.-> advanced
+    experiment -.-> advanced
 
     classDef contract fill:#e3f2fd,stroke:#1565c0
     classDef action fill:#fff3e0,stroke:#ef6c00
@@ -54,10 +62,10 @@ flowchart TB
     classDef state fill:#f3e5f5,stroke:#6a1b9a
     classDef planned fill:#fafafa,stroke:#9e9e9e,color:#616161,stroke-dasharray:6 4
     class experiment,dataset_spec,bundle contract
-    class builder,splitter action
-    class source,eligibility,features,targets,samples,manifest artifact
+    class builder,splitter,harness action
+    class source,eligibility,features,targets,samples,manifest,model,validation_report,test_report artifact
     class train,validation,test state
-    class modeling planned
+    class advanced planned
 ```
 
 ## Implemented Components
@@ -68,7 +76,9 @@ Feature and target builders consume the same canonical market-price DataFrame: a
 
 The experiment package applies split policy downstream, using each row's actual target resolution date for purging and an optional global pre-boundary embargo. `ExperimentSpec.dataset_spec` keeps dataset construction independent of model, seed, and MLflow concerns, while the optional MLflow adapter records executions and runtime provenance.
 
-Feature and target persistence, materialized dataset snapshots, expanding-window folds, model training, and standardized evaluation reports remain planned.
+The training package implements a constant-prior classifier, deterministic date-matched random ranker, regularized logistic regression with train-only median imputation and scaling, a canonical prediction frame, and reusable classification, calibration, cross-sectional ranking, artifact, and MLflow logging workflows. Validation is the routine evaluation split; locked-test evaluation requires explicit opt-in.
+
+Feature and target persistence, materialized dataset snapshots, expanding-window folds, nonlinear model candidates, model registration, and production inference remain planned.
 
 ## Inference Readiness
 
@@ -81,7 +91,7 @@ Training eligibility remains distinct from active-universe membership and infere
 ## Planned Components
 
 - expanding-window walk-forward folds;
-- baseline ranking models;
-- standardized evaluation reports;
+- XGBoost classification and regression candidates;
+- feature ablation and selection;
 - local model registry;
 - production inference workflow.

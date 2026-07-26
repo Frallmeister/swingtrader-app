@@ -4,7 +4,7 @@ A workflow is an ordered composition of public operations and runtime artifacts 
 
 ## End-to-End Lifecycle
 
-Solid nodes are implemented. Dashed nodes describe planned model-development and production workflows.
+Solid nodes are implemented. Dashed nodes describe planned nonlinear model-development and production workflows.
 
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 34, "rankSpacing": 52}}}%%
@@ -13,20 +13,21 @@ flowchart LR
     eligibility([Evaluate ticker eligibility])
     construct([Construct temporal dataset])
     split([Assign purged temporal splits])
-    train([Preprocess and fit model])
+    train([Fit baseline model])
     validate([Evaluate validation results])
-    test([Evaluate locked test once])
+    test([Evaluate locked test explicitly])
+    advanced([Train nonlinear candidates])
     register([Register selected model])
     infer([Run production inference])
     rank([Rank trade candidates])
 
-    ingest --> eligibility --> construct --> split
-    split -.-> train -.-> validate -.-> test -.-> register -.-> infer -.-> rank
+    ingest --> eligibility --> construct --> split --> train --> validate --> test
+    validate -.-> advanced -.-> register -.-> infer -.-> rank
 
     classDef implemented fill:#fff3e0,stroke:#ef6c00
     classDef planned fill:#fafafa,stroke:#9e9e9e,color:#616161,stroke-dasharray:6 4
-    class ingest,eligibility,construct,split implemented
-    class train,validate,test,register,infer,rank planned
+    class ingest,eligibility,construct,split,train,validate,test implemented
+    class advanced,register,infer,rank planned
 ```
 
 ## Temporal Dataset Construction
@@ -92,46 +93,55 @@ flowchart LR
 
 See [Temporal Splitting](temporal-splitting.md) for containment, purge, and embargo semantics.
 
-## Model Training and Validation (Planned)
+## Baseline Training and Validation
 
-**Status:** Planned.
+**Status:** Implemented.
 
-This workflow will own every transformation whose fitted state depends on the training sample. Imputation, feature selection, scaling, sampling, and model-specific dtype conversion must be fitted on training rows only and then applied unchanged to validation rows. The locked test remains inaccessible during model and threshold selection.
+`run_baseline_experiment()` owns train-dependent preprocessing, model fitting, scoring, evaluation, and optional artifact logging for the initial baselines. Median imputation and scaling for logistic regression are fitted on training rows only and then applied unchanged. Constant-prior and random-ranking models retain only their fitted prevalence or seed.
 
 ```mermaid
 flowchart LR
+    experiment["ExperimentSpec"]
+    bundle["TemporalDatasetBundle"]
+    split_result["TemporalSplitResult"]
     train[(Train rows)]
     validation[(Validation rows)]
-    preprocessing([Fit preprocessing on train])
-    transform_train([Transform train])
-    transform_validation([Transform validation])
-    fit([Fit model])
+    fit([Fit baseline on train])
     score([Score validation])
+    predictions[(Prediction frame)]
+    evaluate([Evaluate predictions])
+    model[[Model artifact]]
     report[[Validation report]]
 
-    train --> preprocessing
-    preprocessing --> transform_train --> fit
-    preprocessing --> transform_validation
-    validation --> transform_validation
-    fit --> score
-    transform_validation --> score --> report
+    experiment --> fit
+    bundle --> train
+    split_result --> train
+    train --> fit --> model
+    bundle --> validation
+    split_result --> validation
+    model --> score
+    validation --> score --> predictions --> evaluate --> report
 
+    classDef contract fill:#e3f2fd,stroke:#1565c0
     classDef action fill:#fff3e0,stroke:#ef6c00
     classDef artifact fill:#e8f5e9,stroke:#2e7d32
-    classDef manifest fill:#f3e5f5,stroke:#6a1b9a
-    class train,validation artifact
-    class preprocessing,transform_train,transform_validation,fit,score action
-    class report manifest
+    class experiment,bundle,split_result contract
+    class fit,score,evaluate action
+    class train,validation,predictions,model,report artifact
 ```
 
-## Locked-Test Evaluation (Planned)
+The standardized report combines pooled classification and calibration results with daily cross-sectional quantiles, top-`k`, Spearman correlation, date-matched random comparisons, missingness context, and generated tables and plots. See [Baseline Models and Evaluation Harness](baseline-models.md) and [Model Evaluation](evaluation.md).
 
-**Status:** Planned.
+## Locked-Test Evaluation
 
-After model configuration, preprocessing, and decision rules have been selected using train and validation data, the final workflow will apply the frozen pipeline to the locked test exactly once for an unbiased final estimate. Any subsequent change creates a new experiment rather than reusing the same locked result for further tuning.
+**Status:** Implemented with explicit opt-in.
+
+Routine calls evaluate validation only. After model configuration, preprocessing, hyperparameters, threshold, and ranking rule have been selected using train and validation, set `include_locked_test=True` to apply the same frozen model to the locked test. The validation result is unchanged by including test evaluation, and the harness does not refit between splits.
+
+Any subsequent decision change creates a new experiment rather than reusing the inspected locked result for further tuning.
 
 ## Production Inference and Ranking (Planned)
 
 **Status:** Planned.
 
-Production inference will evaluate inference readiness, load the required recent bronze history, reproduce the selected feature contract, apply the registered preprocessing and model artifacts, and persist candidate scores for ranking. It will not generate research targets or refit preprocessing.
+Production inference will evaluate inference readiness, load the required recent bronze history, reproduce the selected feature contract, apply registered preprocessing and model artifacts, and persist candidate scores for ranking. It will not generate research targets or refit preprocessing.
