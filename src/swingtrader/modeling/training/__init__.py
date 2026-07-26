@@ -11,6 +11,7 @@ from swingtrader.modeling.training.baselines import (
     RegularizedLogisticRegression,
     deterministic_random_scores,
     fit_baseline_model,
+    select_model_features,
 )
 from swingtrader.modeling.training.contracts import (
     PREDICTION_COLUMNS,
@@ -20,7 +21,9 @@ from swingtrader.modeling.training.contracts import (
 )
 from swingtrader.modeling.training.evaluation import EvaluationReport, evaluate_predictions
 from swingtrader.modeling.training.harness import (
+    TEMPORAL_CV_RESULT_COLUMNS,
     BaselineExperimentResult,
+    run_baseline_cross_validation,
     run_baseline_experiment,
     write_baseline_artifacts,
 )
@@ -31,6 +34,7 @@ __all__ = [
     "LOGISTIC_REGRESSION_MODEL_TYPE",
     "PREDICTION_COLUMNS",
     "RANDOM_RANKING_MODEL_TYPE",
+    "TEMPORAL_CV_RESULT_COLUMNS",
     "BaselineExperimentResult",
     "BaselineModelArtifact",
     "ConstantPriorClassifier",
@@ -43,6 +47,8 @@ __all__ = [
     "deterministic_random_scores",
     "evaluate_predictions",
     "fit_baseline_model",
+    "select_model_features",
+    "run_baseline_cross_validation",
     "run_baseline_experiment",
     "validate_prediction_frame",
     "write_baseline_artifacts",

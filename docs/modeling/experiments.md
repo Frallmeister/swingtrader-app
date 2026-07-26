@@ -19,13 +19,14 @@ The tracking helpers import MLflow only when `start_experiment_run()` is called.
 
 ## Experiment Contracts
 
-The experiment package exposes four top-level immutable contracts:
+The experiment package exposes five top-level immutable contracts:
 
 | Contract | Purpose |
 | --- | --- |
 | `UniverseSpec` | Records provider and concrete ticker membership; it is owned by the lower-level dataset package and re-exported here. |
 | `TemporalSplitSpec` | Declares shared, inclusive train, validation, and test calendar ranges plus an optional pre-boundary embargo. |
-| `ModelSpec` | Records the model implementation identity and JSON-compatible hyperparameters. |
+| `TemporalCrossValidationSpec` | Configures expanding global-date folds restricted to the existing outer train split. |
+| `ModelSpec` | Records the model implementation identity, JSON-compatible hyperparameters, and optional exact ordered feature schema. |
 | `ExperimentSpec` | Composes the feature set, target set, selected task, universe, data cutoff, split, model, and random seeds. |
 
 The top-level and lower-level contracts compose as follows. Colors group feature, target, dataset, and experiment concerns; only fields that define important boundaries are shown.
@@ -54,9 +55,15 @@ classDiagram
         +test_range
         +embargo_sessions
     }
+    class TemporalCrossValidationSpec {
+        +n_folds
+        +validation_sessions
+        +minimum_train_sessions
+    }
     class ModelSpec {
         +model_type
         +hyperparameters
+        +feature_columns
     }
     class ExperimentSpec {
         +random_seeds
@@ -76,6 +83,7 @@ classDiagram
     ExperimentSpec o-- UniverseSpec
     ExperimentSpec o-- TemporalSplitSpec
     ExperimentSpec o-- ModelSpec
+    TemporalCrossValidationSpec ..> TemporalSplitSpec : uses outer train only
     ExperimentSpec ..> TemporalDatasetSpec : exposes dataset_spec
 
     classDef feature fill:#e3f2fd,stroke:#1565c0
@@ -85,10 +93,10 @@ classDiagram
     cssClass "FeatureBlockSpec,FeatureSetSpec" feature
     cssClass "TargetFamilySpec,TargetSetSpec,SupervisedTaskSpec" target
     cssClass "UniverseSpec,TemporalDatasetSpec" dataset
-    cssClass "TemporalSplitSpec,ModelSpec,ExperimentSpec" experiment
+    cssClass "TemporalSplitSpec,TemporalCrossValidationSpec,ModelSpec,ExperimentSpec" experiment
 ```
 
-Each specification has a deterministic manifest and SHA-256 digest. Ticker ordering does not affect a universe digest because membership order is not meaningful. Changes such as adding a ticker, changing a split date or embargo, selecting another target, changing a hyperparameter, or changing a seed do affect the experiment digest.
+The versioned identity specifications expose deterministic manifests and SHA-256 digests. `TemporalCrossValidationSpec` exposes deterministic manifest data but is supplied separately to the diagnostic cross-validation run and is not part of `ExperimentSpec.digest`. Ticker ordering does not affect a universe digest because membership order is not meaningful. Changes such as adding a ticker, changing a split date or embargo, selecting another target, changing a hyperparameter, or changing a seed do affect the experiment digest; changing only the cross-validation settings does not.
 
 The Git revision is intentionally not part of the static `ExperimentSpec`. It describes the code used for a particular execution and is logged by the MLflow adapter when Git metadata is available.
 
@@ -137,6 +145,7 @@ experiment_spec = ExperimentSpec(
         name="regularized_logistic_regression",
         version="1",
         model_type=LOGISTIC_REGRESSION_MODEL_TYPE,
+        feature_columns=None,
         hyperparameters={
             "regularization_strength": 1.0,
             "max_iter": 1_000,
@@ -272,6 +281,8 @@ Implemented here:
 - immutable experiment specifications;
 - canonical unsplit temporal dataset specifications and construction;
 - purged fixed train/validation/locked-test assignment with optional embargo and diagnostics;
+- explicit ordered model-level feature schemas;
+- expanding global-date cross-validation restricted to outer train;
 - deterministic manifests and identities;
 - local MLflow run initialization;
 - Git-revision, parameter, summary, metric, and artifact logging;
@@ -281,7 +292,6 @@ Implemented here:
 
 Still planned:
 
-- expanding-window folds;
 - XGBoost and later nonlinear candidates;
-- feature ablation and selection;
+- automatic feature-selection, candidate-ranking, and winner-selection policies;
 - remote tracking, registry promotion, production inference, and serving.

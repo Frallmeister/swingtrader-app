@@ -17,7 +17,10 @@ from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from swingtrader.modeling.experiments.contracts import ModelSpec
+from swingtrader.modeling.experiments.contracts import (
+    ModelSpec,
+    resolve_model_feature_columns,
+)
 
 CONSTANT_PRIOR_MODEL_TYPE = "swingtrader.modeling.training.baselines.ConstantPriorClassifier"
 RANDOM_RANKING_MODEL_TYPE = "swingtrader.modeling.training.baselines.DateMatchedRandomRanker"
@@ -28,6 +31,10 @@ LOGISTIC_REGRESSION_MODEL_TYPE = (
 
 class BaselineModelArtifact(Protocol):
     """Minimal fitted-model interface consumed by the evaluation harness."""
+
+    @property
+    def feature_columns(self) -> tuple[str, ...] | None:
+        """Return the exact ordered estimator input schema when retained."""
 
     def predict_scores(self, features: pd.DataFrame) -> pd.Series:
         """Return positive-class scores aligned to ``features``."""
@@ -129,24 +136,30 @@ class ConstantPriorClassifier:
 
     prior: float
     training_rows: int
+    feature_columns: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.prior) or not 0.0 <= self.prior <= 1.0:
             raise ValueError("Fitted class prior must be finite and between zero and one.")
         _validate_training_rows(self.training_rows)
+        if self.feature_columns is not None:
+            _validate_feature_columns(self.feature_columns)
 
     def predict_scores(self, features: pd.DataFrame) -> pd.Series:
         """Return the fitted prevalence for every supplied feature row."""
-        _require_feature_frame(features)
-        return pd.Series(self.prior, index=features.index, dtype="float64", name="score")
+        selected = _select_retained_model_features(features, self.feature_columns)
+        return pd.Series(self.prior, index=selected.index, dtype="float64", name="score")
 
     def to_manifest(self) -> dict[str, object]:
-        """Return fitted prevalence and training-row count."""
-        return {
+        """Return fitted prevalence, training-row count, and explicit schema."""
+        manifest: dict[str, object] = {
             "model_type": CONSTANT_PRIOR_MODEL_TYPE,
             "training_rows": self.training_rows,
             "prior": self.prior,
         }
+        if self.feature_columns is not None:
+            manifest["feature_columns"] = list(self.feature_columns)
+        return manifest
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,23 +168,29 @@ class DateMatchedRandomRanker:
 
     seed: int
     training_rows: int
+    feature_columns: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         _validate_seed(self.seed)
         _validate_training_rows(self.training_rows)
+        if self.feature_columns is not None:
+            _validate_feature_columns(self.feature_columns)
 
     def predict_scores(self, features: pd.DataFrame) -> pd.Series:
         """Return deterministic random scores derived from sample identity."""
-        _require_feature_frame(features)
-        return deterministic_random_scores(features.index, seed=self.seed)
+        selected = _select_retained_model_features(features, self.feature_columns)
+        return deterministic_random_scores(selected.index, seed=self.seed)
 
     def to_manifest(self) -> dict[str, object]:
-        """Return the random seed and training-row count."""
-        return {
+        """Return the random seed, training-row count, and explicit schema."""
+        manifest: dict[str, object] = {
             "model_type": RANDOM_RANKING_MODEL_TYPE,
             "training_rows": self.training_rows,
             "seed": self.seed,
         }
+        if self.feature_columns is not None:
+            manifest["feature_columns"] = list(self.feature_columns)
+        return manifest
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,6 +224,11 @@ class RegularizedLogisticRegression:
         _validate_training_rows(self.training_rows)
 
     @property
+    def feature_columns(self) -> tuple[str, ...]:
+        """Return the exact ordered estimator input schema."""
+        return self.preprocessor.columns
+
+    @property
     def intercept(self) -> float:
         """Return the fitted binary-class intercept."""
         return float(self.estimator.intercept_[0])
@@ -221,14 +245,15 @@ class RegularizedLogisticRegression:
 
     def predict_scores(self, features: pd.DataFrame) -> pd.Series:
         """Return positive-class probabilities for the supplied rows."""
-        transformed = self.preprocessor.transform(features)
+        selected = select_model_features(features, self.feature_columns)
+        transformed = self.preprocessor.transform(selected)
         positive_class = int(np.flatnonzero(self.estimator.classes_ == 1)[0])
         scores = self.estimator.predict_proba(transformed)[:, positive_class]
-        return pd.Series(scores, index=features.index, dtype="float64", name="score")
+        return pd.Series(scores, index=selected.index, dtype="float64", name="score")
 
     def to_manifest(self) -> dict[str, object]:
         """Return fitted coefficients, preprocessing, and solver diagnostics."""
-        return {
+        manifest: dict[str, object] = {
             "model_type": LOGISTIC_REGRESSION_MODEL_TYPE,
             "implementation": "sklearn.linear_model.LogisticRegression",
             "library_version": sklearn.__version__,
@@ -250,6 +275,7 @@ class RegularizedLogisticRegression:
             "coefficients": dict(zip(self.preprocessor.columns, self.coefficients, strict=True)),
             "preprocessing": self.preprocessor.to_manifest(),
         }
+        return manifest
 
 
 def fit_baseline_model(
@@ -259,11 +285,14 @@ def fit_baseline_model(
     target: pd.Series,
     seed: int,
 ) -> BaselineModelArtifact:
-    """Fit one repository baseline selected by ``ModelSpec.model_type``."""
+    """Fit one baseline on the model specification's ordered feature schema."""
     if not isinstance(spec, ModelSpec):
         raise TypeError("Baseline fitting requires a ModelSpec.")
     _require_feature_frame(features)
     binary_target = _binary_target(target, expected_index=features.index)
+    available_columns = tuple(features.columns)
+    selected_columns = resolve_model_feature_columns(spec, available_columns)
+    selected_features = select_model_features(features, selected_columns)
     _validate_seed(seed)
     hyperparameters = dict(spec.hyperparameters)
 
@@ -272,13 +301,18 @@ def fit_baseline_model(
         return ConstantPriorClassifier(
             prior=float(binary_target.mean()),
             training_rows=len(binary_target),
+            feature_columns=spec.feature_columns,
         )
     if spec.model_type == RANDOM_RANKING_MODEL_TYPE:
         _reject_unknown_hyperparameters(hyperparameters, allowed=frozenset())
-        return DateMatchedRandomRanker(seed=seed, training_rows=len(binary_target))
+        return DateMatchedRandomRanker(
+            seed=seed,
+            training_rows=len(binary_target),
+            feature_columns=spec.feature_columns,
+        )
     if spec.model_type == LOGISTIC_REGRESSION_MODEL_TYPE:
         return _fit_logistic(
-            features,
+            selected_features,
             binary_target,
             hyperparameters=hyperparameters,
             seed=seed,
@@ -294,6 +328,30 @@ def fit_baseline_model(
     raise ValueError(
         f"Unsupported baseline model type {spec.model_type!r}; expected one of: {supported}."
     )
+
+
+def select_model_features(
+    features: pd.DataFrame,
+    feature_columns: tuple[str, ...],
+) -> pd.DataFrame:
+    """Select one fitted model's exact ordered schema from candidate features."""
+    _require_feature_frame(features)
+    _validate_feature_columns(feature_columns)
+    missing = tuple(column for column in feature_columns if column not in features.columns)
+    if missing:
+        raise ValueError("Model input is missing feature columns: " + ", ".join(missing) + ".")
+    return features.loc[:, list(feature_columns)]
+
+
+def _select_retained_model_features(
+    features: pd.DataFrame,
+    feature_columns: tuple[str, ...] | None,
+) -> pd.DataFrame:
+    """Apply a retained schema, or preserve legacy all-feature artifact behavior."""
+    if feature_columns is None:
+        _require_feature_frame(features)
+        return features
+    return select_model_features(features, feature_columns)
 
 
 def deterministic_random_scores(index: pd.Index, *, seed: int) -> pd.Series:
@@ -425,6 +483,17 @@ def _positive_int(value: object, *, name: str) -> int:
     if value < 1:
         raise ValueError(f"{name} must be positive.")
     return value
+
+
+def _validate_feature_columns(feature_columns: tuple[str, ...]) -> None:
+    if not isinstance(feature_columns, tuple):
+        raise TypeError("Fitted model feature columns must be a tuple.")
+    if not feature_columns:
+        raise ValueError("Fitted model feature columns must not be empty.")
+    if any(not isinstance(column, str) or not column.strip() for column in feature_columns):
+        raise ValueError("Fitted model feature columns must be non-empty strings.")
+    if len(feature_columns) != len(set(feature_columns)):
+        raise ValueError("Fitted model feature columns must be unique.")
 
 
 def _validate_training_rows(training_rows: int) -> None:

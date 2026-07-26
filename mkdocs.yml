@@ -88,6 +88,7 @@ nav:
       - Workflows: modeling/workflows.md
       - Temporal Datasets: modeling/temporal-datasets.md
       - Temporal Splitting: modeling/temporal-splitting.md
+      - Feature Selection and Train-Only CV: modeling/feature-selection-and-cross-validation.md
       - Targets:
           - Overview: modeling/targets/index.md
           - V1 Significant Forward Return: modeling/targets/v1-forward-return.md

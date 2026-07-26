@@ -13,6 +13,7 @@ flowchart LR
     eligibility([Evaluate ticker eligibility])
     construct([Construct temporal dataset])
     split([Assign purged temporal splits])
+    cross_validate([Compare train-only temporal folds])
     train([Fit baseline model])
     validate([Evaluate validation results])
     test([Evaluate locked test explicitly])
@@ -21,12 +22,12 @@ flowchart LR
     infer([Run production inference])
     rank([Rank trade candidates])
 
-    ingest --> eligibility --> construct --> split --> train --> validate --> test
+    ingest --> eligibility --> construct --> split --> cross_validate --> train --> validate --> test
     validate -.-> advanced -.-> register -.-> infer -.-> rank
 
     classDef implemented fill:#fff3e0,stroke:#ef6c00
     classDef planned fill:#fafafa,stroke:#9e9e9e,color:#616161,stroke-dasharray:6 4
-    class ingest,eligibility,construct,split,train,validate,test implemented
+    class ingest,eligibility,construct,split,cross_validate,train,validate,test implemented
     class advanced,register,infer,rank planned
 ```
 
@@ -93,11 +94,50 @@ flowchart LR
 
 See [Temporal Splitting](temporal-splitting.md) for containment, purge, and embargo semantics.
 
+## Model Feature Selection and Train-Only Cross-Validation
+
+**Status:** Implemented for manually configured logistic-regression candidates.
+
+The generated feature contract remains unchanged. `ModelSpec.feature_columns` resolves one exact ordered estimator schema, while `run_baseline_cross_validation()` builds expanding global-date folds from outer train only. A fresh preprocessor and estimator are fitted independently for every fold.
+
+```mermaid
+flowchart LR
+    feature_set["FeatureSetSpec"]
+    bundle["TemporalDatasetBundle"]
+    model["ModelSpec.feature_columns"]
+    outer_train[(Outer train positions)]
+    folds["TemporalFold sequence"]
+    fit1([Fit fold 1])
+    fit2([Fit fold N])
+    metrics[(Train and validation metrics)]
+    outer_holdouts[(Outer validation and test)]
+
+    feature_set --> bundle
+    bundle --> outer_train
+    model --> fit1
+    model --> fit2
+    outer_train --> folds
+    folds --> fit1 --> metrics
+    folds --> fit2 --> metrics
+    outer_holdouts -. not accessed .-> folds
+
+    classDef contract fill:#e3f2fd,stroke:#1565c0
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    classDef blocked fill:#ffebee,stroke:#c62828
+    class feature_set,bundle,model,folds contract
+    class fit1,fit2 action
+    class outer_train,metrics artifact
+    class outer_holdouts blocked
+```
+
+Candidate ranking and winner selection remain manual. After choosing a schema, pass that `ModelSpec` to the existing outer baseline harness. See [Model Feature Selection and Train-Only Cross-Validation](feature-selection-and-cross-validation.md).
+
 ## Baseline Training and Validation
 
 **Status:** Implemented.
 
-`run_baseline_experiment()` owns train-dependent preprocessing, model fitting, scoring, evaluation, and optional artifact logging for the initial baselines. Median imputation and scaling for logistic regression are fitted on training rows only and then applied unchanged. Constant-prior and random-ranking models retain only their fitted prevalence or seed.
+`run_baseline_experiment()` owns train-dependent preprocessing, model fitting, scoring, evaluation, and optional artifact logging for the initial baselines. Median imputation and scaling for logistic regression are fitted on training rows only and then applied unchanged. Explicit feature schemas are retained by every baseline; constant-prior and random-ranking models otherwise preserve their previous all-column behavior and retain their fitted prevalence or seed.
 
 ```mermaid
 flowchart LR

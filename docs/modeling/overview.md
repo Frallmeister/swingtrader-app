@@ -2,7 +2,7 @@
 
 The modeling layer turns point-in-time-safe market history into reproducible supervised-learning datasets, assigns leakage-safe temporal splits, and trains and evaluates reference models through a standardized baseline harness. The individual contracts and operations are described on focused pages; this page provides the end-to-end red line.
 
-The implemented target contracts are grouped under [Targets](targets/index.md), dataset construction is documented in [Temporal Datasets](temporal-datasets.md), split semantics in [Temporal Splitting](temporal-splitting.md), baseline fitting in [Baseline Models and Evaluation Harness](baseline-models.md), and experiment provenance in [Experiment Specifications and MLflow Tracking](experiments.md). [Modeling Workflows](workflows.md) describes how these components are composed, while the [Modeling Object Model](../reference/modeling-object-model.md) is the canonical reference for relationships between specifications and runtime artifacts.
+The implemented target contracts are grouped under [Targets](targets/index.md), dataset construction is documented in [Temporal Datasets](temporal-datasets.md), split semantics in [Temporal Splitting](temporal-splitting.md), model-level input schemas and train-only diagnostics in [Model Feature Selection and Train-Only Cross-Validation](feature-selection-and-cross-validation.md), baseline fitting in [Baseline Models and Evaluation Harness](baseline-models.md), and experiment provenance in [Experiment Specifications and MLflow Tracking](experiments.md). [Modeling Workflows](workflows.md) describes how these components are composed, while the [Modeling Object Model](../reference/modeling-object-model.md) is the canonical reference for relationships between specifications and runtime artifacts.
 
 Rectangles are specifications or runtime containers, rounded boxes are operations, cylinders are tabular data, double-bordered boxes are manifests or reports, and hexagons are split assignments. Dashed edges lead to planned work.
 
@@ -23,6 +23,9 @@ flowchart TB
     train{{Train positions}}
     validation{{Validation positions}}
     test{{Locked-test positions}}
+    cv_spec["TemporalCrossValidationSpec"]
+    cv_harness([Run train-only cross-validation])
+    cv_result[[Compact fold metrics]]
     harness([Run baseline experiment])
     model[[Fitted model artifact]]
     validation_report[[Validation report]]
@@ -44,6 +47,11 @@ flowchart TB
     splitter --> train
     splitter --> validation
     splitter --> test
+    cv_spec --> cv_harness
+    experiment -->|model and ordered features| cv_harness
+    bundle --> cv_harness
+    train -->|outer train positions only| cv_harness
+    cv_harness --> cv_result
     experiment -->|model, parameters, seeds| harness
     bundle --> harness
     train --> harness
@@ -61,9 +69,9 @@ flowchart TB
     classDef artifact fill:#e8f5e9,stroke:#2e7d32
     classDef state fill:#f3e5f5,stroke:#6a1b9a
     classDef planned fill:#fafafa,stroke:#9e9e9e,color:#616161,stroke-dasharray:6 4
-    class experiment,dataset_spec,bundle contract
-    class builder,splitter,harness action
-    class source,eligibility,features,targets,samples,manifest,model,validation_report,test_report artifact
+    class experiment,dataset_spec,bundle,cv_spec contract
+    class builder,splitter,cv_harness,harness action
+    class source,eligibility,features,targets,samples,manifest,cv_result,model,validation_report,test_report artifact
     class train,validation,test state
     class advanced planned
 ```
@@ -74,11 +82,11 @@ Feature and target builders consume the same canonical market-price DataFrame: a
 
 `TemporalDatasetSpec` defines only the unsplit data product. Features and targets are calculated independently over the same full historical prefix, then aligned with sample metadata and a deterministic manifest. Feature NaNs are retained; rows are excluded only when the selected target is unavailable.
 
-The experiment package applies split policy downstream, using each row's actual target resolution date for purging and an optional global pre-boundary embargo. `ExperimentSpec.dataset_spec` keeps dataset construction independent of model, seed, and MLflow concerns, while the optional MLflow adapter records executions and runtime provenance.
+The experiment package applies split policy downstream, using each row's actual target resolution date for purging and an optional global pre-boundary embargo. `ModelSpec.feature_columns` separately defines an optional exact ordered estimator schema without changing feature-generation contracts. `ExperimentSpec.dataset_spec` keeps dataset construction independent of model, seed, and MLflow concerns, while the optional MLflow adapter records executions and runtime provenance.
 
-The training package implements a constant-prior classifier, deterministic date-matched random ranker, regularized logistic regression with train-only median imputation and scaling, a canonical prediction frame, and reusable classification, calibration, cross-sectional ranking, artifact, and MLflow logging workflows. Validation is the routine evaluation split; locked-test evaluation requires explicit opt-in.
+The training package implements a constant-prior classifier, deterministic date-matched random ranker, regularized logistic regression with train-only median imputation and scaling, expanding global-date cross-validation confined to outer train, a canonical prediction frame, and reusable classification, calibration, cross-sectional ranking, artifact, and MLflow logging workflows. Each inner fold fits preprocessing and the estimator independently and reports compact train/validation diagnostics. Validation is the routine outer evaluation split; locked-test evaluation requires explicit opt-in.
 
-Feature and target persistence, materialized dataset snapshots, expanding-window folds, nonlinear model candidates, model registration, and production inference remain planned.
+Feature and target persistence, materialized dataset snapshots, nonlinear model candidates, model registration, and production inference remain planned.
 
 ## Inference Readiness
 
@@ -90,8 +98,7 @@ Training eligibility remains distinct from active-universe membership and infere
 
 ## Planned Components
 
-- expanding-window walk-forward folds;
 - XGBoost classification and regression candidates;
-- feature ablation and selection;
+- automated feature ablation, candidate ranking, and winner-selection policies;
 - local model registry;
 - production inference workflow.

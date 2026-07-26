@@ -76,6 +76,12 @@ flowchart TB
 
 The dates are selected once across the complete panel, not separately for each ticker. The embargo does not shift validation or test ranges and is not applied after the locked test period. Dates already emptied by purging do not count, so `N` always means `N` additional observed signal dates. See the glossary definitions of [panel](../reference/glossary.md#panel), [purge](../reference/glossary.md#purge), and [embargo](../reference/glossary.md#embargo).
 
+## Inner Train-Only Folds
+
+`build_expanding_temporal_folds()` derives global-date folds only from positions already assigned to the outer train split. Each fold uses the same per-row `target_end_date <= partition_end` containment rule, fits no state itself, and never requests outer validation or locked-test positions. Inner folds do not add a second embargo policy.
+
+See [Model Feature Selection and Train-Only Cross-Validation](feature-selection-and-cross-validation.md) for configuration and execution examples.
+
 ## Usage
 
 `bundle` is the canonical unsplit `TemporalDatasetBundle` produced by `build_temporal_dataset()`. Its `features`, `targets`, and `samples` frames have identical row indexes, so the returned positional indices can be applied to each frame consistently:

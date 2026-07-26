@@ -28,6 +28,7 @@ The project currently implements the data and initial modeling foundation:
 * immutable experiment specifications and optional local MLflow tracking
 * deterministic constant-prior, date-matched random-ranking, and regularized-logistic baselines
 * train-only median imputation and standardization retained with the fitted logistic artifact
+* explicit ordered model-input schemas and expanding temporal cross-validation confined to outer train
 * standardized classification, calibration, daily ranking, and dataset-context evaluation reports
 * deterministic local or MLflow model, prediction, table, Markdown, and SVG artifacts
 * local SQLite support and configurable SQLAlchemy database URLs
@@ -56,6 +57,7 @@ Useful entry points:
 * [Modeling overview](docs/modeling/overview.md)
 * [Temporal datasets](docs/modeling/temporal-datasets.md)
 * [Temporal splitting](docs/modeling/temporal-splitting.md)
+* [Model feature selection and train-only cross-validation](docs/modeling/feature-selection-and-cross-validation.md)
 * [Baseline models and evaluation harness](docs/modeling/baseline-models.md)
 * [ATR barrier targets](docs/modeling/targets/v2-atr-barrier.md)
 * [Experiment specifications and MLflow tracking](docs/modeling/experiments.md)
