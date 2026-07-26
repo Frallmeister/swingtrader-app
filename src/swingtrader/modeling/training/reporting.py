@@ -106,13 +106,21 @@ def write_evaluation_artifacts(
         paths.append(path)
 
     distribution_path = plots / "top_k_return_distribution.svg"
+    model_returns, random_returns = _paired_top_k_returns(report)
     _write_distribution_svg(
         distribution_path,
-        model=report.top_k_by_date["mean_ranking_return"],
-        random=report.random_top_k_by_date["mean_ranking_return"],
+        model=model_returns,
+        random=random_returns,
     )
     paths.append(distribution_path)
     return tuple(paths)
+
+
+def _paired_top_k_returns(report: EvaluationReport) -> tuple[pd.Series, pd.Series]:
+    paired = report.per_date_metrics.dropna(
+        subset=["top_k_mean_return", "random_top_k_mean_return"]
+    )
+    return paired["top_k_mean_return"], paired["random_top_k_mean_return"]
 
 
 def _markdown_report(report: EvaluationReport) -> str:
@@ -126,6 +134,23 @@ def _markdown_report(report: EvaluationReport) -> str:
         "## Evaluation Configuration",
         "",
         _mapping_table(report.config.to_manifest()),
+        "",
+        "## Ranking Outcome",
+        "",
+        (
+            f"Source target column: `{report.ranking_return_column}`."
+            if report.ranking_return_column is not None
+            else "No continuous ranking-return target was supplied."
+        ),
+        "",
+        "## Interpretation Boundary",
+        "",
+        (
+            "`ranking_return` is a research diagnostic outcome. It does not apply "
+            "next-session entry assumptions and excludes transaction costs, spreads, "
+            "slippage, stop-loss or take-profit execution, position sizing, and "
+            "portfolio constraints. Do not interpret it as executable strategy P&L."
+        ),
         "",
         "## Aggregate Metrics",
         "",

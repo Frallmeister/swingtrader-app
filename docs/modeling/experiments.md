@@ -9,13 +9,13 @@ MLflow is therefore an execution ledger, not the source of experiment semantics.
 
 ## Install the Modeling Extra
 
-MLflow is optional because data ingestion, feature generation, target generation, and local baseline artifacts do not require it. The modeling extra installs `mlflow-skinny` together with the SQL storage dependencies needed for direct local SQLite tracking. It deliberately avoids the full MLflow distribution, whose additional model-flavor dependencies are unnecessary for this adapter.
+The modeling extra installs scikit-learn for baseline fitting and `mlflow-skinny` together with the SQL storage dependencies needed for optional local SQLite tracking. It deliberately avoids the full MLflow distribution, whose additional model-flavor dependencies are unnecessary for this adapter. Data ingestion, feature generation, and target generation remain independent of the extra, while local baseline artifacts require scikit-learn but not MLflow.
 
 ```powershell
 uv sync --extra modeling --dev
 ```
 
-The tracking helpers import MLflow only when `start_experiment_run()` is called. Importing experiment, dataset, baseline, or evaluation contracts does not require the optional dependency.
+The tracking helpers import MLflow only when `start_experiment_run()` is called. Baseline fitting and evaluation use scikit-learn from the modeling extra but do not import MLflow.
 
 ## Experiment Contracts
 
@@ -241,7 +241,7 @@ The initialized run records:
 - finite validation metrics and the fitted-model manifest;
 - row-level predictions, per-date metrics, calibration and ranking tables, Markdown summaries, and SVG plots.
 
-`run_baseline_experiment()` evaluates validation by default. Pass `include_locked_test=True` only after the preprocessing, model, hyperparameter, threshold, and ranking choices are frozen. For a local run without MLflow, pass `artifact_directory=` instead; see [Baseline Models and Evaluation Harness](baseline-models.md).
+`run_baseline_experiment()` evaluates validation by default. A supplied `EvaluationConfig.random_seed` must equal the experiment's declared evaluation seed so the experiment digest cannot describe different random comparisons or score-tie resolutions. Pass `include_locked_test=True` only after the preprocessing, model, hyperparameter, threshold, and ranking choices are frozen. For a local run without MLflow, pass `artifact_directory=` instead; see [Baseline Models and Evaluation Harness](baseline-models.md).
 
 Dataset summaries deliberately contain no feature or target rows. Before a run starts, their ticker counts and observed date ranges are checked against the experiment's declared universe and temporal split. The current Yahoo Finance bronze data remains the historical source of truth, while stronger source-data versioning or materialized dataset snapshots can be added later if the data source becomes mutable or multi-provider.
 

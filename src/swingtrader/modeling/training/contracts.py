@@ -25,7 +25,16 @@ PREDICTION_COLUMNS = (
 
 @dataclass(frozen=True, slots=True)
 class EvaluationConfig:
-    """Configure deterministic classification, calibration, and ranking evaluation."""
+    """Configure deterministic classification, calibration, and ranking evaluation.
+
+    Attributes:
+        classification_threshold: Probability cutoff used to derive predicted classes.
+        calibration_bins: Number of fixed-width probability buckets.
+        score_quantiles: Number of within-date score groups used for ranking summaries.
+        top_k: Maximum candidates selected per trading date.
+        random_seed: Seed for the date-matched random comparator and deterministic
+            score-tie resolution.
+    """
 
     classification_threshold: float = 0.5
     calibration_bins: int = 10

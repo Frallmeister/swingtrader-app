@@ -13,7 +13,7 @@ Each report records:
 - split date range, row count, trading-date count, and ticker count;
 - target prevalence and continuous-outcome coverage;
 - feature count and missingness summary;
-- classification threshold, calibration buckets, score quantiles, `top_k`, and random seed;
+- classification threshold, calibration buckets, score quantiles, `top_k`, random seed, and ranking-return source column;
 - pooled metrics and per-date tables.
 
 Validation and test are evaluated independently. A validation report does not require or read locked-test rows.
@@ -55,7 +55,15 @@ The report contains:
 
 `score_quantiles_by_date.csv` retains one row per represented date and quantile. `score_quantiles.csv` summarizes those rows with equal weight per date rather than allowing dates with larger candidate universes to dominate. When a daily universe is smaller than the requested number of quantiles, the lowest and highest candidates still occupy the boundary quantiles and intermediate buckets may be empty.
 
+Exact score ties are resolved with a deterministic pseudo-random secondary key derived from `EvaluationConfig.random_seed` and canonical sample identity. Consequently, a constant-score model has the same top-`k` selections and quantile outcomes as the date-matched random comparator rather than inheriting ticker or row order as an accidental ranking signal.
+
+Top-`k` return lift uses only dates where both the model and random selections have an observed continuous outcome. The aggregate report records `top_k_return_comparison_date_count`, and the per-date tables record the number of observed ranking returns in each selected set. Positive-rate comparisons use every date because the binary target is complete.
+
 The desired behavior is monotonic: higher scores should correspond to progressively stronger outcomes and positive-label rates. A single strong top bucket is useful but less convincing than a stable progression across quantiles and dates.
+
+## Research Outcome Boundary
+
+The `ranking_return` column is copied from the explicitly configured target column, whose name is retained in the report manifest and Markdown report. It is a research diagnostic rather than an executable trade return: it does not apply next-session entry assumptions and excludes transaction costs, spreads, slippage, stop-loss or take-profit execution, position sizing, and portfolio constraints. Do not interpret ranking-return tables or plots as strategy P&L.
 
 ## Dataset and Missingness Context
 
@@ -79,7 +87,7 @@ config = EvaluationConfig(
 )
 ```
 
-The random comparison derives stable scores from the random seed and canonical sample identity, so it is independent of row iteration order. JSON, CSV, Markdown, compressed prediction, and SVG artifacts are written deterministically for the same report inputs.
+The random comparison and score-tie resolution derive stable scores from the random seed and canonical sample identity, so they are independent of row iteration order. When the harness is used, this seed must match the evaluation seed declared in `ExperimentSpec.random_seeds`. JSON, CSV, Markdown, compressed prediction, and SVG artifacts are written deterministically for the same report inputs.
 
 ## Locked-Test Policy
 

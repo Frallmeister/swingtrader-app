@@ -10,7 +10,7 @@ The implementation is intentionally narrower than a general model framework. It 
 | --- | --- | --- |
 | `CONSTANT_PRIOR_MODEL_TYPE` | Assign the training positive-class prevalence to every sample. | Training prevalence and row count. |
 | `RANDOM_RANKING_MODEL_TYPE` | Produce deterministic pseudo-random scores that are ranked separately within each date. | Random seed and row count. |
-| `LOGISTIC_REGRESSION_MODEL_TYPE` | Provide a simple learned linear benchmark. | Train-fitted medians, scales, intercept, coefficients, and optimizer diagnostics. |
+| `LOGISTIC_REGRESSION_MODEL_TYPE` | Provide a simple learned linear benchmark. | Train-fitted scikit-learn imputation, scaling, coefficients, and solver diagnostics. |
 
 `ModelSpec.model_type` is the implementation identity stored in the experiment manifest. Use the exported constants instead of duplicating their string values:
 
@@ -30,7 +30,7 @@ model_spec = ModelSpec(
 )
 ```
 
-The regularization strength is the L2 penalty applied to coefficients. The intercept is not regularized. Numeric features are median-imputed and standardized with population standard deviations fitted on training rows only. Infinite values are treated as missing, all-missing columns receive a median of zero, and zero-variance columns receive a scale of one. The complete transformation is retained in `model.json`.
+The baseline uses scikit-learn `LogisticRegression` with the `lbfgs` solver and L2 regularization. The project-level `regularization_strength` retains the existing averaged-loss definition, `mean_log_loss + 0.5 * regularization_strength * ||coefficient||²`. Because scikit-learn scales `C` against the number of training rows, the adapter uses `C = 1 / (regularization_strength * training_rows)`. Larger project-level values therefore still produce stronger regularization without changing meaning when the training sample size changes. Numeric features are median-imputed, then mean-centered and standardized with population standard deviations fitted on training rows only. Infinite values are treated as missing, all-missing columns are retained and imputed with zero, and zero-variance columns receive a scale of one. The fitted preprocessing statistics, coefficients, solver settings, regularization mapping, and scikit-learn version are retained in `model.json`.
 
 ## Leakage Boundary
 
@@ -85,9 +85,9 @@ Every evaluated model is converted to one ordered row-level schema:
 | `target` | Complete binary supervised target. |
 | `score` | Finite positive-class score in `[0, 1]`. |
 | `predicted_class` | `score >= classification_threshold`. |
-| `ranking_return` | Optional finite continuous outcome used for ranking diagnostics. |
+| `ranking_return` | Optional finite research outcome copied from the configured target column for ranking diagnostics. |
 
-The frame preserves the canonical sorted sample index. The classification threshold is an evaluation choice; it is separate from the economic threshold or barrier rules used to construct the target.
+The frame preserves the canonical sorted sample index. The classification threshold is an evaluation choice; it is separate from the economic threshold or barrier rules used to construct the target. The report manifest also records the original `ranking_return_column` so a detached artifact still identifies the continuous outcome it evaluated.
 
 ## Run a Baseline Experiment
 
@@ -123,7 +123,7 @@ validation = result.reports["validation"]
 print(validation.aggregate_metrics)
 ```
 
-`start_experiment_run()` records the experiment manifest, specification digests, model hyperparameters, seeds, dataset summary, and Git revision. The baseline harness adds finite aggregate metrics and generated model, prediction, table, plot, and Markdown artifacts.
+`start_experiment_run()` records the experiment manifest, specification digests, model hyperparameters, seeds, dataset summary, and Git revision. The baseline harness requires `EvaluationConfig.random_seed` to match the experiment's declared evaluation seed, then adds finite aggregate metrics and generated model, prediction, table, plot, and Markdown artifacts.
 
 For a local run without MLflow, pass `artifact_directory=`. The artifact layout is:
 
@@ -159,7 +159,9 @@ The three baselines answer different questions:
 
 Compare models only when the experiment, dataset, feature-set, target-set, universe, and split digests agree. Review pooled classification metrics together with calibration and per-date ranking behavior. A model with better pooled ROC AUC can still be unsuitable for the product if its top-ranked candidates do not improve positive rates or realized outcomes consistently across dates.
 
-Score quantiles are assigned cross-sectionally within each date. `score_quantiles_by_date.csv` retains those daily results, while `score_quantiles.csv` gives equal weight to each represented date. The top-`k` model and random tables always use the same candidate count on each date.
+Score quantiles are assigned cross-sectionally within each date. Exact score ties are resolved with a deterministic pseudo-random secondary key derived from the evaluation seed and canonical sample identity, never by ticker or row order. `score_quantiles_by_date.csv` retains those daily results, while `score_quantiles.csv` gives equal weight to each represented date. The top-`k` model and random tables always use the same candidate count on each date. Return lift is calculated only across dates where both selections have an observed continuous outcome.
+
+The continuous `ranking_return` remains a research diagnostic. It does not apply next-session entry assumptions and excludes transaction costs, spreads, slippage, stop-loss or take-profit execution, position sizing, and portfolio constraints. Treat it as evidence about ranking quality, not executable strategy P&L.
 
 ## Locked-Test Use
 

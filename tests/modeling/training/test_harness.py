@@ -5,6 +5,7 @@ from types import ModuleType
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from swingtrader.data.features.contracts import FeatureBlockSpec, FeatureSetSpec
 from swingtrader.modeling.datasets.contracts import (
@@ -191,6 +192,23 @@ def test_harness_evaluates_validation_without_unlocking_test(tmp_path) -> None:
     assert result.model.training_rows == len(split_result.indices("train"))
     assert (tmp_path / "model.json").is_file()
     assert (tmp_path / "validation" / "report.md").is_file()
+    assert result.reports["validation"].ranking_return_column == "forward_return_1d"
+    assert result.reports["validation"].to_manifest()["ranking_return_column"] == (
+        "forward_return_1d"
+    )
+
+
+def test_harness_rejects_evaluation_seed_outside_the_experiment_contract() -> None:
+    bundle, experiment = _bundle_and_experiment()
+    split_result = FixedTemporalSplitter(experiment.split).assign(bundle)
+
+    with pytest.raises(ValueError, match="must match the experiment evaluation seed"):
+        run_baseline_experiment(
+            bundle,
+            split_result,
+            experiment,
+            evaluation_config=EvaluationConfig(random_seed=99),
+        )
 
 
 def test_locked_test_requires_explicit_opt_in() -> None:

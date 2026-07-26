@@ -151,6 +151,6 @@ flowchart TB
     class validation_predictions,test_predictions,validation_report,test_report,artifacts artifact
 ```
 
-The prediction frame has the stable ordered columns `split`, `target`, `score`, `predicted_class`, and `ranking_return`. `EvaluationReport` retains the exact `EvaluationConfig`, pooled metrics, dataset context, source predictions, per-date metrics, calibration buckets, daily and aggregate score-quantile tables, top-`k` and random selections, and feature missingness.
+The prediction frame has the stable ordered columns `split`, `target`, `score`, `predicted_class`, and `ranking_return`. `EvaluationReport` retains the exact `EvaluationConfig`, the original ranking-return source column when supplied, pooled metrics, dataset context, source predictions, per-date metrics, calibration buckets, daily and aggregate score-quantile tables, top-`k` and random selections, and feature missingness.
 
-`BaselineModelArtifact` is a structural interface rather than a persistence framework. Each concrete baseline exposes `predict_scores()` and a JSON-compatible `to_manifest()`. The logistic artifact includes its train-fitted medians and scales so validation and test transformations do not depend on either evaluation split.
+`BaselineModelArtifact` is a structural interface rather than a persistence framework. Each concrete baseline exposes `predict_scores()` and a JSON-compatible `to_manifest()`. The logistic artifact retains its train-fitted scikit-learn median-imputation values, post-imputation means, and scales so validation and test transformations do not depend on either evaluation split.

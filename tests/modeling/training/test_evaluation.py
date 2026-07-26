@@ -9,6 +9,7 @@ import pytest
 from swingtrader.modeling.training import (
     EvaluationConfig,
     build_prediction_frame,
+    deterministic_random_scores,
     evaluate_predictions,
     write_evaluation_artifacts,
 )
@@ -94,6 +95,114 @@ def test_random_comparison_is_deterministic_and_date_matched() -> None:
         first.random_top_k_by_date["selected_count"],
         check_names=False,
     )
+
+
+def test_equal_scores_use_the_random_seed_instead_of_index_order() -> None:
+    index = _index()
+    ticker = index.get_level_values("ticker")
+    target = pd.Series(ticker.isin(["BBB.ST", "DDD.ST"]).astype(int), index=index)
+    ranking_return = pd.Series(
+        ticker.map({"AAA.ST": -0.02, "BBB.ST": 0.01, "CCC.ST": -0.01, "DDD.ST": 0.03}),
+        index=index,
+    )
+    config = EvaluationConfig(score_quantiles=4, top_k=2, random_seed=7)
+    tied_predictions = build_prediction_frame(
+        target=target,
+        score=pd.Series(0.5, index=index),
+        split="validation",
+        ranking_return=ranking_return,
+    )
+    tied_report = evaluate_predictions(
+        tied_predictions,
+        features=pd.DataFrame({"feature": 1.0}, index=index),
+        config=config,
+    )
+
+    common_top_k_columns = [
+        "trading_date",
+        "selected_count",
+        "positive_rate",
+        "ranking_return_count",
+        "mean_ranking_return",
+    ]
+    pd.testing.assert_frame_equal(
+        tied_report.top_k_by_date[common_top_k_columns],
+        tied_report.random_top_k_by_date[common_top_k_columns],
+    )
+
+    random_predictions = build_prediction_frame(
+        target=target,
+        score=deterministic_random_scores(index, seed=7),
+        split="validation",
+        ranking_return=ranking_return,
+    )
+    random_report = evaluate_predictions(
+        random_predictions,
+        features=pd.DataFrame({"feature": 1.0}, index=index),
+        config=config,
+    )
+    quantile_outcome_columns = [
+        "score_quantile",
+        "sample_count",
+        "date_count",
+        "positive_rate",
+        "mean_ranking_return",
+    ]
+    pd.testing.assert_frame_equal(
+        tied_report.score_quantiles[quantile_outcome_columns],
+        random_report.score_quantiles[quantile_outcome_columns],
+    )
+
+
+def test_top_k_return_comparison_uses_only_paired_dates() -> None:
+    dates = pd.date_range("2026-01-01", periods=3)
+    index = pd.MultiIndex.from_tuples(
+        [
+            ("yfinance", ticker, trading_date)
+            for ticker in ("AAA.ST", "BBB.ST")
+            for trading_date in dates
+        ],
+        names=("provider", "ticker", "trading_date"),
+    )
+    score = pd.Series(
+        index.get_level_values("ticker").map({"AAA.ST": 0.9, "BBB.ST": 0.1}),
+        index=index,
+    )
+    target = pd.Series([1, 0, 1, 0, 1, 0], index=index)
+    ranking_return = pd.Series([0.10, np.nan, 0.03, np.nan, -0.10, -0.02], index=index)
+    config = EvaluationConfig(top_k=1, random_seed=9)
+
+    unpaired_predictions = build_prediction_frame(
+        target=target[index.get_level_values("trading_date") < dates[2]],
+        score=score[index.get_level_values("trading_date") < dates[2]],
+        split="validation",
+        ranking_return=ranking_return[index.get_level_values("trading_date") < dates[2]],
+    )
+    unpaired_report = evaluate_predictions(
+        unpaired_predictions,
+        features=pd.DataFrame({"feature": 1.0}, index=unpaired_predictions.index),
+        config=config,
+    )
+    assert unpaired_report.aggregate_metrics["top_k_return_comparison_date_count"] == 0
+    assert np.isnan(unpaired_report.aggregate_metrics["mean_top_k_return"])
+    assert np.isnan(unpaired_report.aggregate_metrics["mean_random_top_k_return"])
+    assert np.isnan(unpaired_report.aggregate_metrics["top_k_return_lift"])
+
+    predictions = build_prediction_frame(
+        target=target,
+        score=score,
+        split="validation",
+        ranking_return=ranking_return,
+    )
+    report = evaluate_predictions(
+        predictions,
+        features=pd.DataFrame({"feature": 1.0}, index=index),
+        config=config,
+    )
+    assert report.aggregate_metrics["top_k_return_comparison_date_count"] == 1
+    assert report.aggregate_metrics["mean_top_k_return"] == pytest.approx(0.03)
+    assert report.aggregate_metrics["mean_random_top_k_return"] == pytest.approx(-0.02)
+    assert report.aggregate_metrics["top_k_return_lift"] == pytest.approx(0.05)
 
 
 def test_small_daily_universe_still_populates_the_top_score_quantile() -> None:
@@ -206,6 +315,7 @@ def test_artifact_writer_emits_reproducible_tables_reports_and_plots(tmp_path) -
         predictions,
         features=pd.DataFrame({"feature": 1.0}, index=index),
         config=config,
+        ranking_return_column="forward_return_5d",
     )
     first_root = tmp_path / "first"
     second_root = tmp_path / "second"
@@ -221,6 +331,10 @@ def test_artifact_writer_emits_reproducible_tables_reports_and_plots(tmp_path) -
     summary = json.loads((first_root / "summary.json").read_text())
     assert summary["split"] == "validation"
     assert summary["evaluation_config"] == config.to_manifest()
+    assert summary["ranking_return_column"] == "forward_return_5d"
+    report_markdown = (first_root / "report.md").read_text()
+    assert "`forward_return_5d`" in report_markdown
+    assert "Do not interpret it as executable strategy P&L" in report_markdown
     assert (first_root / "predictions.csv.gz").read_bytes() == (
         second_root / "predictions.csv.gz"
     ).read_bytes()

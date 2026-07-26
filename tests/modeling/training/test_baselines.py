@@ -95,9 +95,41 @@ def test_logistic_preprocessing_is_fitted_only_on_training_rows() -> None:
     assert scores.between(0.0, 1.0).all()
     assert scores.iloc[0] > scores.iloc[1]
     manifest = model.to_manifest()
+    assert manifest["implementation"] == "sklearn.linear_model.LogisticRegression"
+    assert manifest["C"] == pytest.approx(1.0 / (0.1 * len(target)))
+    assert np.isfinite(manifest["objective"])
     assert manifest["preprocessing"]["medians"]["signal"] == training_medians[0]
     assert manifest["preprocessing"]["scales"]["constant"] == 1.0
     assert manifest["preprocessing"]["medians"]["all_missing"] == 0.0
+
+
+def test_logistic_regularization_is_invariant_to_repeated_training_rows() -> None:
+    features = pd.DataFrame({"signal": [-3.0, -2.0, -1.0, -0.5, 0.5, 1.0, 2.0, 3.0]})
+    target = pd.Series([0, 0, 0, 0, 1, 1, 1, 1])
+    spec = ModelSpec(
+        name="logistic",
+        version="1",
+        model_type=LOGISTIC_REGRESSION_MODEL_TYPE,
+        hyperparameters={
+            "regularization_strength": 0.1,
+            "max_iter": 500,
+            "tolerance": 1e-10,
+        },
+    )
+    original = fit_baseline_model(spec, features=features, target=target, seed=17)
+    repeated_features = pd.concat([features, features], ignore_index=True)
+    repeated_target = pd.concat([target, target], ignore_index=True)
+    repeated = fit_baseline_model(
+        spec,
+        features=repeated_features,
+        target=repeated_target,
+        seed=17,
+    )
+
+    assert isinstance(original, RegularizedLogisticRegression)
+    assert isinstance(repeated, RegularizedLogisticRegression)
+    assert repeated.intercept == pytest.approx(original.intercept, abs=1e-10)
+    assert repeated.coefficients == pytest.approx(original.coefficients, abs=1e-10)
 
 
 def test_baseline_fitting_rejects_duplicate_feature_columns() -> None:

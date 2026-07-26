@@ -52,19 +52,27 @@ def run_baseline_experiment(
     """Fit on train and evaluate validation, with explicit locked-test opt-in.
 
     The function never fits preprocessing or model state on validation or test
-    rows. When ``include_locked_test`` is false, test indices are not read.
+    rows. When ``include_locked_test`` is false, test indices are not read. A
+    supplied evaluation seed must match the seed declared by the experiment.
     """
     _validate_inputs(bundle, split_result, experiment)
     if not isinstance(include_locked_test, bool):
         raise TypeError("include_locked_test must be a Boolean.")
-    config = evaluation_config or EvaluationConfig(
-        random_seed=_resolve_seed(
-            experiment.random_seeds,
-            preferred=("evaluation", "sampling"),
-        )
+    evaluation_seed = _resolve_seed(
+        experiment.random_seeds,
+        preferred=("evaluation", "sampling"),
     )
-    if not isinstance(config, EvaluationConfig):
-        raise TypeError("evaluation_config must be an EvaluationConfig.")
+    if evaluation_config is None:
+        config = EvaluationConfig(random_seed=evaluation_seed)
+    else:
+        if not isinstance(evaluation_config, EvaluationConfig):
+            raise TypeError("evaluation_config must be an EvaluationConfig.")
+        if evaluation_config.random_seed != evaluation_seed:
+            raise ValueError(
+                "EvaluationConfig.random_seed must match the experiment evaluation seed "
+                f"({evaluation_seed})."
+            )
+        config = evaluation_config
 
     tabular = to_tabular_dataset(bundle)
     train_positions = split_result.indices("train")
@@ -102,6 +110,7 @@ def run_baseline_experiment(
             predictions,
             features=features,
             config=config,
+            ranking_return_column=ranking_return_column,
         )
 
     result = BaselineExperimentResult(model=model, reports=reports)

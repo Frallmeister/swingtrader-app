@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import math
+import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
-from scipy.special import expit
+import sklearn
+from sklearn.exceptions import ConvergenceWarning
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
 
 from swingtrader.modeling.experiments.contracts import ModelSpec
 
@@ -34,59 +38,87 @@ class BaselineModelArtifact(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class MedianStandardizer:
-    """Retain train-fitted numeric imputation and standardization state."""
+    """Retain train-fitted scikit-learn imputation and scaling state.
+
+    Missing and infinite values are treated as missing, imputed with training
+    medians, then mean-centered and scaled to unit population variance. Columns
+    that are entirely missing during fitting are retained and imputed with zero.
+    """
 
     columns: tuple[str, ...]
-    medians: tuple[float, ...]
-    scales: tuple[float, ...]
+    imputer: SimpleImputer
+    scaler: StandardScaler
 
     def __post_init__(self) -> None:
         if not self.columns or len(set(self.columns)) != len(self.columns):
             raise ValueError("Preprocessor columns must be non-empty and unique.")
         if any(not isinstance(column, str) or not column for column in self.columns):
             raise ValueError("Preprocessor columns must be non-empty strings.")
-        if len(self.medians) != len(self.columns) or len(self.scales) != len(self.columns):
-            raise ValueError("Preprocessor state must align with its columns.")
-        if not np.isfinite(np.asarray(self.medians, dtype="float64")).all():
-            raise ValueError("Preprocessor medians must be finite.")
-        scales = np.asarray(self.scales, dtype="float64")
+        if not isinstance(self.imputer, SimpleImputer):
+            raise TypeError("Preprocessor imputer must be a fitted SimpleImputer.")
+        if not isinstance(self.scaler, StandardScaler):
+            raise TypeError("Preprocessor scaler must be a fitted StandardScaler.")
+        if not hasattr(self.imputer, "statistics_") or not hasattr(self.scaler, "scale_"):
+            raise ValueError("Preprocessor estimators must be fitted.")
+        medians = np.asarray(self.imputer.statistics_, dtype="float64")
+        means = np.asarray(self.scaler.mean_, dtype="float64")
+        scales = np.asarray(self.scaler.scale_, dtype="float64")
+        if medians.shape != (len(self.columns),):
+            raise ValueError("Imputer state must align with preprocessor columns.")
+        if means.shape != (len(self.columns),) or scales.shape != (len(self.columns),):
+            raise ValueError("Scaler state must align with preprocessor columns.")
+        if not np.isfinite(medians).all() or not np.isfinite(means).all():
+            raise ValueError("Preprocessor location statistics must be finite.")
         if not np.isfinite(scales).all() or (scales <= 0.0).any():
             raise ValueError("Preprocessor scales must be positive and finite.")
 
+    @property
+    def medians(self) -> tuple[float, ...]:
+        """Return fitted median-imputation values in feature-column order."""
+        return tuple(float(value) for value in self.imputer.statistics_)
+
+    @property
+    def means(self) -> tuple[float, ...]:
+        """Return fitted post-imputation means in feature-column order."""
+        return tuple(float(value) for value in self.scaler.mean_)
+
+    @property
+    def scales(self) -> tuple[float, ...]:
+        """Return fitted population standard deviations in feature-column order."""
+        return tuple(float(value) for value in self.scaler.scale_)
+
     @classmethod
     def fit(cls, features: pd.DataFrame) -> MedianStandardizer:
-        """Fit medians and population standard deviations on training rows only."""
+        """Fit median imputation and standardization on training rows only."""
         numeric = _numeric_features(features).replace([np.inf, -np.inf], np.nan)
-        medians = numeric.median(axis=0, skipna=True).fillna(0.0).to_numpy(dtype="float64")
-        values = numeric.to_numpy(dtype="float64", copy=True)
-        imputed = np.where(np.isnan(values), medians, values)
-        scales = np.std(imputed, axis=0, ddof=0)
-        scales = np.where(np.isfinite(scales) & (scales > 0.0), scales, 1.0)
+        imputer = SimpleImputer(strategy="median", keep_empty_features=True)
+        imputed = imputer.fit_transform(numeric)
+        scaler = StandardScaler()
+        scaler.fit(imputed)
         return cls(
             columns=tuple(str(column) for column in numeric.columns),
-            medians=tuple(float(value) for value in medians),
-            scales=tuple(float(value) for value in scales),
+            imputer=imputer,
+            scaler=scaler,
         )
 
     def transform(self, features: pd.DataFrame) -> np.ndarray:
-        """Apply the frozen training transformation to another feature frame."""
+        """Apply the frozen median imputation and scaling to another frame."""
         numeric = _numeric_features(features)
         observed = tuple(str(column) for column in numeric.columns)
         if observed != self.columns:
             raise ValueError("Feature columns or order do not match the fitted preprocessor.")
-        values = numeric.to_numpy(dtype="float64", copy=True)
-        values[~np.isfinite(values)] = np.nan
-        medians = np.asarray(self.medians, dtype="float64")
-        scales = np.asarray(self.scales, dtype="float64")
-        values = np.where(np.isnan(values), medians, values)
-        return (values - medians) / scales
+        numeric = numeric.replace([np.inf, -np.inf], np.nan)
+        imputed = self.imputer.transform(numeric)
+        return np.asarray(self.scaler.transform(imputed), dtype="float64")
 
     def to_manifest(self) -> dict[str, object]:
         """Return the retained preprocessing state in deterministic column order."""
         return {
-            "type": "median_standardizer",
+            "type": "median_imputer_standard_scaler",
+            "implementation": "scikit-learn",
             "columns": list(self.columns),
             "medians": dict(zip(self.columns, self.medians, strict=True)),
+            "means": dict(zip(self.columns, self.means, strict=True)),
             "scales": dict(zip(self.columns, self.scales, strict=True)),
         }
 
@@ -144,47 +176,74 @@ class DateMatchedRandomRanker:
 
 @dataclass(frozen=True, slots=True)
 class RegularizedLogisticRegression:
-    """L2-regularized logistic model with retained preprocessing state."""
+    """L2-regularized scikit-learn logistic model with frozen preprocessing."""
 
     preprocessor: MedianStandardizer
-    intercept: float
-    coefficients: tuple[float, ...]
+    estimator: LogisticRegression
     regularization_strength: float
-    iterations: int
     objective: float
     training_rows: int
 
     def __post_init__(self) -> None:
         if not isinstance(self.preprocessor, MedianStandardizer):
             raise TypeError("Logistic preprocessing must be a MedianStandardizer.")
-        if len(self.coefficients) != len(self.preprocessor.columns):
+        if not isinstance(self.estimator, LogisticRegression):
+            raise TypeError("Logistic estimator must be a fitted LogisticRegression.")
+        if not hasattr(self.estimator, "coef_") or not hasattr(self.estimator, "classes_"):
+            raise ValueError("Logistic estimator must be fitted.")
+        if not np.array_equal(self.estimator.classes_, np.asarray([0, 1])):
+            raise ValueError("Logistic estimator must represent binary classes zero and one.")
+        if self.estimator.coef_.shape != (1, len(self.preprocessor.columns)):
             raise ValueError("Logistic coefficients must align with preprocessor columns.")
         fitted_values = np.asarray(
-            (self.intercept, *self.coefficients, self.objective),
+            (*self.estimator.intercept_, *self.estimator.coef_.ravel(), self.objective),
             dtype="float64",
         )
         if not np.isfinite(fitted_values).all():
             raise ValueError("Logistic fitted state must be finite.")
         _positive_float(self.regularization_strength, name="regularization_strength")
-        if isinstance(self.iterations, bool) or not isinstance(self.iterations, int):
-            raise TypeError("Logistic iteration count must be an integer.")
-        if self.iterations < 0:
-            raise ValueError("Logistic iteration count must not be negative.")
         _validate_training_rows(self.training_rows)
+
+    @property
+    def intercept(self) -> float:
+        """Return the fitted binary-class intercept."""
+        return float(self.estimator.intercept_[0])
+
+    @property
+    def coefficients(self) -> tuple[float, ...]:
+        """Return fitted coefficients in feature-column order."""
+        return tuple(float(value) for value in self.estimator.coef_[0])
+
+    @property
+    def iterations(self) -> int:
+        """Return the number of solver iterations used during fitting."""
+        return int(self.estimator.n_iter_[0])
 
     def predict_scores(self, features: pd.DataFrame) -> pd.Series:
         """Return positive-class probabilities for the supplied rows."""
         transformed = self.preprocessor.transform(features)
-        coefficients = np.asarray(self.coefficients, dtype="float64")
-        scores = expit(self.intercept + transformed @ coefficients)
+        positive_class = int(np.flatnonzero(self.estimator.classes_ == 1)[0])
+        scores = self.estimator.predict_proba(transformed)[:, positive_class]
         return pd.Series(scores, index=features.index, dtype="float64", name="score")
 
     def to_manifest(self) -> dict[str, object]:
-        """Return fitted coefficients, preprocessing, and optimizer diagnostics."""
+        """Return fitted coefficients, preprocessing, and solver diagnostics."""
         return {
             "model_type": LOGISTIC_REGRESSION_MODEL_TYPE,
+            "implementation": "sklearn.linear_model.LogisticRegression",
+            "library_version": sklearn.__version__,
             "training_rows": self.training_rows,
             "regularization_strength": self.regularization_strength,
+            "C": float(self.estimator.C),
+            "regularization_objective": (
+                "mean_log_loss + 0.5 * regularization_strength * squared_l2_norm"
+            ),
+            "solver": self.estimator.solver,
+            "regularization": "l2",
+            "l1_ratio": float(self.estimator.l1_ratio),
+            "max_iter": int(self.estimator.max_iter),
+            "tolerance": float(self.estimator.tol),
+            "random_seed": self.estimator.random_state,
             "iterations": self.iterations,
             "objective": self.objective,
             "intercept": self.intercept,
@@ -218,7 +277,12 @@ def fit_baseline_model(
         _reject_unknown_hyperparameters(hyperparameters, allowed=frozenset())
         return DateMatchedRandomRanker(seed=seed, training_rows=len(binary_target))
     if spec.model_type == LOGISTIC_REGRESSION_MODEL_TYPE:
-        return _fit_logistic(features, binary_target, hyperparameters=hyperparameters)
+        return _fit_logistic(
+            features,
+            binary_target,
+            hyperparameters=hyperparameters,
+            seed=seed,
+        )
 
     supported = ", ".join(
         (
@@ -248,6 +312,7 @@ def _fit_logistic(
     target: pd.Series,
     *,
     hyperparameters: Mapping[str, object],
+    seed: int,
 ) -> RegularizedLogisticRegression:
     allowed = frozenset({"regularization_strength", "max_iter", "tolerance"})
     _reject_unknown_hyperparameters(hyperparameters, allowed=allowed)
@@ -264,43 +329,33 @@ def _fit_logistic(
 
     preprocessor = MedianStandardizer.fit(features)
     transformed = preprocessor.transform(features)
-    y = target.to_numpy(dtype="float64")
-    initial = np.zeros(transformed.shape[1] + 1, dtype="float64")
-    initial[0] = math.log(float(y.mean()) / (1.0 - float(y.mean())))
-
-    def objective(parameters: np.ndarray) -> tuple[float, np.ndarray]:
-        intercept = parameters[0]
-        coefficients = parameters[1:]
-        logits = intercept + transformed @ coefficients
-        probabilities = expit(logits)
-        loss = np.mean(np.logaddexp(0.0, logits) - y * logits)
-        loss += 0.5 * regularization_strength * np.dot(coefficients, coefficients)
-        residual = probabilities - y
-        gradient = np.empty_like(parameters)
-        gradient[0] = residual.mean()
-        gradient[1:] = transformed.T @ residual / len(y) + regularization_strength * coefficients
-        return float(loss), gradient
-
-    result = minimize(
-        objective,
-        initial,
-        method="L-BFGS-B",
-        jac=True,
-        options={"maxiter": max_iter, "ftol": tolerance, "gtol": tolerance},
+    estimator = LogisticRegression(
+        C=1.0 / (regularization_strength * len(target)),
+        l1_ratio=0.0,
+        solver="lbfgs",
+        max_iter=max_iter,
+        tol=tolerance,
+        random_state=seed,
     )
-    if not np.isfinite(result.fun) or not np.isfinite(result.x).all():
-        raise RuntimeError("Logistic-regression optimization produced non-finite fitted state.")
-    if not result.success:
-        raise RuntimeError(
-            "Logistic-regression optimization did not converge: " + str(result.message)
-        )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ConvergenceWarning)
+        try:
+            estimator.fit(transformed, target.to_numpy(dtype="int8"))
+        except ConvergenceWarning as error:
+            raise RuntimeError(
+                "Logistic-regression optimization did not converge within "
+                f"{max_iter} iterations."
+            ) from error
+    logits = estimator.decision_function(transformed)
+    target_values = target.to_numpy(dtype="float64")
+    coefficients = estimator.coef_[0]
+    objective = np.mean(np.logaddexp(0.0, logits) - target_values * logits)
+    objective += 0.5 * regularization_strength * np.dot(coefficients, coefficients)
     return RegularizedLogisticRegression(
         preprocessor=preprocessor,
-        intercept=float(result.x[0]),
-        coefficients=tuple(float(value) for value in result.x[1:]),
+        estimator=estimator,
         regularization_strength=regularization_strength,
-        iterations=int(result.nit),
-        objective=float(result.fun),
+        objective=float(objective),
         training_rows=len(target),
     )
 
