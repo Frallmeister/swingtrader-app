@@ -19,9 +19,9 @@ uv sync --all-extras --dev --group notebook --group docs
 
 This installs application extras, development tools, notebook tooling, and documentation tooling. Day-to-day documentation commands are listed in the [development workflow](development.md).
 
-The optional `modeling` extra installs the lightweight MLflow client and the SQL
-storage dependencies used by local experiment tracking. Install it by itself when
-you only need the modeling workflow:
+The optional `modeling` extra installs scikit-learn for baseline modeling together
+with the lightweight MLflow client and the SQL storage dependencies used by local
+experiment tracking. Install it by itself when you only need the modeling workflow:
 
 ```powershell
 uv sync --extra modeling --dev

@@ -130,6 +130,16 @@ def evaluate_predictions(
     resolved_config = config or EvaluationConfig()
     if not isinstance(resolved_config, EvaluationConfig):
         raise TypeError("Evaluation requires an EvaluationConfig.")
+    expected_class = (
+        predictions[SCORE_COLUMN]
+        .ge(resolved_config.classification_threshold)
+        .astype("int8")
+    )
+    actual_class = predictions[PREDICTED_CLASS_COLUMN].astype("int8")
+    if not expected_class.equals(actual_class):
+        raise ValueError(
+            "Prediction classes do not match EvaluationConfig.classification_threshold."
+        )
     if ranking_return_column is not None and (
         not isinstance(ranking_return_column, str) or not ranking_return_column.strip()
     ):

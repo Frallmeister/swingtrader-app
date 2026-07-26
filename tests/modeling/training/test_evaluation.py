@@ -73,6 +73,23 @@ def test_perfect_predictions_produce_expected_classification_and_ranking_metrics
     assert report.dataset_context["trading_date_end"] == "2026-01-03"
 
 
+def test_evaluation_rejects_classes_built_with_a_different_threshold() -> None:
+    index = _index()
+    predictions = build_prediction_frame(
+        target=pd.Series([0, 1] * 6, index=index),
+        score=pd.Series(0.6, index=index),
+        split="validation",
+        classification_threshold=0.5,
+    )
+
+    with pytest.raises(ValueError, match="classification_threshold"):
+        evaluate_predictions(
+            predictions,
+            features=pd.DataFrame({"feature": 1.0}, index=index),
+            config=EvaluationConfig(classification_threshold=0.7),
+        )
+
+
 def test_random_comparison_is_deterministic_and_date_matched() -> None:
     index = _index()
     predictions = build_prediction_frame(

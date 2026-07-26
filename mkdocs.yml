@@ -20,6 +20,7 @@ extra_css:
   - stylesheets/mermaid.css
 
 plugins:
+  - offline
   - search
   - mkdocstrings:
       handlers:
