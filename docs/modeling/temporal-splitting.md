@@ -16,7 +16,7 @@ Signals and target end dates are states; the final hexagon is the assignment dec
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 30}}}%%
 flowchart TB
-    train["Train through<br/>2021-12-31"] --> validation["Validation from<br/>2022-01-01"]
+    train_end["Inclusive train end<br/>2021-12-31"]
 
     subgraph retained["Sample A"]
         direction LR
@@ -28,14 +28,15 @@ flowchart TB
         b_signal([Signal<br/>2021-12-29]) --> b_target([Target ends<br/>2022-01-05]) --> b_result{{Purge from train}}
     end
 
-    a_target -.-> train
-    b_target -.-> validation
+    train_end -.->|contains target end| a_target
+    train_end -.->|target end exceeds boundary| b_target
 
     classDef boundary fill:#e3f2fd,stroke:#1565c0
     classDef state fill:#eceff1,stroke:#546e7a
     classDef retainedState fill:#e8f5e9,stroke:#2e7d32
     classDef purgedState fill:#ffebee,stroke:#c62828
-    class train,validation boundary
+
+    class train_end boundary
     class a_signal,a_target,b_signal,b_target state
     class a_result retainedState
     class b_result purgedState

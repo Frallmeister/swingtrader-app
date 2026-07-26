@@ -23,7 +23,7 @@ classDiagram
     class ExperimentSpec
 
     FeatureSetSpec *-- FeatureBlockSpec : ordered blocks
-    TargetSetSpec *-- TargetFamilySpec : ordered blocks
+    TargetSetSpec *-- TargetFamilySpec : ordered families
     TemporalDatasetSpec *-- FeatureSetSpec : feature_set
     TemporalDatasetSpec *-- TargetSetSpec : target_set
     TemporalDatasetSpec *-- SupervisedTaskSpec : task

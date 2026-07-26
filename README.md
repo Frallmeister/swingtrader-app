@@ -52,7 +52,7 @@ Useful entry points:
 * [Modeling overview](docs/modeling/overview.md)
 * [Temporal datasets](docs/modeling/temporal-datasets.md)
 * [Temporal splitting](docs/modeling/temporal-splitting.md)
-* [ATR barrier targets](docs/modeling/atr-barrier-targets.md)
+* [ATR barrier targets](docs/modeling/targets/v2-atr-barrier.md)
 * [Experiment specifications and MLflow tracking](docs/modeling/experiments.md)
 * [Roadmap](docs/architecture/roadmap.md)
 
