@@ -20,7 +20,7 @@ flowchart TB
     split([Apply purged temporal split])
     baseline([Fit and evaluate baselines])
     reports[(Predictions, metrics, tables, and plots)]
-    nonlinear([Train nonlinear candidates<br/>(planned)])
+    nonlinear(["Train nonlinear candidates<br/>(planned)"])
 
     universe --> ingest --> bronze --> eligible --> generate --> dataset --> split
     split --> baseline --> reports
