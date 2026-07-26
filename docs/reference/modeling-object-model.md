@@ -111,7 +111,7 @@ flowchart TB
 
 ## Train-Only Cross-Validation Artifacts
 
-`build_expanding_temporal_folds()` returns compact `TemporalFold` objects containing positional indices and global date boundaries. The indices always reference the original aligned bundle and are subsets of outer train.
+`build_expanding_temporal_folds()` returns compact `TemporalFold` objects containing positional indices and inclusive candidate partition boundaries used for target-end containment. Because purging can remove rows at a partition end, the stored end dates need not be retained signal dates. The indices always reference the original aligned bundle and are subsets of outer train.
 
 ```mermaid
 flowchart LR

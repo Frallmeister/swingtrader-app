@@ -50,7 +50,14 @@ class TemporalCrossValidationSpec:
 
 @dataclass(frozen=True, slots=True)
 class TemporalFold:
-    """Retain one purged expanding train/validation index pair and boundaries."""
+    """Retain one purged expanding train/validation index pair.
+
+    The date fields are inclusive candidate partition boundaries used for
+    target-end containment. Because rows whose labels cross an end boundary
+    are removed, ``train_end`` and ``validation_end`` need not occur among the
+    retained signal dates. Both index arrays refer to the original dataset
+    bundle and are subsets of the assigned outer training rows.
+    """
 
     number: int
     train_indices: np.ndarray

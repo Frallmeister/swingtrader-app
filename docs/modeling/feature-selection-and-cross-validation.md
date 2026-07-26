@@ -99,13 +99,15 @@ The fold builder uses global observed trading dates from the existing outer trai
 
 Each fold fits a fresh median imputer, standardizer, and logistic estimator on only that fold's training rows. The returned `DataFrame` is intentionally compact:
 
-- fold number and train/validation date boundaries;
+- fold number and candidate train/validation boundaries used for target-horizon purging; these are not necessarily the final retained signal dates;
 - retained train and validation row counts;
 - train and validation precision;
 - train and validation recall;
 - train and validation ROC AUC.
 
 Comparing train and validation columns exposes simple overfitting signals without creating a generalized reporting or candidate-ranking subsystem.
+
+These are pooled row-level classification diagnostics. They help identify unstable or overfitted candidates, but they do not measure daily top-`k` selection quality, turnover, transaction costs, or portfolio profit and loss. Use the existing outer evaluation for ranking diagnostics; executable strategy economics remain a separate backtesting concern.
 
 ## Manual Candidate Workflow
 

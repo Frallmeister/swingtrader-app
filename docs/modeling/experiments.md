@@ -96,7 +96,7 @@ classDiagram
     cssClass "TemporalSplitSpec,TemporalCrossValidationSpec,ModelSpec,ExperimentSpec" experiment
 ```
 
-Each specification has a deterministic manifest and SHA-256 digest. Ticker ordering does not affect a universe digest because membership order is not meaningful. Changes such as adding a ticker, changing a split date or embargo, selecting another target, changing a hyperparameter, or changing a seed do affect the experiment digest.
+The versioned identity specifications expose deterministic manifests and SHA-256 digests. `TemporalCrossValidationSpec` exposes deterministic manifest data but is supplied separately to the diagnostic cross-validation run and is not part of `ExperimentSpec.digest`. Ticker ordering does not affect a universe digest because membership order is not meaningful. Changes such as adding a ticker, changing a split date or embargo, selecting another target, changing a hyperparameter, or changing a seed do affect the experiment digest; changing only the cross-validation settings does not.
 
 The Git revision is intentionally not part of the static `ExperimentSpec`. It describes the code used for a particular execution and is logged by the MLflow adapter when Git metadata is available.
 
