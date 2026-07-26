@@ -32,6 +32,7 @@ postgres = [
 modeling = [
     "alembic>=1.13.0,<2",
     "mlflow-skinny==3.14.0",
+    "scikit-learn>=1.9.0",
     "sqlalchemy>=2.0.51,<3",
 ]
 # Add an `api` extra when the FastAPI backend is introduced.
