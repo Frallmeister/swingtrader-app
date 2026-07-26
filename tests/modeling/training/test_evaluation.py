@@ -344,7 +344,13 @@ def test_artifact_writer_emits_reproducible_tables_reports_and_plots(tmp_path) -
     assert "predictions.csv.gz" in relative
     assert "score_quantiles_by_date.csv" in relative
     assert "report.md" in relative
-    assert "plots/calibration.svg" in relative
+    plot_paths = (
+        "plots/calibration.svg",
+        "plots/score_quantile_positive_rate.svg",
+        "plots/score_quantile_return.svg",
+        "plots/top_k_return_distribution.svg",
+    )
+    assert set(plot_paths) <= relative
     summary = json.loads((first_root / "summary.json").read_text())
     assert summary["split"] == "validation"
     assert summary["evaluation_config"] == config.to_manifest()
@@ -355,3 +361,28 @@ def test_artifact_writer_emits_reproducible_tables_reports_and_plots(tmp_path) -
     assert (first_root / "predictions.csv.gz").read_bytes() == (
         second_root / "predictions.csv.gz"
     ).read_bytes()
+    for plot_path in plot_paths:
+        first_plot = (first_root / plot_path).read_bytes()
+        second_plot = (second_root / plot_path).read_bytes()
+        assert first_plot == second_plot
+        assert b"<svg" in first_plot
+        assert b"dc:date" not in first_plot
+
+
+def test_artifact_writer_handles_missing_ranking_returns(tmp_path) -> None:
+    index = _index()
+    predictions = build_prediction_frame(
+        target=pd.Series([0, 1] * 6, index=index),
+        score=pd.Series(np.linspace(0.1, 0.9, len(index)), index=index),
+        split="validation",
+    )
+    report = evaluate_predictions(
+        predictions,
+        features=pd.DataFrame({"feature": 1.0}, index=index),
+        config=EvaluationConfig(score_quantiles=4, top_k=2),
+    )
+    write_evaluation_artifacts(report, tmp_path)
+    return_plot = tmp_path / "plots/score_quantile_return.svg"
+    distribution_plot = tmp_path / "plots/top_k_return_distribution.svg"
+    assert b"No finite values" in return_plot.read_bytes()
+    assert b"No ranking returns" in distribution_plot.read_bytes()

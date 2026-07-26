@@ -3231,6 +3231,7 @@ data = [
 ]
 modeling = [
     { name = "alembic" },
+    { name = "matplotlib" },
     { name = "mlflow-skinny" },
     { name = "scikit-learn" },
     { name = "sqlalchemy" },
@@ -3264,6 +3265,7 @@ notebook = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", marker = "extra == 'modeling'", specifier = ">=1.13.0,<2" },
+    { name = "matplotlib", marker = "extra == 'modeling'", specifier = ">=3.11.0" },
     { name = "mlflow-skinny", marker = "extra == 'modeling'", specifier = "==3.14.0" },
     { name = "numpy", specifier = ">=2.5.0" },
     { name = "pandas", specifier = ">=3.0.3" },
