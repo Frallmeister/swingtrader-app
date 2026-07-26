@@ -9,11 +9,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from swingtrader.modeling.training.evaluation import EvaluationReport
 from swingtrader.modeling.training._plotting import (
     write_distribution_plot,
     write_line_plot,
 )
+from swingtrader.modeling.training.evaluation import EvaluationReport
 
 
 def write_evaluation_artifacts(
