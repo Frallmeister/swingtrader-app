@@ -343,8 +343,7 @@ def _fit_logistic(
             estimator.fit(transformed, target.to_numpy(dtype="int8"))
         except ConvergenceWarning as error:
             raise RuntimeError(
-                "Logistic-regression optimization did not converge within "
-                f"{max_iter} iterations."
+                f"Logistic-regression optimization did not converge within {max_iter} iterations."
             ) from error
     logits = estimator.decision_function(transformed)
     target_values = target.to_numpy(dtype="float64")

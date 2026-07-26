@@ -201,9 +201,7 @@ def _classification_metrics(frame: pd.DataFrame) -> dict[str, float]:
         "pr_auc": pr_auc,
         "average_precision": average_precision,
         "roc_auc": (
-            float(roc_auc_score(target, score))
-            if positive_count and negative_count
-            else math.nan
+            float(roc_auc_score(target, score)) if positive_count and negative_count else math.nan
         ),
         "log_loss": float(log_loss(target, score, labels=[0, 1])),
         "brier_score": float(brier_score_loss(target, score)),
@@ -373,9 +371,7 @@ def _per_date_metrics(
                 "spearman": _spearman(group),
                 "top_k_count": int(top_by_date.loc[trading_date, "selected_count"]),
                 "top_k_positive_rate": float(top_by_date.loc[trading_date, "positive_rate"]),
-                "top_k_return_count": int(
-                    top_by_date.loc[trading_date, "ranking_return_count"]
-                ),
+                "top_k_return_count": int(top_by_date.loc[trading_date, "ranking_return_count"]),
                 "top_k_mean_return": float(top_by_date.loc[trading_date, "mean_ranking_return"]),
                 "random_top_k_positive_rate": float(
                     random_by_date.loc[trading_date, "positive_rate"]
