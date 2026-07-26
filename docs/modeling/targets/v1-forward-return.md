@@ -1,4 +1,4 @@
-# Target And Evaluation
+# V1 Significant Forward Return Target
 
 The implemented V1 outcomes are described by the versioned `ohlcv_price_targets:1` target set. Its deterministic manifest records ordered target families, parameters, required inputs, produced columns, builder import paths, and the maximum future horizon. The `significant_up_5d_classification` supervised-task specification selects `target_significant_up_5d` unambiguously from that set.
 
@@ -6,9 +6,21 @@ Target sets differ from feature sets because target families intentionally use f
 
 A behavior or parameter change that alters target meaning must create a new target-set version rather than silently changing an existing experiment contract. Exact reproduction also requires the source revision containing the configured target builders.
 
-This page defines the V1 model target and evaluation contract. The V2 next-open stop-loss and take-profit contract is documented in [ATR Barrier Targets](atr-barrier-targets.md).
+This page defines the V1 target contract. The V2 next-open stop-loss and take-profit contract is documented in [V2 ATR Barrier Target](v2-atr-barrier.md).
+The label-generation code for this contract is implemented in the modeling datasets package, the versioned in-memory OHLCV feature set is implemented in the data package, canonical unsplit temporal dataset construction is documented in [Temporal Datasets](../temporal-datasets.md), and fixed leakage-safe assignment is documented in [Temporal Splitting](../temporal-splitting.md). Shared reporting guidance is documented in [Model Evaluation](../evaluation.md). Model training, persistence, inference, and backtesting remain follow-up implementation work.
 
-The label-generation code for this contract is implemented in the modeling datasets package, the versioned in-memory OHLCV feature set is implemented in the data package, canonical unsplit temporal dataset construction is documented in [Temporal Datasets](temporal-datasets.md), and fixed leakage-safe assignment is documented in [Temporal Splitting](temporal-splitting.md). Model training, evaluation code, persistence, inference, and backtesting remain follow-up implementation work.
+| Property | Value |
+| --- | --- |
+| Target version | V1 (`ohlcv_price_targets:1`) |
+| Learning task | Binary classification |
+| Selected task output | One selected target value per sample; not multiclass or multilabel |
+| Primary target | `target_significant_up_5d` |
+| Supporting outcomes | `forward_return_5d`, `forward_return_10d`, `forward_return_15d` |
+| Signal date | Completed daily bar on session `t` |
+| Resolution date | Fifth observed session after the signal |
+| Positive class | Five-session adjusted-close return exceeds the economic threshold |
+| Intended use | Probability estimation and cross-sectional candidate ranking |
+| Main limitation | Close-to-close research target; not an executable trade path |
 
 ## Input Frame Contract
 
@@ -40,10 +52,7 @@ Five trading sessions are the primary horizon because the model should identify 
 For ticker `i` on trading date `t`, the primary continuous outcome is:
 
 ```text
-forward_return_5d =
-    adjusted_close_at_t_plus_5
-    / adjusted_close_at_t
-    - 1
+forward_return_5d = adjusted_close_at_t_plus_5 / adjusted_close_at_t - 1
 ```
 
 The horizon is measured in observed trading sessions for the ticker, not calendar days.
@@ -159,85 +168,21 @@ V1 should not require:
 
 Index-relative labels are deferred. The initial objective is to determine whether OHLCV-derived features contain useful predictive and ranking signal on their own.
 
-## Validation Contract
+## Evaluation
 
-Evaluation must use chronological validation. Random row-level splitting is not acceptable.
+Use the shared chronological validation, classification, calibration, ranking, and locked-test rules in [Model Evaluation](../evaluation.md). V1 reports should additionally include:
 
-The canonical temporal dataset records each retained sample's target resolution date without assigning a split.
+- mean `forward_return_5d` by prediction quantile;
+- positive-label rate by prediction quantile;
+- mean `forward_return_5d` and hit rate among top-ranked candidates;
+- per-date Spearman correlation between predicted probability and `forward_return_5d`.
 
-`FixedTemporalSplitter` applies shared chronological ranges and retains a row only when both its signal date and actual `target_end_date` are contained in the same split. Boundary-crossing rows are purged. An optional embargo removes additional global observed signal dates from the end of train and validation; the exact expanding-window schedule remains a downstream decision. See [Temporal Splitting](temporal-splitting.md).
-
-Evaluation reports should include:
-
-- evaluated date range;
-- number of observations;
-- number of unique tickers;
-- positive-class prevalence;
-- number of evaluated trading dates.
-
-## Classification Evaluation
-
-The model should be evaluated as a probability classifier.
-
-Classification evaluation should include at least:
-
-- precision-recall AUC;
-- ROC AUC;
-- log loss or Brier score;
-- positive-class precision;
-- positive-class recall;
-- positive-class prevalence.
-
-Accuracy alone is insufficient because it can be misleading when the positive class is uncommon.
-
-Any decision threshold used to convert probabilities into predicted classes must be reported separately from the return threshold used to generate the target.
-
-## Calibration Evaluation
-
-Predicted probabilities should be evaluated for calibration by predicted-probability bucket.
-
-Each calibration bucket should report at least:
-
-- predicted-probability range;
-- number of observations;
-- mean predicted probability;
-- realized positive-label rate.
-
-Calibration reporting should make it visible whether a predicted probability can be interpreted as a meaningful probability, not only as a ranking score.
-
-## Ranking Evaluation
-
-The model should also be evaluated as a ranking model.
-
-Ranking metrics should be calculated cross-sectionally within each evaluation date among the eligible stocks scored on that date, then summarized across dates.
-
-Prediction deciles should be formed separately for each date where enough candidates are available. Spearman correlation should likewise be calculated per date and summarized across dates rather than calculated only from all observations pooled together.
-
-Top-ranked evaluation must state the selection rule, such as a fixed `top_k` or top prediction decile, and report the number of selected candidates per date. Comparisons with random selection must use the same dates and the same number of selected candidates.
-
-Ranking evaluation should include at least:
-
-- mean `forward_return_5d` by prediction decile;
-- positive-label rate by prediction decile;
-- mean `forward_return_5d` among top-ranked candidates;
-- hit rate among top-ranked candidates;
-- Spearman correlation between predicted probability and `forward_return_5d`;
-- number of candidates generated per date or week.
-
-The desired result is monotonic ranking behavior: higher model scores should correspond to progressively higher realized returns and positive-label rates.
-
-Top-ranked results must include the number of selected observations so that strong performance from very few candidates is not mistaken for broadly useful ranking performance.
-
-## Baselines
-
-The V1 model should be compared with:
+V1 baselines should include:
 
 - a dummy probability classifier based on the training-set class prior;
 - random candidate selection from the same dates and eligible stock universe.
 
-A future evaluation may also compare the model with the equal-weighted return of the available stock universe.
-
-A formal benchmark-index comparison is deferred until the project has index data, a defined candidate-selection rule, realistic execution assumptions, and an end-to-end strategy simulation.
+A future evaluation may also compare the model with the equal-weighted return of the available stock universe. A formal benchmark-index comparison is deferred until the project has index data, a defined candidate-selection rule, realistic execution assumptions, and an end-to-end strategy simulation.
 
 ## Assumptions And Limitations
 
@@ -283,4 +228,4 @@ This contract does not implement or define production behavior for:
 - production inference;
 - a web interface.
 
-Database persistence and executable training/evaluation workflows should be handled by separate follow-up implementation issues. Fixed temporal splitting and purging are handled by [Temporal Splitting](temporal-splitting.md).
+Database persistence and executable training/evaluation workflows should be handled by separate follow-up implementation issues. Fixed temporal splitting and purging are handled by [Temporal Splitting](../temporal-splitting.md).

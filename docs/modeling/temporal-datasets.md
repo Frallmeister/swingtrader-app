@@ -2,6 +2,58 @@
 
 The temporal dataset layer creates the canonical unsplit modeling product between feature/target generation and downstream temporal splitting or model training.
 
+The diagram below shows the complete local workflow. Rectangles are specifications or runtime containers, rounded boxes are operations, cylinders are tabular data, and double-bordered boxes are manifests. `build_temporal_dataset()` is the standard entry point when the source data lives in bronze storage. It loads the required history and eligibility state, then delegates the in-memory construction work to `construct_temporal_dataset()`.
+
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 32, "rankSpacing": 48}}}%%
+flowchart TB
+    feature_spec["FeatureSetSpec"]
+    target_spec["TargetSetSpec"]
+    task_spec["SupervisedTaskSpec"]
+    universe_spec["UniverseSpec"]
+    cutoff["data_cutoff"]
+    dataset_spec["TemporalDatasetSpec"]
+    bronze[(Bronze market history)]
+    eligibility[(Cutoff-aware eligibility)]
+    build([build_temporal_dataset])
+    prices[(Canonical market frame)]
+    construct([construct_temporal_dataset])
+    bundle["TemporalDatasetBundle"]
+    features[(features)]
+    targets[(targets)]
+    samples[(samples)]
+    manifest[[TemporalDatasetManifest]]
+    adapter([to_tabular_dataset])
+    tabular["TabularDataset"]
+
+    feature_spec --> dataset_spec
+    target_spec --> dataset_spec
+    task_spec --> dataset_spec
+    universe_spec --> dataset_spec
+    cutoff --> dataset_spec
+    dataset_spec --> build
+    bronze --> build
+    build --> prices
+    build --> eligibility
+    build --> construct
+    dataset_spec --> construct
+    prices --> construct
+    eligibility --> construct
+    construct --> bundle
+    bundle --> features
+    bundle --> targets
+    bundle --> samples
+    bundle --> manifest
+    bundle --> adapter --> tabular
+
+    classDef contract fill:#e3f2fd,stroke:#1565c0
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    class feature_spec,target_spec,task_spec,universe_spec,cutoff,dataset_spec,bundle,tabular contract
+    class build,construct,adapter action
+    class bronze,eligibility,prices,features,targets,samples,manifest artifact
+```
+
 ## Dataset Specification
 
 `TemporalDatasetSpec` contains only choices that determine the unsplit data:
@@ -16,6 +68,11 @@ Split dates, model hyperparameters, random seeds, and MLflow are intentionally a
 
 ## Construction
 
+### Build from bronze storage
+
+`build_temporal_dataset()` is the normal application-facing entry point:
+
+
 ```python
 from swingtrader.modeling.datasets import build_temporal_dataset
 
@@ -25,15 +82,30 @@ bundle = build_temporal_dataset(
 )
 ```
 
-The builder loads all required bronze source columns through the cutoff and computes every configured feature block over the complete legitimate historical prefix. Targets are computed independently from the same canonical price frame. This is required for expanding and path-dependent features whose values would change if history were truncated at a train-split boundary.
+The builder loads all required bronze source columns through the cutoff, evaluates cutoff-aware training eligibility, and delegates to `construct_temporal_dataset()`. The lower-level constructor computes every configured feature block over the complete legitimate historical prefix. Targets are computed independently from the same canonical price frame. This is required for expanding and path-dependent features whose values would change if history were truncated at a train-split boundary.
 
-Use `construct_temporal_dataset()` when a caller already owns the canonical historical frame and cutoff-aware eligibility metadata.
+### Construct from an in-memory frame
+
+Use `construct_temporal_dataset()` when a caller already owns the canonical historical frame and cutoff-aware eligibility metadata:
+
+```python
+from swingtrader.modeling.datasets import construct_temporal_dataset
+
+bundle = construct_temporal_dataset(
+    prices,
+    spec=dataset_spec,
+    eligibility=eligibility,
+)
+```
+
+`prices` uses the canonical market index, while `eligibility` maps every declared ticker to its cutoff-aware `TickerEligibility` value. This lower-level boundary is useful in tests and notebooks because it performs the same feature generation, target generation, alignment, filtering, and manifest construction without loading bronze data itself.
+
 
 ## Bundle Contract
 
-`TemporalDatasetBundle` owns three row-aligned frames and one bundle-level manifest:
+`TemporalDatasetBundle` is a frozen dataclass container that owns independently copied frames and one bundle-level manifest. It prevents reassignment of its fields, but the contained pandas DataFrames remain mutable objects and should be treated as owned runtime artifacts rather than deeply immutable values.
 
-The bundle is a contract, the cylinders are row-aligned DataFrames, and the double-bordered box is bundle-level metadata rather than another row-aligned frame:
+The bundle is a container, the cylinders are row-aligned DataFrames, and the double-bordered box is bundle-level metadata rather than another row-aligned frame:
 
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 28, "rankSpacing": 34}}}%%
@@ -82,7 +154,7 @@ y = tabular.y
 samples = tabular.samples
 ```
 
-The adapter performs no split, purging, imputation, scaling, sampling, or model-specific dtype conversion. Those operations must be fitted or applied inside the split-aware temporal training workflow.
+The adapter performs no split, purging, imputation, scaling, sampling, or model-specific dtype conversion. Those operations belong to the planned [model training and validation workflow](workflows.md#model-training-and-validation-planned), where preprocessing must be fitted on training rows and only applied to validation or test rows.
 
 ## Current Boundary
 
