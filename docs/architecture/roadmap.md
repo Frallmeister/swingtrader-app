@@ -19,6 +19,8 @@ This roadmap is a planning aid, not a replacement for GitHub issues. It describe
 - Repository-owned experiment specifications and local MLflow tracking.
 - Canonical unsplit temporal dataset bundles with cutoff-aware eligibility metadata.
 - Purged fixed train, validation, and locked-test splitting with optional embargo and diagnostics.
+- Constant-prior, date-matched random-ranking, and regularized logistic baselines.
+- Standardized classification, calibration, daily ranking, missingness, report, plot, and MLflow artifact generation.
 
 ## Completed Repository Stabilization
 
@@ -32,10 +34,9 @@ The repository has completed the pre-modeling stabilization sequence:
 
 ## Model Development
 
-1. Establish dummy-classifier and date-matched random-ranking baselines.
-2. Train and evaluate the first XGBoost classifier and regression candidates.
-3. Evaluate classification quality, calibration, daily cross-sectional ranking, and stability over time.
-4. Perform feature ablation and select a reproducible OHLCV feature set.
+1. Train and evaluate the first XGBoost classifier and regression candidates against the implemented baselines.
+2. Compare discrimination, calibration, daily cross-sectional ranking, and stability over time.
+3. Perform feature ablation and select a reproducible OHLCV feature set.
 
 ## Production Preparation
 

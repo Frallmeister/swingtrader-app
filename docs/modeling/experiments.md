@@ -9,13 +9,13 @@ MLflow is therefore an execution ledger, not the source of experiment semantics.
 
 ## Install the Modeling Extra
 
-MLflow is optional because data ingestion, feature generation, and target generation do not require it. The modeling extra installs `mlflow-skinny` together with the SQL storage dependencies needed for direct local SQLite tracking. It deliberately avoids the full MLflow distribution, whose additional model-flavor dependencies are unnecessary for this adapter.
+The modeling extra installs scikit-learn for baseline fitting and `mlflow-skinny` together with the SQL storage dependencies needed for optional local SQLite tracking. It deliberately avoids the full MLflow distribution, whose additional model-flavor dependencies are unnecessary for this adapter. Data ingestion, feature generation, and target generation remain independent of the extra, while local baseline artifacts require scikit-learn but not MLflow.
 
 ```powershell
 uv sync --extra modeling --dev
 ```
 
-The tracking helpers import MLflow only when `start_experiment_run()` is called. Importing experiment contracts does not require the optional dependency.
+The tracking helpers import MLflow only when `start_experiment_run()` is called. Baseline fitting and evaluation use scikit-learn from the modeling extra but do not import MLflow.
 
 ## Experiment Contracts
 
@@ -94,7 +94,7 @@ The Git revision is intentionally not part of the static `ExperimentSpec`. It de
 
 ## Define an Experiment Before Fitting
 
-The following example uses the current candidate feature set and V2 ATR barrier task. The ticker tuple is illustrative; production experiment definitions should use the actual resolved training universe.
+The following example uses the current candidate feature set, V2 ATR barrier task, and repository-owned regularized-logistic baseline. The ticker tuple is illustrative; production experiment definitions should use the actual resolved training universe.
 
 ```python
 from datetime import date
@@ -107,6 +107,7 @@ from swingtrader.modeling.experiments import (
     TemporalSplitSpec,
     UniverseSpec,
 )
+from swingtrader.modeling.training import LOGISTIC_REGRESSION_MODEL_TYPE
 
 experiment_spec = ExperimentSpec(
     name="logistic_atr_barrier_baseline",
@@ -133,16 +134,16 @@ experiment_spec = ExperimentSpec(
         embargo_sessions=0,
     ),
     model=ModelSpec(
-        name="logistic_regression",
+        name="regularized_logistic_regression",
         version="1",
-        model_type="sklearn.linear_model.LogisticRegression",
+        model_type=LOGISTIC_REGRESSION_MODEL_TYPE,
         hyperparameters={
-            "C": 1.0,
-            "class_weight": None,
+            "regularization_strength": 1.0,
             "max_iter": 1_000,
+            "tolerance": 1e-8,
         },
     ),
-    random_seeds={"model": 17, "sampling": 17},
+    random_seeds={"model": 17, "evaluation": 23},
 )
 
 print(experiment_spec.identifier)
@@ -160,28 +161,28 @@ bundle = build_temporal_dataset(
     engine=engine,
     spec=experiment_spec.dataset_spec,
 )
-splitter = FixedTemporalSplitter(experiment_spec.split)
-split_result = splitter.assign(bundle)
+split_result = FixedTemporalSplitter(experiment_spec.split).assign(bundle)
 train_index = split_result.indices("train")
 validation_index = split_result.indices("validation")
-locked_test_index = split_result.indices("test")
 ```
 
-The dataset builder computes each row's actual `target_end_date` and aligned sample metadata. The splitter applies the same inclusive calendar ranges to every ticker, then purges a candidate row when its target ends after that split's end. Optional embargo removes additional global observed signal dates from the end of train and validation. The locked test indices are explicit and are not yielded by `splitter.split(bundle)`. See [Temporal Splitting](temporal-splitting.md) for the complete boundary semantics and diagnostics.
+The dataset builder computes each row's actual `target_end_date` and aligned sample metadata. The splitter applies the same inclusive calendar ranges to every ticker, then purges a candidate row when its target ends after that split's end. Optional embargo removes additional global observed signal dates from the end of train and validation. Locked-test indices remain available through `split_result.indices("test")`, but routine model development should not read them. See [Temporal Splitting](temporal-splitting.md) for the complete boundary semantics and diagnostics.
 
-## Start a Local MLflow Run
+## Run the Baseline Harness with MLflow
 
 By default, run metadata is stored in the local SQLite database `./mlflow.db`, while MLflow stores generated artifacts under `./mlruns`. Set `MLFLOW_TRACKING_URI` or pass `tracking_uri=` to use another local database or a future tracking service.
 
+The split summary below is illustrative. Use the observed split summary from the dataset execution being logged.
+
 ```python
 from datetime import date
-from pathlib import Path
 
 from swingtrader.modeling.experiments import (
     DatasetSplitSummary,
     DatasetSummary,
     start_experiment_run,
 )
+from swingtrader.modeling.training import EvaluationConfig, run_baseline_experiment
 
 summary = DatasetSummary(
     train=DatasetSplitSummary(
@@ -207,19 +208,27 @@ summary = DatasetSummary(
     ),
 )
 
+config = EvaluationConfig(
+    classification_threshold=0.5,
+    calibration_bins=10,
+    score_quantiles=10,
+    top_k=5,
+    random_seed=23,
+)
+
 with start_experiment_run(
     experiment_spec,
     experiment_name="swingtrader-baselines",
     dataset_summary=summary,
 ) as run:
-    # Fit and evaluate the model here.
-    run.log_metrics(
-        {
-            "validation.roc_auc": 0.71,
-            "validation.average_precision": 0.29,
-        }
+    result = run_baseline_experiment(
+        bundle,
+        split_result,
+        experiment_spec,
+        ranking_return_column="forward_return_5d",
+        evaluation_config=config,
+        run=run,
     )
-    run.log_artifact(Path("reports/validation.html"), artifact_path="reports")
 ```
 
 The initialized run records:
@@ -229,7 +238,10 @@ The initialized run records:
 - data cutoff, hyperparameters, random seeds, and Git commit when available;
 - split row counts, ticker counts, date ranges, and optional class prevalence;
 - the complete canonical experiment manifest at `manifests/experiment.json`;
-- metrics and generated artifacts logged by the training workflow.
+- finite validation metrics and the fitted-model manifest;
+- row-level predictions, per-date metrics, calibration and ranking tables, Markdown summaries, and SVG plots.
+
+`run_baseline_experiment()` evaluates validation by default. A supplied `EvaluationConfig.random_seed` must equal the experiment's declared evaluation seed so the experiment digest cannot describe different random comparisons or score-tie resolutions. Pass `include_locked_test=True` only after the preprocessing, model, hyperparameter, threshold, and ranking choices are frozen. For a local run without MLflow, pass `artifact_directory=` instead; see [Baseline Models and Evaluation Harness](baseline-models.md).
 
 Dataset summaries deliberately contain no feature or target rows. Before a run starts, their ticker counts and observed date ranges are checked against the experiment's declared universe and temporal split. The current Yahoo Finance bronze data remains the historical source of truth, while stronger source-data versioning or materialized dataset snapshots can be added later if the data source becomes mutable or multi-provider.
 
@@ -246,9 +258,9 @@ Open `http://127.0.0.1:5000` to inspect experiments and compare runs. The server
 Compare runs with both configuration and outcome in view:
 
 1. confirm the experiment, feature-set, target-set, universe, and split digests;
-2. compare model hyperparameters and random seeds;
-3. inspect row counts, date ranges, ticker counts, and prevalence for unexpected dataset drift;
-4. compare discrimination, calibration, cross-sectional ranking, and strategy-oriented metrics;
+2. compare model hyperparameters, preprocessing manifests, evaluation settings, and random seeds;
+3. inspect row counts, date ranges, ticker counts, prevalence, and missingness for unexpected dataset drift;
+4. compare discrimination, calibration, daily cross-sectional ranking, and date-matched random results;
 5. inspect generated reports and plots before promoting conclusions.
 
 A metric difference is not attributable to the model when the underlying experiment digests or dataset summaries also changed.
@@ -262,11 +274,14 @@ Implemented here:
 - purged fixed train/validation/locked-test assignment with optional embargo and diagnostics;
 - deterministic manifests and identities;
 - local MLflow run initialization;
-- Git-revision, parameter, summary, metric, and artifact logging.
+- Git-revision, parameter, summary, metric, and artifact logging;
+- three deterministic baseline models with train-only preprocessing;
+- standardized prediction, classification, calibration, ranking, and dataset-context reports;
+- validation-first local and MLflow artifact generation.
 
 Still planned:
 
 - expanding-window folds;
-- baseline and XGBoost training workflows;
-- standardized evaluation reports;
-- remote tracking, registry promotion, and production serving.
+- XGBoost and later nonlinear candidates;
+- feature ablation and selection;
+- remote tracking, registry promotion, production inference, and serving.

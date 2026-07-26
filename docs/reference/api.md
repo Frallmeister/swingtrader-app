@@ -180,6 +180,28 @@ analysis.
 
 ::: swingtrader.modeling.experiments.tracking
 
+## Baseline Training and Evaluation
+
+### Prediction and Evaluation Contracts
+
+::: swingtrader.modeling.training.contracts
+
+### Baseline Models
+
+::: swingtrader.modeling.training.baselines
+
+### Evaluation
+
+::: swingtrader.modeling.training.evaluation
+
+### Reporting
+
+::: swingtrader.modeling.training.reporting
+
+### Reusable Harness
+
+::: swingtrader.modeling.training.harness
+
 ## Universe Selection
 
 ::: swingtrader.data.ingestion.universe_selection

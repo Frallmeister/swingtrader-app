@@ -26,13 +26,17 @@ The project currently implements the data and initial modeling foundation:
 * canonical unsplit temporal dataset construction with aligned sample metadata
 * purged fixed train, validation, and locked-test splitting with optional embargo and diagnostics
 * immutable experiment specifications and optional local MLflow tracking
+* deterministic constant-prior, date-matched random-ranking, and regularized-logistic baselines
+* train-only median imputation and standardization retained with the fitted logistic artifact
+* standardized classification, calibration, daily ranking, and dataset-context evaluation reports
+* deterministic local or MLflow model, prediction, table, Markdown, and SVG artifacts
 * local SQLite support and configurable SQLAlchemy database URLs
 * MkDocs-based project documentation
 * pytest/ruff-based local quality checks
 
 Features and targets consume the same canonical market-price DataFrame: a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`. Column-oriented bronze rows are converted once at the caller boundary with `set_index(...).sort_index()`.
 
-Feature persistence, target persistence, model training, inference, prediction storage, dashboarding, deployment, and macro/market-context features are planned.
+Feature persistence, target persistence, nonlinear model training, production inference, prediction storage, dashboarding, deployment, and macro/market-context features are planned.
 
 ## Documentation
 
@@ -52,6 +56,7 @@ Useful entry points:
 * [Modeling overview](docs/modeling/overview.md)
 * [Temporal datasets](docs/modeling/temporal-datasets.md)
 * [Temporal splitting](docs/modeling/temporal-splitting.md)
+* [Baseline models and evaluation harness](docs/modeling/baseline-models.md)
 * [ATR barrier targets](docs/modeling/targets/v2-atr-barrier.md)
 * [Experiment specifications and MLflow tracking](docs/modeling/experiments.md)
 * [Roadmap](docs/architecture/roadmap.md)
@@ -195,24 +200,36 @@ from swingtrader.indicators import adx, atr, ema, macd, pivot_points_high_low, r
 
 Each public indicator accepts either a single ordered instrument or a canonical multi-instrument market frame, and preserves the input index and row order.
 
-### Temporal Dataset Construction
+### Temporal Dataset Construction and Baselines
 
-Build the canonical unsplit modeling product from an experiment's lower-level dataset specification:
+Build the canonical unsplit modeling product from an experiment's lower-level dataset specification, apply its purged temporal split, and run a validation-only baseline:
 
 ```python
-from swingtrader.modeling.datasets import build_temporal_dataset, to_tabular_dataset
+from swingtrader.modeling.datasets import build_temporal_dataset
 from swingtrader.modeling.experiments import FixedTemporalSplitter
+from swingtrader.modeling.training import EvaluationConfig, run_baseline_experiment
 
 bundle = build_temporal_dataset(
     engine=engine,
     spec=experiment_spec.dataset_spec,
 )
 split_result = FixedTemporalSplitter(experiment_spec.split).assign(bundle)
-tabular = to_tabular_dataset(bundle)
-X_train = tabular.X.iloc[split_result.indices("train")]
+
+result = run_baseline_experiment(
+    bundle,
+    split_result,
+    experiment_spec,
+    ranking_return_column="forward_return_5d",
+    evaluation_config=EvaluationConfig(random_seed=23),
+    artifact_directory="artifacts/baseline",
+)
+
+print(result.reports["validation"].aggregate_metrics)
 ```
 
-The bundle aligns feature, target, and sample-metadata frames on the canonical market index. It computes features and targets over the full historical prefix through the data cutoff, keeps feature warm-up missing values, and excludes only rows where the selected supervised target is unavailable. `FixedTemporalSplitter` then applies shared calendar ranges, purges rows whose actual target resolution crosses a split end, optionally embargoes final train and validation signal dates, and returns positional indices without mutating the bundle. Preprocessing remains downstream.
+The bundle aligns feature, target, and sample-metadata frames on the canonical market index. It computes features and targets over the full historical prefix through the data cutoff, keeps feature warm-up missing values, and excludes only rows where the selected supervised target is unavailable.
+
+`FixedTemporalSplitter` applies shared calendar ranges, purges rows whose actual target resolution crosses a split end, optionally embargoes final train and validation signal dates, and returns positional indices without mutating the bundle. The baseline harness fits preprocessing and model state on train only, evaluates validation by default, and reads the locked test only through explicit opt-in.
 
 ## Project Layout
 

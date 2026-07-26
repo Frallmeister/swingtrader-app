@@ -228,3 +228,6 @@ __marimo__/
 
 # Temporary files
 temp_*.py
+
+# Local modeling artifacts
+/artifacts/

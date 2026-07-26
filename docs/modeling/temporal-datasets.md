@@ -154,7 +154,7 @@ y = tabular.y
 samples = tabular.samples
 ```
 
-The adapter performs no split, purging, imputation, scaling, sampling, or model-specific dtype conversion. Those operations belong to the planned [model training and validation workflow](workflows.md#model-training-and-validation-planned), where preprocessing must be fitted on training rows and only applied to validation or test rows.
+The adapter performs no split, purging, imputation, scaling, sampling, or model-specific dtype conversion. Those operations belong to the [baseline training and validation workflow](workflows.md#baseline-training-and-validation), where preprocessing must be fitted on training rows and only applied to validation or test rows.
 
 ## Current Boundary
 
