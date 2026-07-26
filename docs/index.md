@@ -20,7 +20,7 @@ The long-term goal is not automatic order placement. The application should supp
 - [Data](data/overview.md): understand clients, ingestion, bronze storage, ticker onboarding, eligibility checks, and features.
 - [Modeling](modeling/overview.md): understand readiness, targets, experiments, and evaluation concepts.
 - [Temporal splitting](modeling/temporal-splitting.md): understand fixed calendar ranges, target-end purging, embargo, and diagnostics.
-- [ATR barrier targets](modeling/atr-barrier-targets.md): understand the V2 next-open stop-loss and take-profit label contract.
+- [ATR barrier targets](modeling/targets/v2-atr-barrier.md): understand the V2 next-open stop-loss and take-profit label contract.
 - [Experiment tracking](modeling/experiments.md): define reproducible experiment semantics and record local MLflow runs.
 - [Operations](operations/daily-runbook.md): run the implemented local daily workflow and understand the planned production sequence.
 - [Reference](reference/glossary.md): shared vocabulary and API reference.
