@@ -17,10 +17,11 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from types import MappingProxyType
+from typing import cast
 from typing import Literal
 
 from swingtrader.data.features.contracts import FeatureSetSpec
@@ -110,10 +111,12 @@ class ModelSpec:
     """Describe a versioned model implementation and its hyperparameters.
 
     ``model_type`` records the import path of the concrete model implementation
-    so a run can be traced back to the code that produced it. ``hyperparameters``
-    must contain only JSON-compatible values (booleans, integers, finite floats,
-    strings, and nested mappings, lists, or tuples); they are deep-frozen into
-    read-only, deterministic structures so the manifest digest is stable and the
+    so a run can be traced back to the code that produced it. ``feature_columns``
+    optionally declares the model's exact ordered input schema; ``None`` keeps the
+    complete canonical dataset feature order. ``hyperparameters`` must contain
+    only JSON-compatible values (booleans, integers, finite floats, strings, and
+    nested mappings, lists, or tuples); they are deep-frozen into read-only,
+    deterministic structures so the manifest digest is stable and the
     specification cannot be mutated after construction.
     """
 
@@ -121,6 +124,7 @@ class ModelSpec:
     version: str
     model_type: str
     hyperparameters: Mapping[str, object] = field(default_factory=dict)
+    feature_columns: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         _require_text(self.name, field_name="Model name")
@@ -134,22 +138,78 @@ class ModelSpec:
             raise TypeError("Model hyperparameters must be a mapping.")
         object.__setattr__(self, "hyperparameters", frozen)
 
+        if self.feature_columns is not None:
+            if isinstance(self.feature_columns, str):
+                raise TypeError("Model feature columns must be an iterable of strings.")
+            try:
+                columns = tuple(self.feature_columns)
+            except TypeError as error:
+                raise TypeError(
+                    "Model feature columns must be an iterable of strings."
+                ) from error
+            if not columns:
+                raise ValueError("Explicit model feature columns must not be empty.")
+            if any(not isinstance(column, str) or not column.strip() for column in columns):
+                raise ValueError("Model feature columns must be non-empty strings.")
+            if len(columns) != len(set(columns)):
+                raise ValueError("Model feature columns must be unique.")
+            object.__setattr__(self, "feature_columns", columns)
+
     @property
     def identifier(self) -> str:
         return f"{self.name}:{self.version}"
 
     def to_manifest(self) -> dict[str, object]:
-        return {
+        manifest: dict[str, object] = {
             "name": self.name,
             "version": self.version,
             "identifier": self.identifier,
             "model_type": self.model_type,
             "hyperparameters": _manifest_value(self.hyperparameters),
         }
+        if self.feature_columns is not None:
+            manifest["feature_columns"] = list(self.feature_columns)
+        return manifest
 
     @property
     def digest(self) -> str:
         return _digest(self.to_manifest())
+
+
+def resolve_model_feature_columns(
+    model_spec: ModelSpec,
+    available_columns: Sequence[object],
+) -> tuple[str, ...]:
+    """Resolve the exact ordered feature schema consumed by one model.
+
+    ``None`` on the model specification preserves the canonical order supplied
+    by the temporal dataset. An explicit schema is returned in declared order
+    after checking that every name is available.
+    """
+    if not isinstance(model_spec, ModelSpec):
+        raise TypeError("Feature-column resolution requires a ModelSpec.")
+    if isinstance(available_columns, str):
+        raise TypeError("Available feature columns must be a sequence of strings.")
+    try:
+        available = tuple(available_columns)
+    except TypeError as error:
+        raise TypeError("Available feature columns must be a sequence of strings.") from error
+    if not available:
+        raise ValueError("Available feature columns must not be empty.")
+    if any(not isinstance(column, str) or not column.strip() for column in available):
+        raise ValueError("Available feature columns must be non-empty strings.")
+    if len(available) != len(set(available)):
+        raise ValueError("Available feature columns must be unique.")
+    validated = cast(tuple[str, ...], available)
+
+    selected = model_spec.feature_columns
+    if selected is None:
+        return validated
+    available_set = set(validated)
+    unknown = tuple(column for column in selected if column not in available_set)
+    if unknown:
+        raise ValueError("Unknown model feature columns: " + ", ".join(unknown) + ".")
+    return selected
 
 
 @dataclass(frozen=True, slots=True)

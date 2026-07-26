@@ -5,6 +5,12 @@ from swingtrader.modeling.experiments.contracts import (
     ModelSpec,
     TemporalSplitSpec,
     UniverseSpec,
+    resolve_model_feature_columns,
+)
+from swingtrader.modeling.experiments.cross_validation import (
+    TemporalCrossValidationSpec,
+    TemporalFold,
+    build_expanding_temporal_folds,
 )
 from swingtrader.modeling.experiments.splitting import (
     EMBARGO_REASON,
@@ -39,13 +45,17 @@ __all__ = [
     "SPLIT_COLUMN",
     "SPLIT_EXCLUSION_REASON_COLUMN",
     "TARGET_END_AFTER_SPLIT_REASON",
+    "TemporalCrossValidationSpec",
+    "TemporalFold",
     "TemporalSplitManifest",
     "TemporalSplitResult",
     "TemporalSplitSpec",
     "TemporalSplitSummary",
     "UniverseSpec",
+    "build_expanding_temporal_folds",
     "local_tracking_uri",
     "resolve_git_revision",
+    "resolve_model_feature_columns",
     "split_temporal_dataset",
     "start_experiment_run",
 ]

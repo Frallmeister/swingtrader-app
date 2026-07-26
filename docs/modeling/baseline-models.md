@@ -2,15 +2,15 @@
 
 The baseline harness establishes the minimum performance and reporting contract that later learned models must beat. It fits on the purged training rows, scores validation by default, and produces the same prediction and evaluation artifacts for every supported baseline.
 
-The implementation is intentionally narrower than a general model framework. It supports the three baselines required for the first comparison cycle and leaves XGBoost, feature selection, strategy simulation, and portfolio accounting downstream.
+The implementation is intentionally narrower than a general model framework. It supports the three baselines required for the first comparison cycle and leaves XGBoost, automatic feature selection, strategy simulation, and portfolio accounting downstream.
 
 ## Supported Baselines
 
 | Model type | Purpose | Fitted state |
 | --- | --- | --- |
-| `CONSTANT_PRIOR_MODEL_TYPE` | Assign the training positive-class prevalence to every sample. | Training prevalence and row count. |
-| `RANDOM_RANKING_MODEL_TYPE` | Produce deterministic pseudo-random scores that are ranked separately within each date. | Random seed and row count. |
-| `LOGISTIC_REGRESSION_MODEL_TYPE` | Provide a simple learned linear benchmark. | Train-fitted scikit-learn imputation, scaling, coefficients, and solver diagnostics. |
+| `CONSTANT_PRIOR_MODEL_TYPE` | Assign the training positive-class prevalence to every sample. | Training prevalence and row count; explicit schema when declared. |
+| `RANDOM_RANKING_MODEL_TYPE` | Produce deterministic pseudo-random scores that are ranked separately within each date. | Random seed and row count; explicit schema when declared. |
+| `LOGISTIC_REGRESSION_MODEL_TYPE` | Provide a simple learned linear benchmark. | Train-fitted ordered preprocessing schema, scaling, coefficients, and solver diagnostics. |
 
 `ModelSpec.model_type` is the implementation identity stored in the experiment manifest. Use the exported constants instead of duplicating their string values:
 
@@ -22,6 +22,7 @@ model_spec = ModelSpec(
     name="regularized_logistic_regression",
     version="1",
     model_type=LOGISTIC_REGRESSION_MODEL_TYPE,
+    feature_columns=None,
     hyperparameters={
         "regularization_strength": 1.0,
         "max_iter": 1_000,
@@ -31,6 +32,12 @@ model_spec = ModelSpec(
 ```
 
 The baseline uses scikit-learn `LogisticRegression` with the `lbfgs` solver and L2 regularization. The project-level `regularization_strength` retains the existing averaged-loss definition, `mean_log_loss + 0.5 * regularization_strength * ||coefficient||²`. Because scikit-learn scales `C` against the number of training rows, the adapter uses `C = 1 / (regularization_strength * training_rows)`. Larger project-level values therefore still produce stronger regularization without changing meaning when the training sample size changes. Numeric features are median-imputed, then mean-centered and standardized with population standard deviations fitted on training rows only. Infinite values are treated as missing, all-missing columns are retained and imputed with zero, and zero-variance columns receive a scale of one. The fitted preprocessing statistics, coefficients, solver settings, regularization mapping, and scikit-learn version are retained in `model.json`.
+
+## Model-Level Feature Selection
+
+`ModelSpec.feature_columns=None` preserves the existing all-feature behavior. An explicit tuple selects the exact ordered estimator schema without changing feature generation, is retained by every fitted baseline, and is reused during prediction. Extra candidate columns remain available to the existing evaluation reports.
+
+For validation rules, train-only expanding folds, and a manual candidate workflow, see [Model Feature Selection and Train-Only Cross-Validation](feature-selection-and-cross-validation.md).
 
 ## Leakage Boundary
 

@@ -176,6 +176,10 @@ analysis.
 
 ::: swingtrader.modeling.experiments.splitting
 
+### Train-Only Temporal Cross-Validation
+
+::: swingtrader.modeling.experiments.cross_validation
+
 ### MLflow Tracking
 
 ::: swingtrader.modeling.experiments.tracking

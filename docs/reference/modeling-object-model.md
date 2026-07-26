@@ -19,6 +19,7 @@ classDiagram
     class UniverseSpec
     class TemporalDatasetSpec
     class TemporalSplitSpec
+    class TemporalCrossValidationSpec
     class ModelSpec
     class ExperimentSpec
 
@@ -34,6 +35,7 @@ classDiagram
     ExperimentSpec *-- UniverseSpec : universe
     ExperimentSpec *-- TemporalSplitSpec : split
     ExperimentSpec *-- ModelSpec : model
+    TemporalCrossValidationSpec ..> TemporalSplitSpec : outer train boundary
     ExperimentSpec ..> TemporalDatasetSpec : dataset_spec property
 
     classDef feature fill:#e3f2fd,stroke:#1565c0
@@ -43,7 +45,7 @@ classDiagram
     cssClass "FeatureBlockSpec,FeatureSetSpec" feature
     cssClass "TargetFamilySpec,TargetSetSpec,SupervisedTaskSpec" target
     cssClass "UniverseSpec,TemporalDatasetSpec" dataset
-    cssClass "TemporalSplitSpec,ModelSpec,ExperimentSpec" experiment
+    cssClass "TemporalSplitSpec,TemporalCrossValidationSpec,ModelSpec,ExperimentSpec" experiment
 ```
 
 Every specification is versioned or composed from versioned contracts and can be serialized into deterministic manifest data. The experiment digest covers static choices; runtime provenance such as the Git revision belongs to the tracking layer.
@@ -107,6 +109,34 @@ flowchart TB
 
 `TemporalDatasetBundle` and `TemporalSplitResult` are frozen dataclass containers that take deep copies of their pandas frames during construction. Freezing prevents field reassignment but does not make the contained DataFrames deeply immutable.
 
+## Train-Only Cross-Validation Artifacts
+
+`build_expanding_temporal_folds()` returns compact `TemporalFold` objects containing positional indices and global date boundaries. The indices always reference the original aligned bundle and are subsets of outer train.
+
+```mermaid
+flowchart LR
+    bundle["TemporalDatasetBundle"]
+    split_result["TemporalSplitResult"]
+    cv_spec["TemporalCrossValidationSpec"]
+    build([build_expanding_temporal_folds])
+    folds["TemporalFold tuple"]
+    train_indices{{Train indices}}
+    validation_indices{{Validation indices}}
+
+    bundle --> build
+    split_result -->|outer train positions only| build
+    cv_spec --> build
+    build --> folds
+    folds --> train_indices
+    folds --> validation_indices
+
+    classDef contract fill:#e3f2fd,stroke:#1565c0
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef state fill:#f3e5f5,stroke:#6a1b9a
+    class bundle,split_result,cv_spec,folds contract
+    class build action
+    class train_indices,validation_indices state
+```
 
 ## Baseline Runtime Artifacts
 
