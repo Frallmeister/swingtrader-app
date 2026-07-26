@@ -13,12 +13,12 @@ from scipy.stats import spearmanr
 
 from swingtrader.modeling.training.baselines import deterministic_random_scores
 from swingtrader.modeling.training.contracts import (
-    EvaluationConfig,
     PREDICTED_CLASS_COLUMN,
     RANKING_RETURN_COLUMN,
     SCORE_COLUMN,
     SPLIT_COLUMN,
     TARGET_COLUMN,
+    EvaluationConfig,
     validate_prediction_frame,
 )
 
@@ -168,9 +168,7 @@ def _classification_metrics(frame: pd.DataFrame) -> dict[str, float]:
         "pr_auc": _pr_auc(target, score),
         "average_precision": _average_precision(target, score),
         "roc_auc": _roc_auc(target, score),
-        "log_loss": float(
-            -np.mean(target * np.log(clipped) + negatives * np.log1p(-clipped))
-        ),
+        "log_loss": float(-np.mean(target * np.log(clipped) + negatives * np.log1p(-clipped))),
         "brier_score": float(np.mean((score - target) ** 2)),
         "precision": (
             true_positive / predicted_positive_count if predicted_positive_count else 0.0
@@ -236,23 +234,15 @@ def _calibration_table(frame: pd.DataFrame, *, bins: int) -> pd.DataFrame:
     grouped = working.groupby("calibration_bin", sort=True, observed=True)
     rows = []
     for bin_number in range(1, bins + 1):
-        group = (
-            grouped.get_group(bin_number)
-            if bin_number in grouped.groups
-            else working.iloc[0:0]
-        )
+        group = grouped.get_group(bin_number) if bin_number in grouped.groups else working.iloc[0:0]
         rows.append(
             {
                 "calibration_bin": bin_number,
                 "lower_bound": (bin_number - 1) / bins,
                 "upper_bound": bin_number / bins,
                 "sample_count": len(group),
-                "mean_score": (
-                    float(group[SCORE_COLUMN].mean()) if len(group) else math.nan
-                ),
-                "observed_rate": (
-                    float(group[TARGET_COLUMN].mean()) if len(group) else math.nan
-                ),
+                "mean_score": (float(group[SCORE_COLUMN].mean()) if len(group) else math.nan),
+                "observed_rate": (float(group[TARGET_COLUMN].mean()) if len(group) else math.nan),
             }
         )
     return pd.DataFrame(rows)
@@ -383,12 +373,8 @@ def _per_date_metrics(
                 **metrics,
                 "spearman": _spearman(group),
                 "top_k_count": int(top_by_date.loc[trading_date, "selected_count"]),
-                "top_k_positive_rate": float(
-                    top_by_date.loc[trading_date, "positive_rate"]
-                ),
-                "top_k_mean_return": float(
-                    top_by_date.loc[trading_date, "mean_ranking_return"]
-                ),
+                "top_k_positive_rate": float(top_by_date.loc[trading_date, "positive_rate"]),
+                "top_k_mean_return": float(top_by_date.loc[trading_date, "mean_ranking_return"]),
                 "random_top_k_positive_rate": float(
                     random_by_date.loc[trading_date, "positive_rate"]
                 ),
@@ -415,9 +401,7 @@ def _ranking_metrics(
         correlation = _spearman(group)
         if math.isfinite(correlation):
             correlations.append(correlation)
-    top_quantile = score_quantiles.loc[
-        score_quantiles["score_quantile"].eq(quantiles)
-    ].iloc[0]
+    top_quantile = score_quantiles.loc[score_quantiles["score_quantile"].eq(quantiles)].iloc[0]
     model_return = _mean_or_nan(top_k["mean_ranking_return"])
     random_return = _mean_or_nan(random_top_k["mean_ranking_return"])
     model_positive_rate = _mean_or_nan(top_k["positive_rate"])
@@ -511,9 +495,7 @@ def _trading_dates(frame: pd.DataFrame) -> pd.DatetimeIndex:
         return pd.DatetimeIndex(frame.index.get_level_values("trading_date"))
     if isinstance(frame.index, pd.DatetimeIndex):
         return frame.index
-    raise ValueError(
-        "Prediction index must expose a trading_date level or be a DatetimeIndex."
-    )
+    raise ValueError("Prediction index must expose a trading_date level or be a DatetimeIndex.")
 
 
 def _ticker_values(frame: pd.DataFrame) -> pd.Index:

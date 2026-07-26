@@ -30,15 +30,11 @@ def test_perfect_predictions_produce_expected_classification_and_ranking_metrics
     ticker = index.get_level_values("ticker")
     target = pd.Series(ticker.isin(["CCC.ST", "DDD.ST"]).astype(int), index=index)
     score = pd.Series(
-        ticker.map(
-            {"AAA.ST": 0.05, "BBB.ST": 0.2, "CCC.ST": 0.8, "DDD.ST": 0.95}
-        ),
+        ticker.map({"AAA.ST": 0.05, "BBB.ST": 0.2, "CCC.ST": 0.8, "DDD.ST": 0.95}),
         index=index,
     )
     ranking_return = pd.Series(
-        ticker.map(
-            {"AAA.ST": -0.02, "BBB.ST": -0.01, "CCC.ST": 0.01, "DDD.ST": 0.03}
-        ),
+        ticker.map({"AAA.ST": -0.02, "BBB.ST": -0.01, "CCC.ST": 0.01, "DDD.ST": 0.03}),
         index=index,
     )
     predictions = build_prediction_frame(
@@ -121,9 +117,9 @@ def test_small_daily_universe_still_populates_the_top_score_quantile() -> None:
         config=EvaluationConfig(score_quantiles=10, top_k=1),
     )
 
-    top_quantile = report.score_quantiles.loc[
-        report.score_quantiles["score_quantile"].eq(10)
-    ].iloc[0]
+    top_quantile = report.score_quantiles.loc[report.score_quantiles["score_quantile"].eq(10)].iloc[
+        0
+    ]
     assert top_quantile["date_count"] == 2
     assert top_quantile["sample_count"] == 2
 
@@ -187,10 +183,7 @@ def test_average_precision_groups_equal_scores_as_one_threshold() -> None:
     )
 
     assert report.aggregate_metrics["average_precision"] == pytest.approx(0.5)
-    assert (
-        reversed_target_report.aggregate_metrics["average_precision"]
-        == pytest.approx(0.5)
-    )
+    assert reversed_target_report.aggregate_metrics["average_precision"] == pytest.approx(0.5)
 
 
 def test_artifact_writer_emits_reproducible_tables_reports_and_plots(tmp_path) -> None:

@@ -214,27 +214,21 @@ def _write_line_svg(
         low = max(x_min, y_min)
         high = min(x_max, y_max)
         if low < high:
-            elements.append(
-                _svg_line(px(low), py(low), px(high), py(high), dash="6 5")
-            )
+            elements.append(_svg_line(px(low), py(low), px(high), py(high), dash="6 5"))
     if len(x_values):
         points = " ".join(
             f"{px(x_value):.2f},{py(y_value):.2f}"
             for x_value, y_value in zip(x_values, y_values, strict=True)
         )
         elements.append(
-            f'<polyline points="{points}" fill="none" stroke="currentColor" '
-            'stroke-width="2"/>'
+            f'<polyline points="{points}" fill="none" stroke="currentColor" stroke-width="2"/>'
         )
         elements.extend(
-            f'<circle cx="{px(x_value):.2f}" cy="{py(y_value):.2f}" r="3" '
-            'fill="currentColor"/>'
+            f'<circle cx="{px(x_value):.2f}" cy="{py(y_value):.2f}" r="3" fill="currentColor"/>'
             for x_value, y_value in zip(x_values, y_values, strict=True)
         )
     else:
-        elements.append(
-            '<text x="380" y="220" text-anchor="middle">No finite values</text>'
-        )
+        elements.append('<text x="380" y="220" text-anchor="middle">No finite values</text>')
     _write_svg(path, width=width, height=height, elements=elements)
 
 
@@ -288,9 +282,7 @@ def _write_distribution_svg(
             f'stroke-width="2"{dash_attribute}/>'
         )
     if not len(all_values):
-        elements.append(
-            '<text x="380" y="220" text-anchor="middle">No ranking returns</text>'
-        )
+        elements.append('<text x="380" y="220" text-anchor="middle">No ranking returns</text>')
     elements.extend(
         [
             _svg_line(width - 218, 75, width - 174, 75),
@@ -324,9 +316,7 @@ def _axes(
     ]
     for value in np.linspace(x_min, x_max, 5):
         x_position = left + (value - x_min) / (x_max - x_min) * plot_width
-        elements.append(
-            _svg_line(x_position, top, x_position, top + plot_height, css_class="grid")
-        )
+        elements.append(_svg_line(x_position, top, x_position, top + plot_height, css_class="grid"))
         elements.append(
             f'<text x="{x_position:.2f}" y="{top + plot_height + 23}" '
             f'text-anchor="middle">{value:.3g}</text>'
@@ -337,8 +327,7 @@ def _axes(
             _svg_line(left, y_position, left + plot_width, y_position, css_class="grid")
         )
         elements.append(
-            f'<text x="{left - 10}" y="{y_position + 5:.2f}" '
-            f'text-anchor="end">{value:.3g}</text>'
+            f'<text x="{left - 10}" y="{y_position + 5:.2f}" text-anchor="end">{value:.3g}</text>'
         )
     elements.extend(
         [
@@ -396,10 +385,7 @@ def _svg_line(
     if css_class:
         attributes.append(f'class="{css_class}"')
     suffix = " " + " ".join(attributes) if attributes else ""
-    return (
-        f'<line x1="{x1:.2f}" y1="{y1:.2f}" x2="{x2:.2f}" y2="{y2:.2f}"'
-        f'{suffix}/>'
-    )
+    return f'<line x1="{x1:.2f}" y1="{y1:.2f}" x2="{x2:.2f}" y2="{y2:.2f}"{suffix}/>'
 
 
 def _write_svg(

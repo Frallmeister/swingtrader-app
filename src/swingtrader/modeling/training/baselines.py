@@ -15,12 +15,8 @@ from scipy.special import expit
 
 from swingtrader.modeling.experiments.contracts import ModelSpec
 
-CONSTANT_PRIOR_MODEL_TYPE = (
-    "swingtrader.modeling.training.baselines.ConstantPriorClassifier"
-)
-RANDOM_RANKING_MODEL_TYPE = (
-    "swingtrader.modeling.training.baselines.DateMatchedRandomRanker"
-)
+CONSTANT_PRIOR_MODEL_TYPE = "swingtrader.modeling.training.baselines.ConstantPriorClassifier"
+RANDOM_RANKING_MODEL_TYPE = "swingtrader.modeling.training.baselines.DateMatchedRandomRanker"
 LOGISTIC_REGRESSION_MODEL_TYPE = (
     "swingtrader.modeling.training.baselines.RegularizedLogisticRegression"
 )
@@ -192,9 +188,7 @@ class RegularizedLogisticRegression:
             "iterations": self.iterations,
             "objective": self.objective,
             "intercept": self.intercept,
-            "coefficients": dict(
-                zip(self.preprocessor.columns, self.coefficients, strict=True)
-            ),
+            "coefficients": dict(zip(self.preprocessor.columns, self.coefficients, strict=True)),
             "preprocessing": self.preprocessor.to_manifest(),
         }
 
@@ -234,8 +228,7 @@ def fit_baseline_model(
         )
     )
     raise ValueError(
-        f"Unsupported baseline model type {spec.model_type!r}; "
-        f"expected one of: {supported}."
+        f"Unsupported baseline model type {spec.model_type!r}; expected one of: {supported}."
     )
 
 
@@ -285,10 +278,7 @@ def _fit_logistic(
         residual = probabilities - y
         gradient = np.empty_like(parameters)
         gradient[0] = residual.mean()
-        gradient[1:] = (
-            transformed.T @ residual / len(y)
-            + regularization_strength * coefficients
-        )
+        gradient[1:] = transformed.T @ residual / len(y) + regularization_strength * coefficients
         return float(loss), gradient
 
     result = minimize(

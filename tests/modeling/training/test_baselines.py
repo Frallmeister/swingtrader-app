@@ -100,7 +100,6 @@ def test_logistic_preprocessing_is_fitted_only_on_training_rows() -> None:
     assert manifest["preprocessing"]["medians"]["all_missing"] == 0.0
 
 
-
 def test_baseline_fitting_rejects_duplicate_feature_columns() -> None:
     index = _index()
     features = pd.DataFrame(
@@ -117,6 +116,7 @@ def test_baseline_fitting_rejects_duplicate_feature_columns() -> None:
             target=target,
             seed=1,
         )
+
 
 def test_logistic_rejects_one_class_training_data() -> None:
     index = _index()
