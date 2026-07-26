@@ -131,9 +131,7 @@ def evaluate_predictions(
     if not isinstance(resolved_config, EvaluationConfig):
         raise TypeError("Evaluation requires an EvaluationConfig.")
     expected_class = (
-        predictions[SCORE_COLUMN]
-        .ge(resolved_config.classification_threshold)
-        .astype("int8")
+        predictions[SCORE_COLUMN].ge(resolved_config.classification_threshold).astype("int8")
     )
     actual_class = predictions[PREDICTED_CLASS_COLUMN].astype("int8")
     if not expected_class.equals(actual_class):
