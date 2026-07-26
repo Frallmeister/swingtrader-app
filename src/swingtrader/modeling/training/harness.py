@@ -168,8 +168,7 @@ def run_baseline_cross_validation(
     _validate_inputs(bundle, split_result, experiment)
     if experiment.model.model_type != LOGISTIC_REGRESSION_MODEL_TYPE:
         raise ValueError(
-            "Temporal cross-validation currently supports only "
-            "LOGISTIC_REGRESSION_MODEL_TYPE."
+            "Temporal cross-validation currently supports only LOGISTIC_REGRESSION_MODEL_TYPE."
         )
     evaluation_seed = _resolve_seed(
         experiment.random_seeds,

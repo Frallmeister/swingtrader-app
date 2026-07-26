@@ -149,9 +149,7 @@ def build_expanding_temporal_folds(
         if not len(train_indices):
             raise ValueError(f"Temporal fold {offset + 1} has no training rows after purging.")
         if not len(validation_indices):
-            raise ValueError(
-                f"Temporal fold {offset + 1} has no validation rows after purging."
-            )
+            raise ValueError(f"Temporal fold {offset + 1} has no validation rows after purging.")
 
         retained_train_dates = signal_dates.take(train_indices).unique()
         if len(retained_train_dates) < spec.minimum_train_sessions:

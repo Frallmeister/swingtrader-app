@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date
 
 import numpy as np
 import pandas as pd
@@ -82,8 +81,7 @@ def _bundle_and_experiment() -> tuple[TemporalDatasetBundle, ExperimentSpec]:
     )
     target = ticker_signal.astype("boolean")
     target_end_lookup = {
-        signal_date: all_dates[position + 2]
-        for position, signal_date in enumerate(signal_dates)
+        signal_date: all_dates[position + 2] for position, signal_date in enumerate(signal_dates)
     }
     target_end = pd.DatetimeIndex(
         [target_end_lookup[trading_date] for trading_date in index.get_level_values("trading_date")]
@@ -512,16 +510,21 @@ def test_cross_validation_fits_fresh_selected_models_without_outer_holdout_acces
             .median()
         )
         assert model.preprocessor.medians == expected_medians
-    assert result[
-        [
-            "train_precision",
-            "validation_precision",
-            "train_recall",
-            "validation_recall",
-            "train_roc_auc",
-            "validation_roc_auc",
+    assert (
+        result[
+            [
+                "train_precision",
+                "validation_precision",
+                "train_recall",
+                "validation_recall",
+                "train_roc_auc",
+                "validation_roc_auc",
+            ]
         ]
-    ].notna().all().all()
+        .notna()
+        .all()
+        .all()
+    )
 
 
 def test_cross_validation_rejects_non_logistic_baseline() -> None:

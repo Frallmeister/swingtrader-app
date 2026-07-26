@@ -21,8 +21,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from types import MappingProxyType
-from typing import cast
-from typing import Literal
+from typing import Literal, cast
 
 from swingtrader.data.features.contracts import FeatureSetSpec
 from swingtrader.modeling.datasets.contracts import SupervisedTaskSpec, TargetSetSpec
@@ -144,9 +143,7 @@ class ModelSpec:
             try:
                 columns = tuple(self.feature_columns)
             except TypeError as error:
-                raise TypeError(
-                    "Model feature columns must be an iterable of strings."
-                ) from error
+                raise TypeError("Model feature columns must be an iterable of strings.") from error
             if not columns:
                 raise ValueError("Explicit model feature columns must not be empty.")
             if any(not isinstance(column, str) or not column.strip() for column in columns):
