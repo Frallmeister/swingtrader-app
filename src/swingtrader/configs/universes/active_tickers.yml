@@ -5,15 +5,5 @@ description: >
 universes:
   - list_name: se_large_cap
     include: all
-    exclude:
-      - YUBICO.ST
   - list_name: se_mid_cap
-    include:
-      - SBB-B.ST
-      - NEOBO.ST
-      - CIBUS.ST
-      - APOTEA.ST
-      - CLA-B.ST
-      - HTRO.ST
-      - INTRUM.ST
-      - PCELL.ST
+    include: all
