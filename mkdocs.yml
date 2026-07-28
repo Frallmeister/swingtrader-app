@@ -95,6 +95,7 @@ nav:
           - V2 ATR Barrier: modeling/targets/v2-atr-barrier.md
       - Baseline Models and Harness: modeling/baseline-models.md
       - Evaluation: modeling/evaluation.md
+      - Backtesting Pilot: modeling/backtesting.md
       - Experiment Specifications and MLflow: modeling/experiments.md
   - Deployment:
       - Render: deployment/render.md
