@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from math import floor
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -78,8 +79,8 @@ def run_backtest(
     next_date = dict(zip(trading_dates[:-1], trading_dates[1:], strict=True))
 
     cash = float(initial_cash)
-    positions: dict[tuple[str, str], dict[str, object]] = {}
-    entries_by_date: dict[pd.Timestamp, list[dict[str, object]]] = {}
+    positions: dict[tuple[str, str], dict[str, Any]] = {}
+    entries_by_date: dict[pd.Timestamp, list[dict[str, Any]]] = {}
     timeouts_by_date: dict[pd.Timestamp, list[tuple[str, str]]] = {}
     trades: list[dict[str, object]] = []
     equity_rows: list[dict[str, object]] = []

@@ -171,7 +171,7 @@ def validate_prediction_frame(frame: pd.DataFrame) -> None:
         raise ValueError("Prediction ranking returns must be finite or missing.")
 
 
-def _finite_number(value: Real, *, field_name: str) -> float:
+def _finite_number(value: float, *, field_name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, Real):
         raise TypeError(f"{field_name} must be a real number.")
     numeric = float(value)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import matplotlib
 import numpy as np
@@ -13,7 +14,7 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator
 
 _FIGURE_SIZE = (7.6, 4.4)
-_RC_PARAMS = {
+_RC_PARAMS: dict[Any, Any] = {
     "font.family": "DejaVu Sans",
     "svg.fonttype": "none",
     "svg.hashsalt": "swingtrader-model-evaluation",
