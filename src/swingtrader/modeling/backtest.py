@@ -211,9 +211,7 @@ def run_backtest(
         if following_date is not None:
             timeout_keys = set(timeouts_by_date.get(following_date, []))
             occupied_next_open = (
-                len(positions)
-                - len(timeout_keys)
-                + len(entries_by_date.get(following_date, []))
+                len(positions) - len(timeout_keys) + len(entries_by_date.get(following_date, []))
             )
             available_slots = max_positions - occupied_next_open
             pending_tickers = {
@@ -260,9 +258,7 @@ def run_backtest(
     final_bars = _rows_for_date(prices, final_date)
     for key, position in list(positions.items()):
         exit_price = (
-            float(final_bars[key]["close"])
-            if key in final_bars
-            else float(position["last_close"])
+            float(final_bars[key]["close"]) if key in final_bars else float(position["last_close"])
         )
         close_position(key, final_date, exit_price, "end_of_data")
     equity_rows[-1].update(cash=cash, market_value=0.0, equity=cash, open_positions=0)
@@ -326,10 +322,7 @@ def _rows_for_date(
     trading_date: pd.Timestamp,
 ) -> dict[tuple[str, str], pd.Series]:
     rows = prices.xs(trading_date, level="trading_date")
-    return {
-        (str(provider), str(ticker)): row
-        for (provider, ticker), row in rows.iterrows()
-    }
+    return {(str(provider), str(ticker)): row for (provider, ticker), row in rows.iterrows()}
 
 
 def _signals_for_date(
