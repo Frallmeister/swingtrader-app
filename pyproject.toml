@@ -35,6 +35,7 @@ modeling = [
     "mlflow-skinny==3.14.0",
     "scikit-learn>=1.9.0",
     "sqlalchemy>=2.0.51,<3",
+    "xgboost>=3.3.0",
 ]
 # Add an `api` extra when the FastAPI backend is introduced.
 
