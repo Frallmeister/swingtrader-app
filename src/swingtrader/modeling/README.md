@@ -1,6 +1,6 @@
 # Modeling
 
-Model development and inference code lives here. The package owns reusable target calculations, versioned target contracts, canonical unsplit temporal dataset construction, immutable experiment specifications, purged fixed temporal splitting, baseline fitting, standardized evaluation, generated model artifacts, and optional local MLflow tracking. Nonlinear candidates, model registration, and production inference remain follow-up work.
+Model development and inference code lives here. The package owns reusable target calculations, versioned target contracts, canonical unsplit temporal dataset construction, immutable experiment specifications, purged fixed temporal splitting, baseline fitting, standardized evaluation, a small daily-bar backtesting pilot, generated model artifacts, and optional local MLflow tracking. Nonlinear candidates, model registration, and production inference remain follow-up work.
 
 ## Dataset Package
 
@@ -35,6 +35,10 @@ The `swingtrader.modeling.training` package contains:
 
 Logistic preprocessing is fitted on training rows only and retained with the fitted coefficients. Validation and test reports are independent; locked-test rows are not read during routine validation runs.
 
+## Backtesting Pilot
+
+`backtest.py` provides one deliberately small, pandas-based executable simulation. It consumes raw OHLC prices plus ranked `score` and raw-price `atr` signals, enters at the next open, applies ATR risk sizing and fixed stop/target rules, and returns transaction, equity, and summary tables. It is a proof of concept rather than a general backtesting framework.
+
 See the main documentation:
 
 - [Modeling overview](../../../docs/modeling/overview.md)
@@ -45,6 +49,7 @@ See the main documentation:
 - [ATR barrier targets](../../../docs/modeling/targets/v2-atr-barrier.md)
 - [Baseline models and evaluation harness](../../../docs/modeling/baseline-models.md)
 - [Model evaluation](../../../docs/modeling/evaluation.md)
+- [Backtesting pilot](../../../docs/modeling/backtesting.md)
 - [Experiment specifications and MLflow tracking](../../../docs/modeling/experiments.md)
 - [Ticker eligibility](../../../docs/data/eligibility.md)
 - [Roadmap](../../../docs/architecture/roadmap.md)

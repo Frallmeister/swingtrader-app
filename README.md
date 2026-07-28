@@ -31,6 +31,7 @@ The project currently implements the data and initial modeling foundation:
 * explicit ordered model-input schemas and expanding temporal cross-validation confined to outer train
 * standardized classification, calibration, daily ranking, and dataset-context evaluation reports
 * deterministic local or MLflow model, prediction, table, Markdown, and SVG artifacts
+* a small daily-bar backtesting pilot with next-open execution and ATR-based risk sizing
 * local SQLite support and configurable SQLAlchemy database URLs
 * MkDocs-based project documentation
 * pytest/ruff-based local quality checks
@@ -59,6 +60,7 @@ Useful entry points:
 * [Temporal splitting](docs/modeling/temporal-splitting.md)
 * [Model feature selection and train-only cross-validation](docs/modeling/feature-selection-and-cross-validation.md)
 * [Baseline models and evaluation harness](docs/modeling/baseline-models.md)
+* [Backtesting pilot](docs/modeling/backtesting.md)
 * [ATR barrier targets](docs/modeling/targets/v2-atr-barrier.md)
 * [Experiment specifications and MLflow tracking](docs/modeling/experiments.md)
 * [Roadmap](docs/architecture/roadmap.md)
@@ -248,7 +250,7 @@ swingtrader-app/
 │       │                      feature generation, and scheduled data jobs.
 │       ├── indicators/        Reusable numerical indicator calculations.
 │       └── modeling/          Dataset construction, training, evaluation,
-│                              inference, and model metadata.
+│                              backtesting, inference, and model metadata.
 ├── tests/                     Unit and integration-style tests using local fixtures.
 └── docs/                      Project documentation and architecture decisions.
 ```

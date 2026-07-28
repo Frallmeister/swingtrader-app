@@ -185,3 +185,19 @@ Any subsequent decision change creates a new experiment rather than reusing the 
 **Status:** Planned.
 
 Production inference will evaluate inference readiness, load the required recent bronze history, reproduce the selected feature contract, apply registered preprocessing and model artifacts, and persist candidate scores for ranking. It will not generate research targets or refit preprocessing.
+
+## Executable Backtesting Pilot
+
+**Status:** Implemented as a deliberately small proof of concept.
+
+`run_backtest()` consumes raw daily OHLC prices plus point-in-time `score` and
+raw-price `atr` signals. It ranks candidates after each close, plans risk-sized
+orders, enters at the next open, applies fixed ATR stops and take-profit levels,
+executes timeout exits at the next open, and records transactions and daily
+equity. It remains separate from research-target evaluation and does not reuse
+adjusted-close prices as simulated execution prices.
+
+The pilot intentionally returns pandas tables and keeps its mechanics in one
+module rather than introducing a general strategy, broker, order, or portfolio
+object model. See [Backtesting Pilot](backtesting.md) for the exact procedure and
+current limitations.
