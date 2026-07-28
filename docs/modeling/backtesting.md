@@ -1,10 +1,6 @@
 # Backtesting Pilot
 
-The backtesting pilot converts historical daily candidate scores into a small,
-auditable portfolio simulation. It implements the executable evaluation layer
-required by
-[ADR 0003](../architecture/decisions/0003-separate-research-targets-from-executable-evaluation.md)
-without introducing a general backtesting framework.
+The backtesting pilot converts historical daily candidate scores into a small, auditable portfolio simulation. It implements the executable evaluation layer required by [ADR 0003](../architecture/decisions/0003-separate-research-targets-from-executable-evaluation.md) without introducing a general backtesting framework.
 
 ## Scope
 
@@ -20,9 +16,7 @@ The pilot supports:
 - conservative same-bar stop/target resolution;
 - a transaction table, daily equity table, and compact metric summary.
 
-It intentionally does not model short positions, leverage, partial fills,
-slippage, taxes, dividends, currency conversion, trailing stops, or intraday
-price paths.
+It intentionally does not model short positions, leverage, partial fills, slippage, taxes, dividends, currency conversion, trailing stops, or intraday price paths.
 
 ## Input Frames
 
@@ -38,9 +32,7 @@ provider, ticker, trading_date
 open, high, low, close
 ```
 
-`adjusted_close` is not used for execution. Historical adjusted values are
-revised backwards for distributions and are therefore not prices that could
-have been traded at the time.
+`adjusted_close` is not used for execution. Historical adjusted values are revised backwards for distributions and are therefore not prices that could have been traded at the time.
 
 `signals` must contain:
 
@@ -48,10 +40,7 @@ have been traded at the time.
 score, atr
 ```
 
-Higher scores are considered first. Filter the signal frame before the call if
-a model-specific decision threshold should apply. The `atr` column must be
-calculated from raw OHLC prices available through the signal date, not from the
-adjustment-consistent model-price representation.
+Higher scores are considered first. Set `minimum_score` to require an absolute entry threshold. When no signal reaches the threshold, the simulator leaves the available cash uninvested. Leave `minimum_score=None` when all supplied signals should be considered eligible.
 
 ```python
 from swingtrader.indicators import atr
@@ -88,13 +77,9 @@ stop = entry open - ATR distance
 take profit = entry open + reward_risk_ratio * ATR distance
 ```
 
-The actual quantity is reduced if the planned purchase and entry commission do
-not fit available cash. Timeout exits execute before entries so a position slot
-and its cash can be reused at the same open.
+The actual quantity is reduced if the planned purchase and entry commission do not fit available cash. Timeout exits execute before entries so a position slot and its cash can be reused at the same open.
 
-Daily OHLC cannot reveal whether a stop or target was touched first when both
-occur inside the same bar. The pilot assumes the stop was reached first and
-records `ambiguous_intrabar = true` on that transaction.
+Daily OHLC cannot reveal whether a stop or target was touched first when both occur inside the same bar. The pilot assumes the stop was reached first and records `ambiguous_intrabar = true` on that transaction.
 
 ## Running the Pilot
 
@@ -106,6 +91,7 @@ result = run_backtest(
     risk_fraction=0.005,
     max_positions=10,
     max_holding_sessions=5,
+    minimum_score=decision_threshold,
     stop_atr_multiple=1.0,
     reward_risk_ratio=2.0,
     commission_rate=0.0025,
@@ -116,8 +102,7 @@ equity = result["equity"]
 summary = result["summary"]
 ```
 
-The result contains no daily candidate-rejection ledger. Only completed
-transactions and the compact portfolio equity history are retained.
+The result contains no daily candidate-rejection ledger. Only completed transactions and the compact portfolio equity history are retained.
 
 ## Metrics
 
@@ -132,15 +117,8 @@ The summary reports:
 - `average_holding_sessions`;
 - `commissions_paid`.
 
-Reward/risk values use net profit after commissions divided by the trade's
-initial ATR risk. `total_reward_risk` is the sum of trade reward/risk values and
-`expectancy` is their arithmetic mean. The fixed take-profit ratio is a gross
-price-distance rule, so commissions make a take-profit transaction slightly
-less than the configured reward/risk ratio on a net basis.
+Reward/risk values use net profit after commissions divided by the trade's initial ATR risk. `total_reward_risk` is the sum of trade reward/risk values and `expectancy` is their arithmetic mean. The fixed take-profit ratio is a gross price-distance rule, so commissions make a take-profit transaction slightly less than the configured reward/risk ratio on a net basis.
 
 ## Pilot Limitations
 
-The current active ticker list does not by itself provide historical index
-membership. The caller remains responsible for supplying point-in-time-safe
-signals and an appropriate historical universe. Open positions are liquidated
-at the final available close so the final portfolio return is fully reported.
+The current active ticker list does not by itself provide historical index membership. The caller remains responsible for supplying point-in-time-safe signals and an appropriate historical universe. Open positions are liquidated at the final available close so the final portfolio return is fully reported.

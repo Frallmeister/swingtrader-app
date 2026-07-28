@@ -41,6 +41,7 @@ def run_backtest(
     risk_fraction: float,
     max_positions: int,
     max_holding_sessions: int,
+    minimum_score: float | None = None,
     stop_atr_multiple: float = 1.0,
     reward_risk_ratio: float = 2.0,
     commission_rate: float = 0.0025,
@@ -64,6 +65,7 @@ def run_backtest(
         risk_fraction=risk_fraction,
         max_positions=max_positions,
         max_holding_sessions=max_holding_sessions,
+        minimum_score=minimum_score,
         stop_atr_multiple=stop_atr_multiple,
         reward_risk_ratio=reward_risk_ratio,
         commission_rate=commission_rate,
@@ -219,7 +221,11 @@ def run_backtest(
                 for orders in entries_by_date.values()
                 for order in orders
             }
-            for provider, ticker, score, atr_value in _signals_for_date(signals, trading_date):
+            for provider, ticker, score, atr_value in _signals_for_date(
+                signals,
+                trading_date,
+                minimum_score=minimum_score,
+            ):
                 key = (provider, ticker)
                 if available_slots <= 0:
                     break
@@ -328,20 +334,30 @@ def _rows_for_date(
 def _signals_for_date(
     signals: pd.DataFrame,
     trading_date: pd.Timestamp,
+    *,
+    minimum_score: float | None = None,
 ) -> list[tuple[str, str, float, float]]:
     try:
-        rows = signals.xs(trading_date, level="trading_date").reset_index()
+        rows = signals.xs(trading_date, level="trading_date", drop_level=False)
     except KeyError:
         return []
-    rows = rows.loc[np.isfinite(rows["score"]) & np.isfinite(rows["atr"]) & rows["atr"].gt(0)]
+
+    rows = rows.reset_index()
+    valid = np.isfinite(rows["score"]) & np.isfinite(rows["atr"]) & rows["atr"].gt(0)
+
+    if minimum_score is not None:
+        valid = valid & rows["score"].ge(minimum_score)
+
+    rows = rows.loc[valid]
     rows = rows.sort_values(
         ["score", "provider", "ticker"],
         ascending=[False, True, True],
         kind="mergesort",
     )
+
     return [
-        (str(row["provider"]), str(row["ticker"]), float(row["score"]), float(row["atr"]))
-        for _, row in rows.iterrows()
+        (str(row.provider), str(row.ticker), float(row.score), float(row.atr))
+        for row in rows.itertuples(index=False)
     ]
 
 
@@ -353,6 +369,7 @@ def _validate_inputs(
     risk_fraction: float,
     max_positions: int,
     max_holding_sessions: int,
+    minimum_score: float | None,
     stop_atr_multiple: float,
     reward_risk_ratio: float,
     commission_rate: float,
@@ -365,6 +382,11 @@ def _validate_inputs(
         raise ValueError("prices must not be empty")
     if not signals.index.difference(prices.index).empty:
         raise ValueError("Every signal row must match a raw price row.")
+
+    if minimum_score is not None and (
+        isinstance(minimum_score, bool) or not np.isfinite(minimum_score)
+    ):
+        raise ValueError("minimum_score must be None or a finite number")
 
     numeric_ohlc = prices.loc[:, _PRICE_COLUMNS].apply(pd.to_numeric, errors="coerce")
     values = numeric_ohlc.to_numpy(dtype="float64")

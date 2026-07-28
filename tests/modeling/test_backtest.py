@@ -6,24 +6,6 @@ import pytest
 from swingtrader.modeling.backtest import run_backtest, summarize_backtest
 
 
-def _prices(rows: list[tuple[str, str, str, float, float, float, float]]) -> pd.DataFrame:
-    frame = pd.DataFrame(
-        rows,
-        columns=("provider", "ticker", "trading_date", "open", "high", "low", "close"),
-    )
-    frame["trading_date"] = pd.to_datetime(frame["trading_date"])
-    return frame.set_index(["provider", "ticker", "trading_date"]).sort_index()
-
-
-def _signals(rows: list[tuple[str, str, str, float, float]]) -> pd.DataFrame:
-    frame = pd.DataFrame(
-        rows,
-        columns=("provider", "ticker", "trading_date", "score", "atr"),
-    )
-    frame["trading_date"] = pd.to_datetime(frame["trading_date"])
-    return frame.set_index(["provider", "ticker", "trading_date"]).sort_index()
-
-
 def test_next_open_entry_uses_atr_risk_sizing_and_fixed_two_r_target() -> None:
     prices = _prices(
         [
@@ -244,3 +226,77 @@ def test_opening_gap_exits_at_the_raw_open_price() -> None:
     assert trade["exit_date"] == pd.Timestamp("2026-01-06")
     assert trade["exit_price"] == pytest.approx(85.0)
     assert trade["reward_risk"] == pytest.approx(-1.5)
+
+
+def test_minimum_score_leaves_cash_idle_when_no_signal_qualifies() -> None:
+    prices = _prices(
+        [
+            ("yfinance", "AAA.ST", "2026-01-02", 100, 105, 95, 100),
+            ("yfinance", "AAA.ST", "2026-01-05", 100, 105, 95, 100),
+            ("yfinance", "AAA.ST", "2026-01-06", 100, 105, 95, 100),
+        ]
+    )
+    signals = _signals([("yfinance", "AAA.ST", "2026-01-02", 0.4, 10.0)])
+
+    result = run_backtest(
+        prices,
+        signals,
+        initial_cash=10_000,
+        risk_fraction=0.01,
+        max_positions=1,
+        max_holding_sessions=1,
+        minimum_score=0.5,
+        commission_rate=0.0,
+    )
+
+    assert result["trades"].empty
+    assert result["equity"]["cash"].eq(10_000).all()
+    assert result["equity"]["equity"].eq(10_000).all()
+
+
+def test_minimum_score_filters_candidates_before_ranking() -> None:
+    prices = _prices(
+        [
+            ("yfinance", ticker, trading_date, 100, 105, 95, 100)
+            for ticker in ("AAA.ST", "BBB.ST", "CCC.ST")
+            for trading_date in ("2026-01-02", "2026-01-05", "2026-01-06")
+        ]
+    )
+    signals = _signals(
+        [
+            ("yfinance", "AAA.ST", "2026-01-02", 0.4, 10.0),
+            ("yfinance", "BBB.ST", "2026-01-02", 0.7, 10.0),
+            ("yfinance", "CCC.ST", "2026-01-02", 0.9, 10.0),
+        ]
+    )
+
+    trades = run_backtest(
+        prices,
+        signals,
+        initial_cash=10_000,
+        risk_fraction=0.01,
+        max_positions=2,
+        max_holding_sessions=1,
+        minimum_score=0.6,
+        commission_rate=0.0,
+    )["trades"]
+
+    assert trades["ticker"].tolist() == ["CCC.ST", "BBB.ST"]
+
+
+def _prices(rows: list[tuple[str, str, str, float, float, float, float]]) -> pd.DataFrame:
+    frame = pd.DataFrame(
+        rows,
+        columns=("provider", "ticker", "trading_date", "open", "high", "low", "close"),
+    )
+    frame["trading_date"] = pd.to_datetime(frame["trading_date"])
+    return frame.set_index(["provider", "ticker", "trading_date"]).sort_index()
+
+
+def _signals(rows: list[tuple[str, str, str, float, float]]) -> pd.DataFrame:
+    frame = pd.DataFrame(
+        rows,
+        columns=("provider", "ticker", "trading_date", "score", "atr"),
+    )
+    frame["trading_date"] = pd.to_datetime(frame["trading_date"])
+    return frame.set_index(["provider", "ticker", "trading_date"]).sort_index()
