@@ -57,6 +57,7 @@ EMA_COLORS = {
 SELECTED_TRACE_NAME = "Selected entries"
 STOP_TRACE_NAME = "ATR stop"
 TAKE_PROFIT_TRACE_NAME = "Take profit"
+PRICE_HUD_NAME = "price-hud"
 
 metadata = MetaData()
 
@@ -113,10 +114,10 @@ class LabelingConfig:
     atr_stop_multiple: float = 1.0
     reward_risk_ratio: float = 2.0
     commission_rate: float = 0.0025
-    pivot_high_left: int = 10
-    pivot_high_right: int = 10
-    pivot_low_left: int = 10
-    pivot_low_right: int = 10
+    pivot_high_left: int = 15
+    pivot_high_right: int = 15
+    pivot_low_left: int = 15
+    pivot_low_right: int = 15
     default_heatmap_mode: HeatmapMode = "net_return"
 
     def __post_init__(self) -> None:
@@ -618,6 +619,20 @@ def risk_guide_for_date(
     )
 
 
+def _nan_to_none(values: Any) -> np.ndarray:
+    """Return an object array with ``NaN`` replaced by ``None``.
+
+    Plotly renders both ``NaN`` and ``None`` as gaps, but ``None`` serializes to
+    JSON ``null`` while ``NaN`` is not JSON compliant and triggers a
+    ``jupyter_client`` serialization warning when pushed to a ``FigureWidget``.
+    """
+
+    array = np.asarray(values, dtype=float)
+    result = array.astype(object)
+    result[np.isnan(array)] = None
+    return result
+
+
 def build_labeling_figure(
     frame: pd.DataFrame,
     *,
@@ -667,7 +682,9 @@ def build_labeling_figure(
             high=frame["high"],
             low=frame["low"],
             close=frame["close"],
+            line_width=1,
             name="OHLC",
+            hoverinfo="none",
         ),
         row=1,
         col=1,
@@ -676,7 +693,7 @@ def build_labeling_figure(
         figure.add_trace(
             go.Scatter(
                 x=frame.index,
-                y=frame[f"ema_{length}"],
+                y=_nan_to_none(frame[f"ema_{length}"].to_numpy()),
                 mode="lines",
                 line={"color": color, "width": 1.4},
                 name=f"EMA {length}",
@@ -738,7 +755,7 @@ def build_labeling_figure(
         go.Heatmap(
             x=heatmap.columns,
             y=heatmap.index,
-            z=heatmap.to_numpy(),
+            z=_nan_to_none(heatmap.to_numpy()),
             colorscale="RdYlGn",
             zmid=0,
             zmin=-z_limit,
@@ -767,13 +784,36 @@ def build_labeling_figure(
         )
 
     figure.update_layout(
-        height=900,
+        height=650,
+        width=1400,
         hovermode="x unified",
-        clickmode="event+select",
+        hoverlabel={"bgcolor": "rgba(250, 250, 250, 0.45)"},
+        clickmode="event",
         dragmode="pan",
         margin={"l": 60, "r": 40, "t": 45, "b": 35},
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.01, "x": 0},
         uirevision="labeling-workflow",
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        modebar={"remove": ["select2d", "lasso2d"]},
+    )
+    figure.update_xaxes(
+        showgrid=True,
+        gridcolor="#e6e6e6",
+        zeroline=False,
+        showline=True,
+        linecolor="#c7c7c7",
+        linewidth=1,
+        mirror=True,
+    )
+    figure.update_yaxes(
+        showgrid=True,
+        gridcolor="#e6e6e6",
+        zeroline=False,
+        showline=True,
+        linecolor="#c7c7c7",
+        linewidth=1,
+        mirror=True,
     )
     figure.update_xaxes(
         range=[window.start_date, window.end_date],
@@ -785,6 +825,26 @@ def build_labeling_figure(
     figure.update_yaxes(title_text="Price", row=1, col=1)
     figure.update_yaxes(title_text="Volume", row=2, col=1)
     figure.update_yaxes(title_text="Sessions", autorange="reversed", dtick=1, row=3, col=1)
+
+    figure.add_annotation(
+        name=PRICE_HUD_NAME,
+        xref="x domain",
+        yref="y domain",
+        x=0.01,
+        y=0.99,
+        xanchor="left",
+        yanchor="top",
+        text="",
+        showarrow=False,
+        align="left",
+        font={"family": "Courier New, monospace", "size": 16, "color": "#333333"},
+        bgcolor="white",
+        bordercolor="#c7c7c7",
+        borderwidth=1,
+        borderpad=4,
+        row=1,
+        col=1,
+    )
     return figure
 
 
@@ -845,6 +905,42 @@ def update_selected_trace(
     trace.x = marker_x
     trace.y = marker_y
     trace.customdata = [value.isoformat() for value in marker_x]
+
+
+def update_price_hud(
+    figure: Figure,
+    frame: pd.DataFrame,
+    *,
+    trading_date: date | str | pd.Timestamp | None,
+) -> None:
+    """Update the pinned upper-left OHLC/date annotation in an existing figure."""
+
+    annotation = next(
+        (item for item in figure.layout.annotations if item.name == PRICE_HUD_NAME),
+        None,
+    )
+    if annotation is None:
+        return
+    if trading_date is None:
+        annotation.text = ""
+        return
+    timestamp = _to_timestamp(trading_date)
+    if timestamp not in frame.index:
+        annotation.text = ""
+        return
+    row = frame.loc[timestamp]
+    color = "#26a69a" if row["close"] > row["open"] else "#ef5350"
+
+    def value(number: float) -> str:
+        return f'<span style="color:{color}">{number:.2f}</span>'
+
+    change_percent = round(100 * (row["close"] / row["open"] - 1), 2)
+    annotation.text = (
+        f"<b>{timestamp.date()} "
+        f"O {value(row['open'])}  H {value(row['high'])}  "
+        f"L {value(row['low'])}  C {value(row['close'])}  "
+        f'<span style="color:{color}">({change_percent:.2f} %)</span></b>'
+    )
 
 
 def update_risk_guide_traces(figure: Figure, guide: RiskGuide | None) -> None:
