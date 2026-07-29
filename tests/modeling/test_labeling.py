@@ -25,8 +25,8 @@ from swingtrader.modeling.labeling import (
     plan_labeling_windows,
     prepare_adjustment_consistent_prices,
     prepare_chart_view,
-    prepare_labeling_universe,
     prepare_labeling_frame,
+    prepare_labeling_universe,
     risk_guide_for_date,
     save_labeling_window,
     slice_chart_context,
@@ -152,8 +152,7 @@ def test_prepare_labeling_universe_skips_ineligible_tickers(monkeypatch) -> None
     assert universe.skipped_tickers == {
         "MISSING.ST": "no bronze price rows",
         "SHORT.ST": (
-            "insufficient usable history for one complete "
-            "40-session window plus 5 future sessions"
+            "insufficient usable history for one complete 40-session window plus 5 future sessions"
         ),
     }
 
