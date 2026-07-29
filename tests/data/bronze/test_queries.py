@@ -4,7 +4,10 @@ import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
-from swingtrader.data.bronze.queries import load_daily_price_state_by_ticker
+from swingtrader.data.bronze.queries import (
+    load_available_tickers,
+    load_daily_price_state_by_ticker,
+)
 from swingtrader.data.bronze.schema import metadata as bronze_metadata
 from swingtrader.data.bronze.writer import upsert_daily_prices
 from swingtrader.data.clients.yfinance import DAILY_PRICE_COLUMNS
@@ -54,6 +57,29 @@ def test_load_daily_price_state_by_ticker_returns_empty_for_no_tickers() -> None
     )
 
     assert states == {}
+
+
+def test_load_available_tickers_returns_sorted_distinct_symbols() -> None:
+    engine = _sqlite_engine()
+    fetched_at = datetime(2026, 7, 4, 9, 30, tzinfo=UTC)
+    for ticker in ("BOL.ST", "AAK.ST"):
+        upsert_daily_prices(
+            prices=_daily_prices(
+                ticker=ticker,
+                close=278.2,
+                fetched_at=fetched_at,
+                request_id="test-request",
+            ),
+            engine=engine,
+        )
+
+    assert load_available_tickers(engine=engine, provider="yfinance") == ("AAK.ST", "BOL.ST")
+
+
+def test_load_available_tickers_returns_empty_when_no_rows() -> None:
+    engine = _sqlite_engine()
+
+    assert load_available_tickers(engine=engine, provider="yfinance") == ()
 
 
 def _sqlite_engine() -> Engine:

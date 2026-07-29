@@ -24,6 +24,7 @@ from swingtrader.modeling.labeling import (
     load_latest_labeling_session,
     plan_labeling_windows,
     prepare_adjustment_consistent_prices,
+    prepare_chart_view,
     prepare_labeling_frame,
     risk_guide_for_date,
     save_labeling_window,
@@ -152,8 +153,8 @@ def test_prepare_frame_and_chart_use_requested_visual_contract() -> None:
     assert set(volume.marker.color) == {"#26a69a", "#ef5350"}
     heatmap = next(trace for trace in figure.data if trace.name == "Forward outcomes")
     assert list(heatmap.y) == [1, 2, 3, 4, 5]
-    assert figure.layout.xaxis.range[0] == context.index[0]
-    assert figure.layout.xaxis.range[1] == context.index[-1]
+    assert figure.layout.xaxis.range[0] == windows[1].start_date
+    assert figure.layout.xaxis.range[1] == windows[1].end_date
     assert len(figure.layout.shapes) == 6
     assert all(shape.fillcolor == "#6b7280" for shape in figure.layout.shapes)
     assert all(shape.opacity == pytest.approx(0.12) for shape in figure.layout.shapes)
@@ -171,6 +172,102 @@ def test_prepare_frame_and_chart_use_requested_visual_contract() -> None:
     assert target_trace.visible is True
     assert stop_trace.y[0] == pytest.approx(guide.stop)
     assert target_trace.y[0] == pytest.approx(guide.take_profit)
+
+
+def test_prepare_chart_view_centres_window_for_wide_timeframe() -> None:
+    config = LabelingConfig(window_size=40, step_size=30, forward_horizon=5)
+    frame = prepare_labeling_frame(_prices(periods=1000), config=config)
+    windows = plan_labeling_windows(
+        frame.index,
+        config=config,
+        labeling_end_date=frame.index[-1],
+    )
+    window = windows[len(windows) // 2]
+    window_centre = (window.start_position + window.end_position) // 2
+
+    default_context, default_view = prepare_chart_view(frame, window=window, config=config)
+    default_start = int(frame.index.get_loc(default_view[0]))
+    default_end = int(frame.index.get_loc(default_view[1]))
+    assert default_end - default_start == 84
+    assert (default_start + default_end) // 2 == window_centre
+
+    context, (view_start, view_end) = prepare_chart_view(
+        frame, window=window, config=config, timeframe="3Y"
+    )
+    view_start_pos = int(frame.index.get_loc(view_start))
+    view_end_pos = int(frame.index.get_loc(view_end))
+
+    # the window centre sits exactly in the middle of a 756-session span
+    assert view_end_pos - view_start_pos == 756
+    assert (view_start_pos + view_end_pos) // 2 == window_centre
+    assert view_end_pos - view_start_pos > window.end_position - window.start_position
+    # the context slice contains the whole visible span
+    assert context.index[0] <= view_start
+    assert view_end <= context.index[-1]
+
+
+def test_prepare_chart_view_keeps_window_centred_at_data_edge() -> None:
+    config = LabelingConfig(window_size=40, step_size=30, forward_horizon=5)
+    frame = prepare_labeling_frame(_prices(periods=200), config=config)
+    windows = plan_labeling_windows(
+        frame.index,
+        config=config,
+        labeling_end_date=frame.index[-1],
+    )
+    window = windows[0]
+
+    context, (view_start, view_end) = prepare_chart_view(
+        frame, window=window, config=config, timeframe="3Y"
+    )
+
+    # The first window cannot reach 1.5 years of real history on the left, so
+    # the viewport extrapolates business days before the data to stay centred.
+    assert view_start < frame.index[0]
+    window_centre_date = frame.index[(window.start_position + window.end_position) // 2]
+    left_span = window_centre_date - view_start
+    right_span = view_end - window_centre_date
+    assert abs((left_span - right_span).days) <= 3
+    # the context slice never reaches beyond the loaded data
+    assert context.index[0] >= frame.index[0]
+    assert context.index[-1] <= frame.index[-1]
+
+
+def test_prepare_chart_view_rejects_unknown_timeframe() -> None:
+    config = LabelingConfig(window_size=40, step_size=30, forward_horizon=5)
+    frame = prepare_labeling_frame(_prices(), config=config)
+    window = plan_labeling_windows(
+        frame.index,
+        config=config,
+        labeling_end_date=frame.index[-1],
+    )[0]
+    with pytest.raises(ValueError, match="Unsupported timeframe"):
+        prepare_chart_view(frame, window=window, config=config, timeframe="5Y")
+
+
+def test_build_labeling_figure_opens_on_supplied_viewport() -> None:
+    config = LabelingConfig(window_size=40, step_size=30, forward_horizon=5)
+    frame = prepare_labeling_frame(_prices(periods=500), config=config)
+    windows = plan_labeling_windows(
+        frame.index,
+        config=config,
+        labeling_end_date=frame.index[-1],
+    )
+    window = windows[len(windows) // 2]
+    context, viewport = prepare_chart_view(
+        frame, window=window, config=config, timeframe="1Y"
+    )
+
+    figure = build_labeling_figure(
+        context,
+        window=window,
+        selected_dates=set(),
+        config=config,
+        viewport_range=viewport,
+    )
+
+    assert figure.layout.xaxis.range[0] == viewport[0]
+    assert figure.layout.xaxis.range[1] == viewport[1]
+    assert figure.layout.yaxis.range is not None
 
 
 def test_pivot_annotation_preserves_established_appearance() -> None:

@@ -49,6 +49,17 @@ SUPPORTED_HEATMAP_MODES: tuple[HeatmapMode, ...] = (
     "atr_units",
     "risk_units",
 )
+DEFAULT_CHART_TIMEFRAME = "4M"
+# Named chart timeframes map to a total number of trading sessions shown around
+# the planned window. Every timeframe centres the planned window and reveals
+# balanced off-window context on both sides, extending past the loaded data with
+# blank axis space when necessary to keep the window centred. A trading month is
+# ~21 sessions, so 4M ~= 84 sessions, 1Y ~= 252, and 3Y ~= 756.
+CHART_TIMEFRAME_SESSIONS: dict[str, int] = {
+    DEFAULT_CHART_TIMEFRAME: 84,
+    "1Y": 252,
+    "3Y": 756,
+}
 OHLC_COLUMNS = ("open", "high", "low", "close")
 FLOAT_ATOL = 1e-10
 EMA_COLORS = {
@@ -600,15 +611,75 @@ def slice_chart_context(
     window: LabelingWindow,
     config: LabelingConfig,
 ) -> pd.DataFrame:
-    """Return half a window of visual context on each side plus outcome rows."""
+    """Return off-window context while keeping the planned window authoritative.
+
+    At least half a labeling window is retained on either side when the source
+    data permits it. The right context is also long enough to calculate every
+    configured forward-outcome horizon for the final planned candle.
+    """
 
     context_size = max(1, config.window_size // 2)
+    right_context_size = max(context_size, config.forward_horizon)
     start = max(0, window.start_position - context_size)
     end = min(
         len(frame),
-        window.end_position + context_size + config.forward_horizon + 1,
+        window.end_position + right_context_size + 1,
     )
     return frame.iloc[start:end].copy()
+
+
+def prepare_chart_view(
+    frame: pd.DataFrame,
+    *,
+    window: LabelingWindow,
+    config: LabelingConfig,
+    timeframe: str = DEFAULT_CHART_TIMEFRAME,
+) -> tuple[pd.DataFrame, tuple[pd.Timestamp, pd.Timestamp]]:
+    """Return the context slice and the centred x-axis range for a timeframe.
+
+    Every timeframe keeps the planned window's centre at the centre of the
+    figure and shows an equal number of trading sessions on each side. The
+    underlying context slice is clamped to the loaded data, but the returned
+    viewport extends past the first or last loaded session with extrapolated
+    business days when the balanced span reaches beyond the available history,
+    so the window stays centred even near the data edges.
+    """
+
+    if timeframe not in CHART_TIMEFRAME_SESSIONS:
+        raise ValueError(
+            f"Unsupported timeframe {timeframe!r}; expected one of "
+            f"{tuple(CHART_TIMEFRAME_SESSIONS)}."
+        )
+    sessions = CHART_TIMEFRAME_SESSIONS[timeframe]
+    center = (window.start_position + window.end_position) // 2
+    half = sessions // 2
+    start_position = center - half
+    end_position = center + half
+    # The slice keeps a forward-horizon margin around the visible sessions and
+    # always spans the full planned window, but never reaches beyond the data.
+    data_start = max(0, min(start_position, window.start_position) - config.forward_horizon)
+    data_end = min(
+        len(frame),
+        max(end_position, window.end_position) + config.forward_horizon + 1,
+    )
+    context = frame.iloc[data_start:data_end].copy()
+    viewport = (
+        _session_offset_date(frame.index, start_position),
+        _session_offset_date(frame.index, end_position),
+    )
+    return context, viewport
+
+
+def _session_offset_date(index: pd.Index, position: int) -> pd.Timestamp:
+    """Return the date at ``position``, extrapolating business days off the ends."""
+
+    last = len(index) - 1
+    if position < 0:
+        return pd.Timestamp(index[0]) - pd.tseries.offsets.BDay(-position)
+    if position > last:
+        return pd.Timestamp(index[-1]) + pd.tseries.offsets.BDay(position - last)
+    return pd.Timestamp(index[position])
+
 
 
 def calculate_forward_outcomes(
@@ -702,12 +773,15 @@ def build_labeling_figure(
     selected_dates: Iterable[date | str | pd.Timestamp],
     config: LabelingConfig,
     heatmap_mode: HeatmapMode | None = None,
+    viewport_range: tuple[date | str | pd.Timestamp, date | str | pd.Timestamp] | None = None,
 ) -> Figure:
     """Build the labeling chart before notebook callbacks are attached.
 
-    The figure contains candlesticks and indicators, directional volume, and one
-    selected forward-outcome heatmap. Empty named stop and take-profit traces are
-    included so a ``FigureWidget`` hover callback can update them in place.
+    The figure opens on ``viewport_range`` when supplied, otherwise on the
+    complete planned window. Off-window candles remain in the traces for panning
+    and are shaded to show that they are not yet labelable. Empty named stop and
+    take-profit traces let a ``FigureWidget`` hover callback update those guides
+    in place.
     """
 
     import plotly.graph_objects as go
@@ -877,20 +951,53 @@ def build_labeling_figure(
         linewidth=1,
         mirror=True,
     )
-    if frame.index[0] < window.start_date:
+    window_start_position = int(frame.index.get_loc(window.start_date))
+    window_end_position = int(frame.index.get_loc(window.end_date))
+    if viewport_range is None:
+        view_start, view_end = window.start_date, window.end_date
+    else:
+        view_start = _to_timestamp(viewport_range[0])
+        view_end = _to_timestamp(viewport_range[1])
+        # Fit the price panel to the visible span so a centred window stays
+        # readable when far-away candles would otherwise dominate the y-axis.
+        visible = frame.loc[(frame.index >= view_start) & (frame.index <= view_end)]
+        if not visible.empty:
+            low = float(visible["low"].min())
+            high = float(visible["high"].max())
+            pad = (high - low) * 0.05 or 1.0
+            figure.update_yaxes(range=[low - pad, high + pad], row=1, col=1)
+    # Shade the whole visible span outside the planned window, extending to the
+    # viewport edges so the active window reads as the only unshaded region.
+    left_extent = min(view_start, pd.Timestamp(frame.index[0]))
+    right_extent = max(view_end, pd.Timestamp(frame.index[-1]))
+    if window_start_position > 0:
+        left_boundary = _timestamp_midpoint(
+            pd.Timestamp(frame.index[window_start_position - 1]),
+            window.start_date,
+        )
+    else:
+        left_boundary = window.start_date
+    if left_extent < left_boundary:
         figure.add_vrect(
-            x0=frame.index[0],
-            x1=window.start_date,
+            x0=left_extent,
+            x1=left_boundary,
             fillcolor="#6b7280",
             opacity=0.12,
             line_width=0,
             row="all",
             col=1,
         )
-    if window.end_date < frame.index[-1]:
+    if window_end_position + 1 < len(frame):
+        right_boundary = _timestamp_midpoint(
+            window.end_date,
+            pd.Timestamp(frame.index[window_end_position + 1]),
+        )
+    else:
+        right_boundary = window.end_date
+    if right_boundary < right_extent:
         figure.add_vrect(
-            x0=window.end_date,
-            x1=frame.index[-1],
+            x0=right_boundary,
+            x1=right_extent,
             fillcolor="#6b7280",
             opacity=0.12,
             line_width=0,
@@ -898,11 +1005,9 @@ def build_labeling_figure(
             col=1,
         )
     figure.update_xaxes(
-        range=[frame.index[0], frame.index[-1]],
+        range=[view_start, view_end],
         rangeslider_visible=False,
         rangebreaks=[{"bounds": ["sat", "mon"]}],
-        row=1,
-        col=1,
     )
     figure.update_yaxes(title_text="Price", row=1, col=1)
     figure.update_yaxes(title_text="Volume", row=2, col=1)
@@ -1041,6 +1146,14 @@ def update_risk_guide_traces(figure: Figure, guide: RiskGuide | None) -> None:
     target_trace.x = x_values
     target_trace.y = [guide.take_profit, guide.take_profit]
     target_trace.visible = True
+
+
+def _timestamp_midpoint(left: pd.Timestamp, right: pd.Timestamp) -> pd.Timestamp:
+    """Return the midpoint between two ordered timestamps."""
+
+    if left >= right:
+        raise ValueError("left must be earlier than right.")
+    return left + (right - left) / 2
 
 
 def _upsert_labels(connection: Connection, values: list[dict[str, Any]]) -> None:

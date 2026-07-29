@@ -112,6 +112,45 @@ def load_daily_price_state_by_ticker(
     }
 
 
+def load_available_tickers(
+    *,
+    engine: Engine,
+    provider: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> tuple[str, ...]:
+    """Load the distinct tickers stored in the bronze daily prices table.
+
+    Parameters
+    ----------
+    engine
+        SQLAlchemy engine for the target application database.
+    provider
+        Optional market data provider to filter by, such as ``"yfinance"``. When omitted,
+        tickers across all providers are returned.
+    start_date
+        Optional inclusive lower bound for stored trading dates.
+    end_date
+        Optional inclusive upper bound for stored trading dates.
+
+    Returns
+    -------
+    tuple[str, ...]
+        Distinct ticker symbols sorted alphabetically.
+    """
+    statement = select(bronze_market_daily_prices.c.ticker).distinct()
+    if provider is not None:
+        statement = statement.where(bronze_market_daily_prices.c.provider == provider)
+    if start_date is not None:
+        statement = statement.where(bronze_market_daily_prices.c.trading_date >= start_date)
+    if end_date is not None:
+        statement = statement.where(bronze_market_daily_prices.c.trading_date <= end_date)
+    statement = statement.order_by(bronze_market_daily_prices.c.ticker)
+    with engine.connect() as connection:
+        rows = connection.execute(statement).scalars().all()
+    return tuple(str(ticker) for ticker in rows)
+
+
 def load_daily_price_quality_state_by_ticker(
     *,
     engine: Engine,
