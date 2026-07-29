@@ -109,7 +109,7 @@ def test_adjustment_consistent_prices_removes_placeholders_and_scales_ohlc() -> 
     ]
     prices.loc[placeholder_date, "adjusted_close"] = prices.loc[prices.index[1], "adjusted_close"]
     prices.loc[placeholder_date, "volume"] = 0
-    prices.loc[prices.index[3]:, "adjusted_close"] *= 0.5
+    prices.loc[prices.index[3] :, "adjusted_close"] *= 0.5
 
     adjusted = prepare_adjustment_consistent_prices(prices)
 
@@ -253,9 +253,7 @@ def test_build_labeling_figure_opens_on_supplied_viewport() -> None:
         labeling_end_date=frame.index[-1],
     )
     window = windows[len(windows) // 2]
-    context, viewport = prepare_chart_view(
-        frame, window=window, config=config, timeframe="1Y"
-    )
+    context, viewport = prepare_chart_view(frame, window=window, config=config, timeframe="1Y")
 
     figure = build_labeling_figure(
         context,

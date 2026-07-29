@@ -681,7 +681,6 @@ def _session_offset_date(index: pd.Index, position: int) -> pd.Timestamp:
     return pd.Timestamp(index[position])
 
 
-
 def calculate_forward_outcomes(
     close: pd.Series,
     atr_values: pd.Series,
