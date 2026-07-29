@@ -4,7 +4,7 @@ A workflow is an ordered composition of public operations and runtime artifacts 
 
 ## End-to-End Lifecycle
 
-Solid nodes are implemented. Dashed nodes describe planned nonlinear model-development and production workflows.
+Solid nodes are implemented. Dashed nodes describe planned nonlinear model-development and production workflows. The lifecycle diagram follows the objective-target path; the separate human-labeling path is documented below.
 
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 34, "rankSpacing": 52}}}%%
@@ -132,6 +132,38 @@ flowchart LR
 ```
 
 Candidate ranking and winner selection remain manual. After choosing a schema, pass that `ModelSpec` to the existing outer baseline harness. See [Model Feature Selection and Train-Only Cross-Validation](feature-selection-and-cross-validation.md).
+
+## Interactive Entry Labeling
+
+**Status:** Implemented.
+
+This workflow steps through deterministic rolling windows of train and validation history. The planned window defines which candles are saved as positive or negative; Plotly zooming and panning only change the temporary viewport. Saving upserts one authoritative binary label per provider, ticker, and trading date, while session progress is updated in the same transaction.
+
+```mermaid
+flowchart LR
+    bronze[(Bronze OHLCV)]
+    boundary["Validation-end boundary"]
+    plan([Plan rolling windows])
+    inspect([Inspect and select candles])
+    labels[(Binary candle labels)]
+    session[(Resume state)]
+
+    bronze --> plan
+    boundary --> plan
+    plan --> inspect
+    session --> inspect
+    inspect --> labels
+    inspect --> session
+
+    classDef contract fill:#e3f2fd,stroke:#1565c0
+    classDef action fill:#fff3e0,stroke:#ef6c00
+    classDef artifact fill:#e8f5e9,stroke:#2e7d32
+    class boundary contract
+    class plan,inspect action
+    class bronze,labels,session artifact
+```
+
+The chart adds EMA, retrospective pivot, volume, hover-based ATR stop/target, and commission-aware forward-outcome context. Locked-test rows remain outside the labeling boundary. See [Interactive Entry Labeling](data-labeling.md).
 
 ## Baseline Training and Validation
 
