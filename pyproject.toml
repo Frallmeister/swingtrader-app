@@ -51,6 +51,7 @@ docs = [
     "mkdocstrings[python]>=0.30.0",
 ]
 notebook = [
+    "anywidget>=0.11.0",
     "ipykernel>=7.3.0",
     "ipywidgets>=8.1.8",
     "jupyterlab>=4.6.0",

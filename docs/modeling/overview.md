@@ -13,6 +13,8 @@ flowchart TB
     dataset_spec["Derived TemporalDatasetSpec"]
     source[(Bronze history)]
     eligibility[(Cutoff-aware eligibility)]
+    labeler([Label rolling candle windows])
+    labels[(Authoritative binary candle labels)]
     builder([Build temporal dataset])
     bundle["TemporalDatasetBundle"]
     features[(features)]
@@ -35,6 +37,7 @@ flowchart TB
     experiment -->|dataset choices| dataset_spec
     dataset_spec --> builder
     source --> builder
+    source --> labeler --> labels
     builder --> eligibility
     builder --> bundle
     bundle --> features
@@ -61,6 +64,7 @@ flowchart TB
     harness --> validation_report
     harness --> test_report
     bundle -.-> advanced
+    labels -.-> advanced
     splitter -.-> advanced
     experiment -.-> advanced
 
@@ -70,8 +74,8 @@ flowchart TB
     classDef state fill:#f3e5f5,stroke:#6a1b9a
     classDef planned fill:#fafafa,stroke:#9e9e9e,color:#616161,stroke-dasharray:6 4
     class experiment,dataset_spec,bundle,cv_spec contract
-    class builder,splitter,cv_harness,harness action
-    class source,eligibility,features,targets,samples,manifest,cv_result,model,validation_report,test_report artifact
+    class builder,labeler,splitter,cv_harness,harness action
+    class source,eligibility,labels,features,targets,samples,manifest,cv_result,model,validation_report,test_report artifact
     class train,validation,test state
     class advanced planned
 ```
@@ -85,6 +89,8 @@ Feature and target builders consume the same canonical market-price DataFrame: a
 The experiment package applies split policy downstream, using each row's actual target resolution date for purging and an optional global pre-boundary embargo. `ModelSpec.feature_columns` separately defines an optional exact ordered estimator schema without changing feature-generation contracts. `ExperimentSpec.dataset_spec` keeps dataset construction independent of model, seed, and MLflow concerns, while the optional MLflow adapter records executions and runtime provenance.
 
 The training package implements a constant-prior classifier, deterministic date-matched random ranker, regularized logistic regression with train-only median imputation and scaling, expanding global-date cross-validation confined to outer train, a canonical prediction frame, and reusable classification, calibration, cross-sectional ranking, artifact, and MLflow logging workflows. Each inner fold fits preprocessing and the estimator independently and reports compact train/validation diagnostics.
+
+The entry-labeling workflow records one authoritative binary label per provider, ticker, and trading date. Deterministic planned windows remain independent of Plotly zoom and pan state, and the configured validation-end boundary prevents the workflow from displaying locked-test candles or outcomes.
 
 The backtesting pilot is intentionally separate from research-target evaluation. It consumes raw OHLC execution prices and point-in-time score/ATR signals, applies next-open execution, ATR risk sizing, fixed stop/target rules, timeout exits, commissions, and a maximum-position constraint, then returns pandas transaction, equity, and summary tables.
 

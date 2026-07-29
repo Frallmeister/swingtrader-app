@@ -134,6 +134,10 @@ analysis.
 
 ::: swingtrader.data.features.catalog
 
+## Interactive Entry Labeling
+
+::: swingtrader.modeling.labeling
+
 ## Modeling Targets
 
 ### Contracts

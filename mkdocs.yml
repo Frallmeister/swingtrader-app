@@ -86,6 +86,7 @@ nav:
   - Modeling:
       - Overview: modeling/overview.md
       - Workflows: modeling/workflows.md
+      - Interactive Entry Labeling: modeling/data-labeling.md
       - Temporal Datasets: modeling/temporal-datasets.md
       - Temporal Splitting: modeling/temporal-splitting.md
       - Feature Selection and Train-Only CV: modeling/feature-selection-and-cross-validation.md

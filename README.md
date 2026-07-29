@@ -31,6 +31,7 @@ The project currently implements the data and initial modeling foundation:
 * explicit ordered model-input schemas and expanding temporal cross-validation confined to outer train
 * standardized classification, calibration, daily ranking, and dataset-context evaluation reports
 * deterministic local or MLflow model, prediction, table, Markdown, and SVG artifacts
+* resumable rolling-window candle labeling with interactive Plotly charts and commission-aware forward-outcome heatmaps
 * a small daily-bar backtesting pilot with next-open execution and ATR-based risk sizing
 * local SQLite support and configurable SQLAlchemy database URLs
 * MkDocs-based project documentation
@@ -56,6 +57,7 @@ Useful entry points:
 * [Ticker onboarding](docs/data/ticker-onboarding.md)
 * [Ticker eligibility](docs/data/eligibility.md)
 * [Modeling overview](docs/modeling/overview.md)
+* [Interactive entry labeling](docs/modeling/data-labeling.md)
 * [Temporal datasets](docs/modeling/temporal-datasets.md)
 * [Temporal splitting](docs/modeling/temporal-splitting.md)
 * [Model feature selection and train-only cross-validation](docs/modeling/feature-selection-and-cross-validation.md)
@@ -249,8 +251,8 @@ swingtrader-app/
 │       ├── data/              Clients, ingestion workflows, bronze storage,
 │       │                      feature generation, and scheduled data jobs.
 │       ├── indicators/        Reusable numerical indicator calculations.
-│       └── modeling/          Dataset construction, training, evaluation,
-│                              backtesting, inference, and model metadata.
+│       └── modeling/          Dataset construction, entry labeling, training,
+│                              evaluation, backtesting, inference, and metadata.
 ├── tests/                     Unit and integration-style tests using local fixtures.
 └── docs/                      Project documentation and architecture decisions.
 ```
