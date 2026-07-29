@@ -23,6 +23,7 @@ from swingtrader.modeling.labeling import (
     load_labels,
     load_latest_labeling_session,
     plan_labeling_windows,
+    prepare_adjustment_consistent_prices,
     prepare_labeling_frame,
     risk_guide_for_date,
     save_labeling_window,
@@ -42,6 +43,7 @@ def _prices(periods: int = 140) -> pd.DataFrame:
             "high": close + 1.0,
             "low": close - 1.0,
             "close": close,
+            "adjusted_close": close,
             "volume": np.arange(periods) + 1_000,
         },
         index=index,
@@ -98,6 +100,27 @@ def test_forward_outcomes_are_commission_aware_in_all_modes() -> None:
     assert np.isnan(outcomes.net_return.loc[2, index[1]])
 
 
+def test_adjustment_consistent_prices_removes_placeholders_and_scales_ohlc() -> None:
+    prices = _prices(periods=6)
+    placeholder_date = prices.index[2]
+    prices.loc[placeholder_date, ["open", "high", "low", "close"]] = prices.loc[
+        prices.index[1], ["open", "high", "low", "close"]
+    ]
+    prices.loc[placeholder_date, "adjusted_close"] = prices.loc[prices.index[1], "adjusted_close"]
+    prices.loc[placeholder_date, "volume"] = 0
+    prices.loc[prices.index[3]:, "adjusted_close"] *= 0.5
+
+    adjusted = prepare_adjustment_consistent_prices(prices)
+
+    assert placeholder_date not in adjusted.index
+    assert adjusted.loc[prices.index[3], "close"] == pytest.approx(
+        prices.loc[prices.index[3], "adjusted_close"]
+    )
+    assert adjusted.loc[prices.index[3], "high"] == pytest.approx(
+        prices.loc[prices.index[3], "high"] * 0.5
+    )
+
+
 def test_prepare_frame_and_chart_use_requested_visual_contract() -> None:
     config = LabelingConfig(window_size=40, step_size=30, forward_horizon=5)
     frame = prepare_labeling_frame(_prices(), config=config)
@@ -129,8 +152,11 @@ def test_prepare_frame_and_chart_use_requested_visual_contract() -> None:
     assert set(volume.marker.color) == {"#26a69a", "#ef5350"}
     heatmap = next(trace for trace in figure.data if trace.name == "Forward outcomes")
     assert list(heatmap.y) == [1, 2, 3, 4, 5]
-    assert figure.layout.xaxis.range[0] == windows[1].start_date
-    assert figure.layout.xaxis.range[1] == windows[1].end_date
+    assert figure.layout.xaxis.range[0] == context.index[0]
+    assert figure.layout.xaxis.range[1] == context.index[-1]
+    assert len(figure.layout.shapes) == 6
+    assert all(shape.fillcolor == "#6b7280" for shape in figure.layout.shapes)
+    assert all(shape.opacity == pytest.approx(0.12) for shape in figure.layout.shapes)
 
     update_selected_trace(figure, context, set())
     selected_trace = next(trace for trace in figure.data if trace.name == SELECTED_TRACE_NAME)

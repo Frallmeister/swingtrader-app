@@ -107,4 +107,4 @@ uv sync --all-extras --dev --group notebook --group docs
 uv run --group notebook jupyter lab
 ```
 
-Open `notebooks/workflows/modeling/05_interactive_entry_labeling.ipynb`, set the ordered ticker universe and validation end date, then run the notebook from the top. Plotly `FigureWidget` interaction requires the notebook group's `anywidget` dependency.
+Open `notebooks/workflows/modeling/05_interactive_entry_labeling.ipynb`, set the ordered ticker universe and validation end date, then run the notebook from the top. Interaction relies on Plotly's `FigureWidget`; the notebook group pins `plotly<6` so the classic `jupyterlab-plotly` widget frontend renders reliably in VS Code (Plotly 6 switched `FigureWidget` to an `anywidget` backend that VS Code's notebook renderer fails to register).

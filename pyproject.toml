@@ -33,7 +33,7 @@ modeling = [
     "alembic>=1.13.0,<2",
     "matplotlib>=3.11.0",
     "mlflow-skinny==3.14.0",
-    "plotly>=6.9.0",
+    "plotly>=5.24,<6",
     "scikit-learn>=1.9.0",
     "sqlalchemy>=2.0.51,<3",
     "xgboost>=3.3.0",
@@ -52,7 +52,6 @@ docs = [
     "mkdocstrings[python]>=0.30.0",
 ]
 notebook = [
-    "anywidget>=0.11.0",
     "ipykernel>=7.3.0",
     "ipywidgets>=8.1.8",
     "joblib>=1.5.3",
@@ -60,7 +59,7 @@ notebook = [
     "jupytext>=1.19.4",
     "matplotlib>=3.11.0",
     "nbstripout>=0.9.1",
-    "plotly>=6.9.0",
+    "plotly>=5.24,<6",
     "seaborn>=0.13.2",
 ]
 

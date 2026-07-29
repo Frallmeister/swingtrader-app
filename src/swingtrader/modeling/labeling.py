@@ -49,6 +49,8 @@ SUPPORTED_HEATMAP_MODES: tuple[HeatmapMode, ...] = (
     "atr_units",
     "risk_units",
 )
+OHLC_COLUMNS = ("open", "high", "low", "close")
+FLOAT_ATOL = 1e-10
 EMA_COLORS = {
     10: "#1f77b4",
     20: "#ff7f0e",
@@ -498,6 +500,65 @@ def plan_labeling_windows(
     return tuple(windows)
 
 
+def prepare_adjustment_consistent_prices(prices: pd.DataFrame) -> pd.DataFrame:
+    """Remove synthetic no-trade bars and align OHLC with adjusted close.
+
+    The bronze provider may contain zero-volume rows whose OHLC exactly repeats
+    the previous observed bar. Those placeholders must not count as trading
+    sessions. Remaining OHLC values are scaled by ``adjusted_close / close`` so
+    chart indicators, heatmaps, and later model targets use one price space.
+    """
+
+    required_columns = {*OHLC_COLUMNS, "adjusted_close", "volume"}
+    missing = sorted(required_columns - set(prices.columns))
+    if missing:
+        raise ValueError(f"Missing adjustment price columns: {', '.join(missing)}")
+    if not isinstance(prices.index, pd.DatetimeIndex):
+        raise ValueError("prices must use a DatetimeIndex for one instrument.")
+    if prices.index.has_duplicates:
+        raise ValueError("prices index must be unique.")
+    if not prices.index.is_monotonic_increasing:
+        raise ValueError("prices must be ordered by trading date.")
+
+    numeric = prices.copy()
+    for column in (*OHLC_COLUMNS, "adjusted_close", "volume"):
+        numeric[column] = pd.to_numeric(numeric[column], errors="coerce")
+
+    previous_ohlc = numeric.loc[:, OHLC_COLUMNS].shift(1)
+    repeated_previous = pd.Series(True, index=numeric.index)
+    for column in OHLC_COLUMNS:
+        repeated_previous &= np.isclose(
+            numeric[column],
+            previous_ohlc[column],
+            rtol=0.0,
+            atol=FLOAT_ATOL,
+            equal_nan=False,
+        )
+    synthetic_no_trade = numeric["volume"].eq(0) & repeated_previous
+    cleaned = numeric.loc[~synthetic_no_trade].copy()
+
+    adjustment_factor = cleaned["adjusted_close"].div(cleaned["close"])
+    valid_factor = (
+        np.isfinite(adjustment_factor)
+        & adjustment_factor.gt(0)
+        & cleaned["close"].gt(0)
+        & cleaned["adjusted_close"].gt(0)
+    )
+    cleaned = cleaned.loc[valid_factor].copy()
+    adjustment_factor = adjustment_factor.loc[valid_factor]
+    for column in OHLC_COLUMNS:
+        cleaned[column] = cleaned[column] * adjustment_factor
+    cleaned["close"] = cleaned["adjusted_close"]
+
+    valid_bar = (
+        np.isfinite(cleaned.loc[:, OHLC_COLUMNS]).all(axis=1)
+        & cleaned.loc[:, OHLC_COLUMNS].gt(0).all(axis=1)
+        & cleaned["high"].ge(cleaned[["open", "close", "low"]].max(axis=1))
+        & cleaned["low"].le(cleaned[["open", "close", "high"]].min(axis=1))
+    )
+    return cleaned.loc[valid_bar, [*OHLC_COLUMNS, "volume"]].copy()
+
+
 def prepare_labeling_frame(prices: pd.DataFrame, *, config: LabelingConfig) -> pd.DataFrame:
     """Validate one ordered instrument and add chart indicators for labeling.
 
@@ -539,12 +600,13 @@ def slice_chart_context(
     window: LabelingWindow,
     config: LabelingConfig,
 ) -> pd.DataFrame:
-    """Return one step of pan context on each side plus forward-outcome rows."""
+    """Return half a window of visual context on each side plus outcome rows."""
 
-    start = max(0, window.start_position - config.step_size)
+    context_size = max(1, config.window_size // 2)
+    start = max(0, window.start_position - context_size)
     end = min(
         len(frame),
-        window.end_position + config.step_size + config.forward_horizon + 1,
+        window.end_position + context_size + config.forward_horizon + 1,
     )
     return frame.iloc[start:end].copy()
 
@@ -815,8 +877,28 @@ def build_labeling_figure(
         linewidth=1,
         mirror=True,
     )
+    if frame.index[0] < window.start_date:
+        figure.add_vrect(
+            x0=frame.index[0],
+            x1=window.start_date,
+            fillcolor="#6b7280",
+            opacity=0.12,
+            line_width=0,
+            row="all",
+            col=1,
+        )
+    if window.end_date < frame.index[-1]:
+        figure.add_vrect(
+            x0=window.end_date,
+            x1=frame.index[-1],
+            fillcolor="#6b7280",
+            opacity=0.12,
+            line_width=0,
+            row="all",
+            col=1,
+        )
     figure.update_xaxes(
-        range=[window.start_date, window.end_date],
+        range=[frame.index[0], frame.index[-1]],
         rangeslider_visible=False,
         rangebreaks=[{"bounds": ["sat", "mon"]}],
         row=1,
