@@ -54,6 +54,7 @@ notebook = [
     "anywidget>=0.11.0",
     "ipykernel>=7.3.0",
     "ipywidgets>=8.1.8",
+    "joblib>=1.5.3",
     "jupyterlab>=4.6.0",
     "jupytext>=1.19.4",
     "matplotlib>=3.11.0",
