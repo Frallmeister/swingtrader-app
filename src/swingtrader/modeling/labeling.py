@@ -12,7 +12,7 @@ import json
 import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
 
@@ -393,9 +393,7 @@ def save_labeling_window(
             raise ValueError(f"Ticker {ticker!r} is not part of the labeling session.")
         current_ticker_position = int(session_row["current_ticker_position"])
         if not 0 <= current_ticker_position < len(tickers):
-            raise ValueError(
-                "The session current ticker position is outside its ticker list."
-            )
+            raise ValueError("The session current ticker position is outside its ticker list.")
         current_ticker = tickers[current_ticker_position]
         if ticker != current_ticker:
             raise ValueError(
@@ -875,9 +873,7 @@ def _upsert_labels(connection: Connection, values: list[dict[str, Any]]) -> None
         elif connection.dialect.name == "postgresql":
             statement = _postgresql_label_upsert(chunk)
         else:
-            raise ValueError(
-                f"Unsupported labeling database dialect: {connection.dialect.name!r}."
-            )
+            raise ValueError(f"Unsupported labeling database dialect: {connection.dialect.name!r}.")
         connection.execute(statement)
 
 
@@ -919,11 +915,15 @@ def _label_update_values(statement: Any) -> dict[str, Any]:
 
 
 def _load_session_mapping(connection: Connection, labeling_session_id: str) -> Any:
-    row = connection.execute(
-        select(labeling_sessions).where(
-            labeling_sessions.c.labeling_session_id == labeling_session_id
+    row = (
+        connection.execute(
+            select(labeling_sessions).where(
+                labeling_sessions.c.labeling_session_id == labeling_session_id
+            )
         )
-    ).mappings().one_or_none()
+        .mappings()
+        .one_or_none()
+    )
     if row is None:
         raise ValueError(f"Unknown labeling session: {labeling_session_id!r}.")
     return row
@@ -1039,7 +1039,7 @@ def _to_timestamp(value: date | str | pd.Timestamp) -> pd.Timestamp:
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _selected_marker_coordinates(

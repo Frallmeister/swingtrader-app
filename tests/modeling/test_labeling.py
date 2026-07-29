@@ -13,8 +13,8 @@ from swingtrader.modeling.labeling import (
     SELECTED_TRACE_NAME,
     STOP_TRACE_NAME,
     TAKE_PROFIT_TRACE_NAME,
-    add_pivot_annotation,
     LabelingConfig,
+    add_pivot_annotation,
     build_labeling_figure,
     calculate_forward_outcomes,
     candle_labels,
@@ -376,13 +376,16 @@ def test_save_rejects_changes_to_fixed_session_configuration() -> None:
             ),
         )
 
-    assert load_labels(
-        engine=engine,
-        provider="yfinance",
-        ticker="AAA.ST",
-        start_date=window.start_date,
-        end_date=window.end_date,
-    ) == {}
+    assert (
+        load_labels(
+            engine=engine,
+            provider="yfinance",
+            ticker="AAA.ST",
+            start_date=window.start_date,
+            end_date=window.end_date,
+        )
+        == {}
+    )
 
 
 def test_save_rejects_selected_date_outside_planned_window() -> None:
