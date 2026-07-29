@@ -217,6 +217,21 @@ class LabelingSession:
 
 
 @dataclass(frozen=True, slots=True)
+class PreparedLabelingUniverse:
+    """Prepared frames and windows for tickers eligible for labeling."""
+
+    frames: dict[str, pd.DataFrame]
+    windows_by_ticker: dict[str, tuple[LabelingWindow, ...]]
+    skipped_tickers: dict[str, str]
+
+    @property
+    def tickers(self) -> tuple[str, ...]:
+        """Return eligible tickers in their requested order."""
+
+        return tuple(self.frames)
+
+
+@dataclass(frozen=True, slots=True)
 class ForwardOutcomeMatrices:
     """Commission-aware forward outcomes sharing horizons and entry dates."""
 
@@ -603,6 +618,76 @@ def prepare_labeling_frame(prices: pd.DataFrame, *, config: LabelingConfig) -> p
     frame["pivot_high"] = pivots["pivot_high"]
     frame["pivot_low"] = pivots["pivot_low"]
     return frame
+
+
+def prepare_labeling_universe(
+    *,
+    engine: Engine,
+    provider: str,
+    tickers: Sequence[str],
+    labeling_end_date: date | str | pd.Timestamp,
+    config: LabelingConfig,
+    labeling_start_date: date | str | pd.Timestamp | None = None,
+) -> PreparedLabelingUniverse:
+    """Load and prepare tickers that have at least one complete labeling window.
+
+    Tickers without bronze rows or sufficient cleaned history are skipped rather
+    than preventing the whole labeling workflow from starting. The returned
+    ticker order matches the requested order and is safe to persist in a new
+    labeling session.
+    """
+
+    from swingtrader.data.bronze.loaders import load_bronze_daily_prices
+
+    requested_tickers = _normalize_tickers(tickers)
+    rows = load_bronze_daily_prices(
+        engine=engine,
+        provider=provider,
+        tickers=requested_tickers,
+        end_date=labeling_end_date,
+        columns=("open", "high", "low", "close", "adjusted_close", "volume"),
+    )
+
+    frames: dict[str, pd.DataFrame] = {}
+    windows_by_ticker: dict[str, tuple[LabelingWindow, ...]] = {}
+    skipped_tickers: dict[str, str] = {}
+
+    for ticker in requested_tickers:
+        ticker_rows = rows.loc[rows["ticker"] == ticker].copy()
+        if ticker_rows.empty:
+            skipped_tickers[ticker] = "no bronze price rows"
+            continue
+
+        prices = ticker_rows.set_index("trading_date")[
+            ["open", "high", "low", "close", "adjusted_close", "volume"]
+        ].sort_index()
+        adjusted_prices = prepare_adjustment_consistent_prices(prices)
+        frame = prepare_labeling_frame(adjusted_prices, config=config)
+        windows = plan_labeling_windows(
+            frame.index,
+            config=config,
+            labeling_start_date=labeling_start_date,
+            labeling_end_date=labeling_end_date,
+        )
+        if not windows:
+            skipped_tickers[ticker] = (
+                "insufficient usable history for one complete "
+                f"{config.window_size}-session window plus "
+                f"{config.forward_horizon} future sessions"
+            )
+            continue
+
+        frames[ticker] = frame
+        windows_by_ticker[ticker] = windows
+
+    if not frames:
+        raise ValueError("None of the requested tickers have complete labeling windows.")
+
+    return PreparedLabelingUniverse(
+        frames=frames,
+        windows_by_ticker=windows_by_ticker,
+        skipped_tickers=skipped_tickers,
+    )
 
 
 def slice_chart_context(

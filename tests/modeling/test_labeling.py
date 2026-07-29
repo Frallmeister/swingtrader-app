@@ -25,6 +25,7 @@ from swingtrader.modeling.labeling import (
     plan_labeling_windows,
     prepare_adjustment_consistent_prices,
     prepare_chart_view,
+    prepare_labeling_universe,
     prepare_labeling_frame,
     risk_guide_for_date,
     save_labeling_window,
@@ -120,6 +121,68 @@ def test_adjustment_consistent_prices_removes_placeholders_and_scales_ohlc() -> 
     assert adjusted.loc[prices.index[3], "high"] == pytest.approx(
         prices.loc[prices.index[3], "high"] * 0.5
     )
+
+
+def test_prepare_labeling_universe_skips_ineligible_tickers(monkeypatch) -> None:
+    eligible = _prices(periods=100).reset_index(names="trading_date")
+    eligible.insert(0, "ticker", "ELIGIBLE.ST")
+    short = _prices(periods=20).reset_index(names="trading_date")
+    short.insert(0, "ticker", "SHORT.ST")
+    rows = pd.concat([eligible, short], ignore_index=True)
+
+    def load_prices(**kwargs):
+        del kwargs
+        return rows
+
+    monkeypatch.setattr(
+        "swingtrader.data.bronze.loaders.load_bronze_daily_prices",
+        load_prices,
+    )
+    universe = prepare_labeling_universe(
+        engine=create_engine("sqlite+pysqlite:///:memory:"),
+        provider="yfinance",
+        tickers=("ELIGIBLE.ST", "MISSING.ST", "SHORT.ST"),
+        labeling_end_date=eligible["trading_date"].max(),
+        config=LabelingConfig(window_size=40, step_size=30, forward_horizon=5),
+    )
+
+    assert universe.tickers == ("ELIGIBLE.ST",)
+    assert tuple(universe.frames) == ("ELIGIBLE.ST",)
+    assert tuple(universe.windows_by_ticker) == ("ELIGIBLE.ST",)
+    assert universe.skipped_tickers == {
+        "MISSING.ST": "no bronze price rows",
+        "SHORT.ST": (
+            "insufficient usable history for one complete "
+            "40-session window plus 5 future sessions"
+        ),
+    }
+
+
+def test_prepare_labeling_universe_raises_when_all_tickers_are_ineligible(
+    monkeypatch,
+) -> None:
+    rows = _prices(periods=20).reset_index(names="trading_date")
+    rows.insert(0, "ticker", "SHORT.ST")
+
+    def load_prices(**kwargs):
+        del kwargs
+        return rows
+
+    monkeypatch.setattr(
+        "swingtrader.data.bronze.loaders.load_bronze_daily_prices",
+        load_prices,
+    )
+    with pytest.raises(
+        ValueError,
+        match="None of the requested tickers have complete labeling windows",
+    ):
+        prepare_labeling_universe(
+            engine=create_engine("sqlite+pysqlite:///:memory:"),
+            provider="yfinance",
+            tickers=("SHORT.ST",),
+            labeling_end_date=rows["trading_date"].max(),
+            config=LabelingConfig(window_size=40, step_size=30, forward_horizon=5),
+        )
 
 
 def test_prepare_frame_and_chart_use_requested_visual_contract() -> None:
