@@ -34,8 +34,7 @@ def normalize_builder_parameters(
         inspect.Parameter.POSITIONAL_OR_KEYWORD,
     }:
         raise ValueError(
-            f"Builder for {subject} must accept its DataFrame as the first "
-            "positional argument."
+            f"Builder for {subject} must accept its DataFrame as the first positional argument."
         )
 
     configurable_kinds = {
@@ -54,9 +53,7 @@ def normalize_builder_parameters(
     }
     if positional_only:
         names = ", ".join(sorted(positional_only))
-        raise ValueError(
-            f"Builder parameters for {subject} must be keyword-compatible: {names}."
-        )
+        raise ValueError(f"Builder parameters for {subject} must be keyword-compatible: {names}.")
 
     unknown_parameters = set(parameters).difference(configurable_parameters)
     if unknown_parameters:

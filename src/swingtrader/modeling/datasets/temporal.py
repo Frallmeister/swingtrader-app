@@ -319,7 +319,6 @@ def _validate_source_scope(
             raise ValueError("Eligibility mapping keys must match their ticker states.")
 
 
-
 def _target_end_dates(
     targets: pd.DataFrame,
     *,
