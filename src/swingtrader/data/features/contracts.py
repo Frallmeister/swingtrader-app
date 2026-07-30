@@ -186,7 +186,7 @@ class FeatureSetSpec:
 
     def apply(self, data: pd.DataFrame) -> pd.DataFrame:
         """Return an independent frame with the declared features appended."""
-        result = data.copy(deep=True)
+        result = data.copy(deep=False)
         for block in self.blocks:
             block_output = block.apply(result)
             result = pd.concat((result, block_output), axis="columns")

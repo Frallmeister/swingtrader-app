@@ -1,6 +1,6 @@
 # Core
 
-Shared infrastructure and contracts used across the project. This package should stay lightweight and contain only stable code that can be safely imported by the data, modeling, and web packages, such as configuration, database connection helpers, shared schemas, logging setup, symbol metadata, and domain-neutral DataFrame contract checks.
+Shared infrastructure and contracts used across the project. This package should stay lightweight and contain only stable code that can be safely imported by the data, modeling, and API packages, such as configuration, database connection helpers, shared schemas, logging setup, symbol metadata, and domain-neutral DataFrame contract checks.
 
 `dataframe_contracts.py` contains the small shared checks used by executable feature and target specifications. It validates builder signatures, freezes explicit parameter values, and enforces DataFrame input/output boundaries without importing either domain package.
 

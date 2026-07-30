@@ -91,7 +91,7 @@ def execute_dataframe_contract(
         raise ValueError(f"{subject} would overwrite columns: {', '.join(collisions)}")
 
     original_index = data.index.copy()
-    result = builder(data.copy(deep=True), **parameters)
+    result = builder(data.copy(deep=False), **parameters)
     if not isinstance(result, pd.DataFrame):
         raise TypeError(f"{subject} builder must return a pandas DataFrame.")
     try:
