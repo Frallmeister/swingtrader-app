@@ -23,10 +23,11 @@ from swingtrader.data.market_frame import (
 )
 from swingtrader.indicators._price_levels import _price_level_interactions
 from swingtrader.indicators._validation import validate_length
-from swingtrader.indicators.market_structure import _confirmed_zigzag_state
+from swingtrader.indicators.market_structure import _confirmed_zigzag_state, donchian_channel
 from swingtrader.indicators.volatility import _atr
 
 _MARKET_STRUCTURE_FEATURE_COLUMNS = (
+    "donchian_position",
     "zigzag_last_direction",
     "zigzag_last_swing_return",
     "zigzag_last_swing_bars",
@@ -53,6 +54,7 @@ _MARKET_STRUCTURE_FEATURE_COLUMNS = (
 def add_market_structure_features(
     data: pd.DataFrame,
     *,
+    donchian_length: int = 20,
     zigzag_deviation: float = 5.0,
     zigzag_pivot_legs: int = 10,
     zigzag_consistency_pivots: int = 4,
@@ -70,6 +72,11 @@ def add_market_structure_features(
     pivot and its associated support or resistance level affect the output only
     on and after the pivot confirmation row.
 
+    The appended ``donchian_position`` column locates the close within the
+    trailing Donchian channel of ``donchian_length`` observations; see
+    :func:`donchian_position`. The remaining columns are the Zig Zag block
+    returned by :func:`zigzag_features`.
+
     Use :func:`zigzag_features` directly when only the feature block is needed,
     for example for a frontend endpoint that should not calculate every feature
     family. Existing columns with the generated feature names are rejected rather
@@ -77,6 +84,7 @@ def add_market_structure_features(
     """
     validate_new_columns(data, new_columns=_MARKET_STRUCTURE_FEATURE_COLUMNS)
     result = data.copy()
+    result["donchian_position"] = donchian_position(data, length=donchian_length)
     feature_block = zigzag_features(
         data,
         deviation=zigzag_deviation,
@@ -87,6 +95,56 @@ def add_market_structure_features(
     )
     result[feature_block.columns] = feature_block
     return result
+
+
+def donchian_position(data: pd.DataFrame, *, length: int = 20) -> pd.Series:
+    """Locate the close within the trailing Donchian channel.
+
+    The value is ``(close - donchian_lower) / (donchian_upper - donchian_lower)``,
+    where the channel spans the ``length`` observations preceding each row. It is
+    ``0`` when the close sits on the lower band, ``1`` on the upper band, above
+    ``1`` when the close breaks out over the trailing range, and below ``0`` when
+    it breaks down below it. Because the channel excludes the current row, the
+    feature is point-in-time safe: it never uses information from the row it is
+    reported on or from later rows.
+
+    The input must use the canonical market-price MultiIndex with levels
+    ``provider``, ``ticker``, and ``trading_date`` and contain ``high``, ``low``,
+    and ``close`` columns. When ``adjusted_close`` is present, the price columns
+    are transformed onto that scale before the channel is calculated, matching
+    the other market-structure features. The first ``length`` rows of each
+    instrument, and any row whose trailing channel has zero width, are missing.
+
+    Parameters
+    ----------
+    data
+        Canonical multi-instrument observations indexed by ``provider``,
+        ``ticker``, and ``trading_date``.
+    length
+        Number of preceding observations spanned by the channel. Must be a
+        positive integer.
+
+    Returns
+    -------
+    pandas.Series
+        The ``donchian_position`` feature, aligned to the input index.
+    """
+    validate_market_price_index(data)
+    validate_required_columns(data, required_columns={"high", "low", "close"})
+    validate_length(length)
+
+    price_data = data.loc[:, ["high", "low", "close"]]
+    if "adjusted_close" in data.columns:
+        price_data = adjustment_consistent_price_frame(
+            data,
+            price_columns=("high", "low", "close"),
+        )
+
+    channels = donchian_channel(price_data, length=length)
+    upper = channels["donchian_upper"]
+    lower = channels["donchian_lower"]
+    close = price_data["close"]
+    return safe_divide(close - lower, upper - lower).rename("donchian_position")
 
 
 def zigzag_features(

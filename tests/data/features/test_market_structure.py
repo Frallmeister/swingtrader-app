@@ -3,6 +3,7 @@ import pytest
 
 from swingtrader.data.features.market_structure import (
     add_market_structure_features,
+    donchian_position,
     zigzag_features,
 )
 
@@ -89,7 +90,11 @@ def test_add_market_structure_features_preserves_input_and_appends_block() -> No
 
     pd.testing.assert_frame_equal(prices, original)
     pd.testing.assert_index_equal(result.index, prices.index)
-    assert list(result.columns) == [*prices.columns, *expected_block.columns]
+    assert list(result.columns) == [
+        *prices.columns,
+        "donchian_position",
+        *expected_block.columns,
+    ]
     pd.testing.assert_frame_equal(result[expected_block.columns], expected_block)
 
 
@@ -126,6 +131,86 @@ def test_zigzag_features_require_price_columns(column: str) -> None:
             deviation=5.0,
             pivot_legs=2,
         )
+
+
+def test_donchian_position_locates_close_within_channel() -> None:
+    result = donchian_position(_indexed_prices(), length=3)
+    aaa = result.loc[("yfinance", "AAA.ST")].reset_index(drop=True)
+
+    # The first three rows lack a complete trailing channel.
+    assert aaa.iloc[:3].isna().all()
+
+    # (close - lower) / (upper - lower) using the three preceding rows.
+    assert aaa.loc[3] == pytest.approx(9.0 / 8.0)
+    assert aaa.loc[4] == pytest.approx(0.8)
+    assert aaa.loc[5] == pytest.approx(0.5)
+    assert aaa.loc[7] == pytest.approx(8.0 / 6.0)  # breakout above the channel
+    assert aaa.loc[9] == pytest.approx(-0.4)  # breakdown below the channel
+
+
+def test_donchian_position_applies_price_adjustment() -> None:
+    prices = _indexed_prices()
+    factors = pd.Series(
+        ([0.5] * 6 + [1.0] * 5) * 2,
+        index=prices.index,
+    )
+    with_adjusted = prices.assign(adjusted_close=prices["close"] * factors)
+    adjusted_frame = prices.mul(factors, axis=0)
+
+    result = donchian_position(with_adjusted, length=3)
+    expected = donchian_position(adjusted_frame, length=3)
+
+    pd.testing.assert_series_equal(result, expected)
+
+
+def test_donchian_position_isolates_tickers() -> None:
+    result = donchian_position(_indexed_prices(), length=3)
+
+    aaa = result.loc[("yfinance", "AAA.ST")].reset_index(drop=True)
+    bbb = result.loc[("yfinance", "BBB.ST")].reset_index(drop=True)
+
+    # BBB is AAA scaled by a constant factor, so the position is identical.
+    pd.testing.assert_series_equal(aaa, bbb, check_names=False)
+
+
+def test_donchian_position_does_not_change_when_future_rows_are_appended() -> None:
+    prices = _indexed_prices()
+    aaa = prices[prices.index.get_level_values("ticker") == "AAA.ST"]
+    full_result = donchian_position(aaa, length=3)
+
+    for stop in range(1, len(aaa) + 1):
+        prefix_result = donchian_position(aaa.iloc[:stop], length=3)
+        pd.testing.assert_series_equal(prefix_result, full_result.iloc[:stop])
+
+
+def test_donchian_position_rejects_noncanonical_input() -> None:
+    with pytest.raises(ValueError, match="MultiIndex with levels"):
+        donchian_position(_prices(), length=3)
+
+
+@pytest.mark.parametrize("column", ["high", "low", "close"])
+def test_donchian_position_requires_price_columns(column: str) -> None:
+    with pytest.raises(ValueError, match="Missing required columns"):
+        donchian_position(_indexed_prices().drop(columns=column), length=3)
+
+
+@pytest.mark.parametrize("value", [0, -1, True, 1.5])
+def test_donchian_position_rejects_invalid_length(value: object) -> None:
+    with pytest.raises(ValueError, match="Length must be a positive integer"):
+        donchian_position(_indexed_prices(), length=value)  # type: ignore[arg-type]
+
+
+def test_add_market_structure_features_prepends_donchian_position() -> None:
+    prices = _indexed_prices()
+
+    result = add_market_structure_features(prices, donchian_length=3)
+
+    appended = tuple(result.columns[len(prices.columns) :])
+    assert appended[0] == "donchian_position"
+    pd.testing.assert_series_equal(
+        result["donchian_position"],
+        donchian_position(prices, length=3),
+    )
 
 
 def _indexed_prices() -> pd.DataFrame:

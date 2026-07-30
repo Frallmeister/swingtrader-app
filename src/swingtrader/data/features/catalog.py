@@ -174,6 +174,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
             name="market_structure",
             builder=add_market_structure_features,
             parameters={
+                "donchian_length": 20,
                 "zigzag_deviation": 5.0,
                 "zigzag_pivot_legs": 10,
                 "zigzag_consistency_pivots": 4,
@@ -181,6 +182,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "zigzag_atr_length": 14,
             },
             output_columns=(
+                "donchian_position",
                 "zigzag_last_direction",
                 "zigzag_last_swing_return",
                 "zigzag_last_swing_bars",

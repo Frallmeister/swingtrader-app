@@ -18,6 +18,7 @@ from swingtrader.data.features.contracts import (
 )
 from swingtrader.data.features.market_structure import (
     add_market_structure_features,
+    donchian_position,
     zigzag_features,
 )
 from swingtrader.data.features.momentum import add_momentum_features
@@ -42,5 +43,6 @@ __all__ = [
     "add_trend_features",
     "add_volatility_features",
     "add_volume_features",
+    "donchian_position",
     "zigzag_features",
 ]

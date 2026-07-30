@@ -28,7 +28,11 @@ from swingtrader.indicators.candlesticks import (
 )
 from swingtrader.indicators.directional_movement import adx
 from swingtrader.indicators.macd import macd, ppo
-from swingtrader.indicators.market_structure import pivot_points_high_low, zigzag
+from swingtrader.indicators.market_structure import (
+    donchian_channel,
+    pivot_points_high_low,
+    zigzag,
+)
 from swingtrader.indicators.moving_averages import ema, rolling_vwap, sma
 from swingtrader.indicators.oscillators import rsi, stochastic_oscillator
 from swingtrader.indicators.squeeze_momentum import lazybear_squeeze_momentum
@@ -55,6 +59,7 @@ __all__ = [
     "candle_geometry",
     "candle_patterns",
     "candle_range_context",
+    "donchian_channel",
     "ema",
     "lazybear_squeeze_momentum",
     "macd",

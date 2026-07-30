@@ -6,6 +6,7 @@ import pytest
 from swingtrader.indicators.market_structure import (
     _zigzag_pivot_consistency,
     _ZigZagPivot,
+    donchian_channel,
     pivot_points_high_low,
 )
 
@@ -403,6 +404,90 @@ def test_zigzag_pivot_consistency_is_missing_for_equal_prices() -> None:
     )
 
     assert math.isnan(result)
+
+
+def test_donchian_channel_returns_expected_boundaries() -> None:
+    prices = _prices()
+
+    result = donchian_channel(prices, length=2)
+
+    expected = pd.DataFrame(
+        {
+            "donchian_upper": [
+                float("nan"),
+                float("nan"),
+                3.0,
+                3.0,
+                5.0,
+                5.0,
+                4.0,
+            ],
+            "donchian_lower": [
+                float("nan"),
+                float("nan"),
+                3.0,
+                3.0,
+                1.0,
+                1.0,
+                2.0,
+            ],
+        },
+        index=prices.index,
+    )
+
+    pd.testing.assert_frame_equal(result, expected)
+
+
+def test_donchian_channel_excludes_current_row() -> None:
+    prices = _prices()
+
+    result = donchian_channel(prices, length=3)
+
+    # Row 3 carries the highest high (5.0). With the current row excluded, its
+    # upper boundary is the max of the three preceding highs, not its own high.
+    assert prices["high"].idxmax() == 3
+    assert result.loc[3, "donchian_upper"] == 3.0
+    assert result.loc[3, "donchian_upper"] != prices.loc[3, "high"]
+
+
+def test_donchian_channel_warmup_rows_are_missing() -> None:
+    prices = _prices()
+
+    result = donchian_channel(prices, length=3)
+
+    assert result.iloc[:3].isna().all().all()
+    assert result.iloc[3:].notna().all().all()
+
+
+def test_donchian_channel_groups_by_provider_and_ticker() -> None:
+    prices = _multi_ticker_prices()
+
+    result = donchian_channel(prices, length=2)
+
+    pd.testing.assert_index_equal(result.index, prices.index)
+
+    for ticker in ["AAA.ST", "BBB.ST"]:
+        ticker_prices = prices.loc[("yfinance", ticker)]
+        expected = donchian_channel(ticker_prices, length=2)
+
+        pd.testing.assert_frame_equal(
+            result.loc[("yfinance", ticker)],
+            expected,
+        )
+
+
+@pytest.mark.parametrize("value", [0, -1, True, 1.5])
+def test_donchian_channel_rejects_invalid_length(value: object) -> None:
+    with pytest.raises(ValueError, match="Length must be a positive integer"):
+        donchian_channel(_prices(), length=value)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("column", ["high", "low"])
+def test_donchian_channel_requires_price_columns(column: str) -> None:
+    prices = _prices().drop(columns=column)
+
+    with pytest.raises(ValueError, match="Missing required columns"):
+        donchian_channel(prices, length=2)
 
 
 def _prices() -> pd.DataFrame:
