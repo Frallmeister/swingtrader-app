@@ -27,6 +27,7 @@ from swingtrader.data.market_frame import (
     validate_new_columns,
     validate_required_columns,
 )
+from swingtrader.indicators import rolling_bullish_candle_fraction
 from swingtrader.indicators.macd import ppo
 from swingtrader.indicators.oscillators import rsi, stochastic_oscillator
 from swingtrader.indicators.squeeze_momentum import lazybear_squeeze_momentum
@@ -52,6 +53,7 @@ _MOMENTUM_FEATURE_COLUMNS = (
     "squeeze_momentum_atr_change",
     "squeeze_duration",
     "squeeze_release_duration",
+    "bullish_candle_run_fraction",
 )
 
 
@@ -69,6 +71,7 @@ def add_momentum_features(
     mfi_length: int = 14,
     mfi_bollinger_length: int = 20,
     mfi_bollinger_num_std: float = 2.0,
+    rolling_candle_lookback: int = 14,
     squeeze_bb_length: int = 20,
     squeeze_bb_mult: float = 2.0,
     squeeze_kc_length: int = 20,
@@ -108,7 +111,7 @@ def add_momentum_features(
     """
     validate_market_price_index(data)
     validate_required_columns(
-        data, required_columns={"high", "low", "close", "adjusted_close", "volume"}
+        data, required_columns={"high", "low", "close", "open", "adjusted_close", "volume"}
     )
     validate_new_columns(data, new_columns=_MOMENTUM_FEATURE_COLUMNS)
 
@@ -157,6 +160,11 @@ def add_momentum_features(
         atr_length=squeeze_atr_length,
     ).drop(columns=["squeeze_momentum"])
     data[squeeze_block.columns] = squeeze_block
+
+    data["bullish_candle_run_fraction"] = rolling_bullish_candle_fraction(
+        data,
+        lookback=rolling_candle_lookback,
+    )
 
     return data
 

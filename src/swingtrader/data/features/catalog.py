@@ -23,7 +23,7 @@ from swingtrader.data.features.volume import add_volume_features
 
 DEFAULT_FEATURE_SET = FeatureSetSpec(
     name="ohlcv_v1_candidates",
-    version="3",  # also update test_feature_set_manifest_is_deterministic_and_json_serializable
+    version="4",  # also update test_feature_set_manifest_is_deterministic_and_json_serializable
     blocks=(
         FeatureBlockSpec(
             name="returns",
@@ -82,6 +82,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "mfi_length": 14,
                 "mfi_bollinger_length": 20,
                 "mfi_bollinger_num_std": 2.0,
+                "rolling_candle_lookback": 14,
                 "squeeze_bb_length": 20,
                 "squeeze_bb_mult": 2.0,
                 "squeeze_kc_length": 20,
@@ -107,6 +108,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "squeeze_momentum_atr_change",
                 "squeeze_duration",
                 "squeeze_release_duration",
+                "bullish_candle_run_fraction",
             ),
             required_columns=frozenset({"high", "low", "close", "adjusted_close", "volume"}),
             history_requirement=HistoryRequirement.EXPANDING,
