@@ -22,7 +22,10 @@ import numpy as np
 import pandas as pd
 from scipy.stats import kendalltau
 
-from swingtrader.data.market_frame import apply_by_ticker, validate_required_columns
+from swingtrader.data.market_frame import (
+    apply_by_ticker,
+    validate_required_columns,
+)
 from swingtrader.indicators._validation import validate_length
 
 
@@ -42,6 +45,49 @@ class _ZigZagPivot:
     position: int
     price: float
     direction: int
+
+
+def donchian_channel(data: pd.DataFrame, *, length: int = 20) -> pd.DataFrame:
+    """Calculate the upper and lower Donchian channel boundaries.
+
+    The upper boundary is the highest ``high`` and the lower boundary is the
+    lowest ``low`` over the ``length`` observations preceding each row. The
+    current row is excluded from both windows, so the boundaries reported on a
+    row depend only on earlier observations. This makes the channel point-in-time
+    safe: it can be compared against the current row's price to detect a breakout
+    without leaking future information, and appending later observations never
+    changes a previously emitted value.
+
+    Parameters
+    ----------
+    data
+        Ordered price observations for one instrument, or canonical
+        multi-instrument observations indexed by ``provider``, ``ticker``, and
+        ``trading_date``. Requires ``high`` and ``low`` columns.
+    length
+        Number of preceding observations spanned by each boundary. Must be a
+        positive integer.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A dataframe with columns ``donchian_upper`` and ``donchian_lower``,
+        aligned to the input index. The first ``length`` rows of each instrument
+        lack a complete preceding window and are missing.
+
+    Raises
+    ------
+    ValueError
+        If ``length`` is not a positive integer, the required price columns are
+        missing, the canonical multi-instrument index is invalid, or the
+        observations are not ordered chronologically.
+    """
+    validate_required_columns(data, required_columns={"high", "low"})
+    validate_length(length)
+    return apply_by_ticker(
+        data,
+        lambda group: _donchian_channel(group, length=length),
+    )
 
 
 def pivot_points_high_low(
@@ -231,6 +277,14 @@ def zigzag(
             legs=legs,
         ),
     )
+
+
+def _donchian_channel(data: pd.DataFrame, *, length: int) -> pd.DataFrame:
+    high = data["high"]
+    low = data["low"]
+    upper = high.shift(1).rolling(length).max().rename("donchian_upper")
+    lower = low.shift(1).rolling(length).min().rename("donchian_lower")
+    return pd.concat([upper, lower], axis=1)
 
 
 def _pivot_points_high_low(

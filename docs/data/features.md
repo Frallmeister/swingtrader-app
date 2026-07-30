@@ -300,10 +300,11 @@ deviation. Calculations are isolated within each provider/ticker group, so one i
 
 Market-structure indicators describe the local geometry of a price series rather than its smoothing or oscillator dynamics. They identify swing highs and swing lows and summarise the alternating swings between them.
 
-The market-structure feature orchestrator is `swingtrader.data.features.market_structure.add_market_structure_features`. It validates the source prices once, rejects any input that already carries the generated feature names, copies the input, calculates the point-in-time Zig Zag feature block from adjustment-consistent `high`, `low`, and `close`, and appends those columns while preserving input row alignment. `swingtrader.data.features.zigzag_features` returns just the feature block for callers, such as an API endpoint, that do not need every family. When `adjusted_close` is omitted, `zigzag_features` treats the supplied `high`, `low`, and `close` as an explicitly selected price representation.
+The market-structure feature orchestrator is `swingtrader.data.features.market_structure.add_market_structure_features`. It validates the source prices once, rejects any input that already carries the generated feature names, copies the input, appends the `donchian_position` column and the point-in-time Zig Zag feature block from adjustment-consistent `high`, `low`, and `close`, and preserves input row alignment. `swingtrader.data.features.zigzag_features` returns just the Zig Zag feature block for callers, such as an API endpoint, that do not need every family, and `swingtrader.data.features.market_structure.donchian_position` returns the Donchian position column on its own. When `adjusted_close` is omitted, both treat the supplied `high`, `low`, and `close` as an explicitly selected price representation.
 
 With the default settings, the orchestrator adds:
 
+- `donchian_position`, the close located within the trailing Donchian channel of `donchian_length` observations, calculated as `(close - donchian_lower) / (donchian_upper - donchian_lower)`; it is zero on the lower band, one on the upper band, above one on a breakout and below zero on a breakdown, and is missing during the channel warm-up or when the trailing channel has zero width;
 - `zigzag_last_direction`, `1` when the latest confirmed endpoint is a swing high and `-1` when it is a swing low, missing before the first endpoint is confirmed;
 - `zigzag_last_swing_return`, the latest endpoint divided by the preceding endpoint minus one;
 - `zigzag_last_swing_bars`, the number of observations between the latest two pivot rows;
@@ -342,8 +343,9 @@ Unlike the retrospective `zigzag` indicator, these features are point-in-time: a
 
 The public numerical market-structure indicators, importable from `swingtrader.indicators`, are:
 
+- `donchian_channel`, which consumes a dataframe with `high` and `low` columns and returns the upper and lower channel boundaries over a trailing window.
 - `pivot_points_high_low`, which consumes a dataframe with `high` and `low` columns (or, when `kind="balanced"`, `open`, `high`, `low`, and `close`) and returns a dataframe of pivot flags together with either ordinal ranks or normalised strengths;
-- `zigzag`, which consumes a dataframe with `high` and `low` columns and returns the retained alternating swing highs and lows with their signed returns and bar counts.
+- `zigzag`, which consumes a dataframe with `high` and `low` columns and returns the retained alternating swing highs and lows with their signed returns and bar counts;
 
 Like the other multi-column indicators they accept either one ordered single-instrument input or a canonical multi-instrument input carrying the `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker input does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is isolated per provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved.
 
@@ -364,6 +366,12 @@ Because each pivot is evaluated from observations on both sides of the candidate
 Candidate pivots are processed chronologically. An opposite-direction pivot is retained only when its reversal from the last retained pivot is at least `deviation` percent, while a same-direction candidate replaces the current endpoint when it is more extreme, so the retained sequence always alternates between highs and lows. The result contains `zigzag_price` (the raw high or low of each retained pivot), `zigzag_direction` (`1` for a high, `-1` for a low, `0` elsewhere), `zigzag_return` (`current_price / previous_price - 1` on retained pivots), and `zigzag_bars` (observations between consecutive retained pivots). `deviation` and `pivot_legs` default to 5.0 percent and 10 bars; `deviation` must be a non-negative finite number and `pivot_legs` an integer of at least two.
 
 Like `pivot_points_high_low`, `zigzag` is retrospective and lookahead-aware: each pivot is first knowable `pivot_legs // 2` observations later, and the latest retained endpoint can still be replaced by a later, more extreme same-direction pivot. The point-in-time `add_market_structure_features` block above wraps the identical pivot logic but delays every update to its confirmation row, so it can be used as a leakage-free model feature while `zigzag` itself remains a charting- and analysis-oriented indicator.
+
+### Donchian Channels
+
+`donchian_channel` returns the highest `high` (`donchian_upper`) and the lowest `low` (`donchian_lower`) over the `length` observations preceding each row. The current row is excluded from both windows, so a row's boundaries depend only on earlier observations. `length` defaults to 20 bars and must be a positive integer; the first `length` rows of each instrument lack a complete preceding window and remain missing.
+
+Because the current bar is excluded, the channel is point-in-time safe: today's price can be compared against the trailing channel to detect a breakout without leaking future information, and appending later observations never revises a previously emitted boundary. Unlike `pivot_points_high_low` and `zigzag`, no shifting to a confirmation row is required before the columns are used as model inputs.
 
 ## Versioned Feature Sets
 
