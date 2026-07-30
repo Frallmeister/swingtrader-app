@@ -43,6 +43,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
             parameters={
                 "ma_lengths": (10, 20, 50),
                 "adx_length": 14,
+                "rolling_fraction_lookback": 20,
                 "vwap_length": 20,
                 "vwap_bollinger_length": 20,
                 "vwap_bollinger_num_std": 2.0,

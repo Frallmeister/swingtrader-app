@@ -54,6 +54,7 @@ def add_trend_features(
     *,
     ma_lengths: tuple[int, int, int] = (10, 20, 50),
     adx_length: int = 14,
+    rolling_fraction_lookback: int = 20,
     vwap_length: int = 20,
     vwap_bollinger_length: int = 20,
     vwap_bollinger_num_std: float = 2.0,
@@ -74,10 +75,11 @@ def add_trend_features(
     movement between sessions.
 
     The ``close_over_ema_{fast,mid,slow}_fraction`` columns record the fraction
-    of the trailing 20 rows on which ``adjusted_close`` closed above its fast,
-    mid, and slow exponential moving average, summarizing how persistently price
-    has held above each reference trend. The current row is excluded from the
-    comparison so each value only reflects already-completed sessions.
+    of the trailing ``rolling_fraction_lookback`` rows on which ``adjusted_close``
+    closed above its fast, mid, and slow exponential moving average, summarizing
+    how persistently price has held above each reference trend. The current row
+    is excluded from the comparison so each value only reflects already-completed
+    sessions.
 
     Rolling VWAP uses adjustment-consistent typical price
     ``(high + low + close) / 3`` together with source ``volume``.
@@ -125,16 +127,19 @@ def add_trend_features(
     data["close_over_ema_fast_fraction"] = rolling_fraction_above_ema(
         adjusted_close,
         ema_length=fast,
+        lookback=rolling_fraction_lookback,
         exclude_current=True,
     )
     data["close_over_ema_mid_fraction"] = rolling_fraction_above_ema(
         adjusted_close,
         ema_length=mid,
+        lookback=rolling_fraction_lookback,
         exclude_current=True,
     )
     data["close_over_ema_slow_fraction"] = rolling_fraction_above_ema(
         adjusted_close,
         ema_length=slow,
+        lookback=rolling_fraction_lookback,
         exclude_current=True,
     )
 
