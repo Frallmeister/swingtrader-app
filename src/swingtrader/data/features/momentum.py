@@ -27,7 +27,6 @@ from swingtrader.data.market_frame import (
     validate_new_columns,
     validate_required_columns,
 )
-from swingtrader.indicators import rolling_bullish_candle_fraction
 from swingtrader.indicators.macd import ppo
 from swingtrader.indicators.oscillators import rsi, stochastic_oscillator
 from swingtrader.indicators.squeeze_momentum import lazybear_squeeze_momentum
@@ -53,7 +52,6 @@ _MOMENTUM_FEATURE_COLUMNS = (
     "squeeze_momentum_atr_change",
     "squeeze_duration",
     "squeeze_release_duration",
-    "bullish_candle_run_fraction",
 )
 
 
@@ -71,7 +69,6 @@ def add_momentum_features(
     mfi_length: int = 14,
     mfi_bollinger_length: int = 20,
     mfi_bollinger_num_std: float = 2.0,
-    rolling_candle_lookback: int = 14,
     squeeze_bb_length: int = 20,
     squeeze_bb_mult: float = 2.0,
     squeeze_kc_length: int = 20,
@@ -82,12 +79,11 @@ def add_momentum_features(
 
     The input must use the canonical market-price MultiIndex with levels
     ``provider``, ``ticker``, and ``trading_date``, in that exact order, plus
-    ``open``, ``high``, ``low``, ``close``, ``adjusted_close``, and ``volume``
-    columns. The
+    ``high``, ``low``, ``close``, ``adjusted_close``, and ``volume`` columns. The
     index must be unique and sorted. The returned dataframe preserves the input
     rows and appends the final PPO, PPO signal, PPO histogram, PPO percentile,
-    RSI, RSI %B, stochastic %K and %D, MFI, MFI %B, LazyBear squeeze momentum,
-    and bullish candle-run fraction feature columns.
+    RSI, RSI %B, stochastic %K and %D, MFI, MFI %B, and LazyBear squeeze momentum
+    feature columns.
 
     PPO, RSI, and ``rsi_percent_b`` are calculated from ``adjusted_close``. The
     stochastic oscillator, Money Flow Index, and LazyBear squeeze receive
@@ -109,15 +105,10 @@ def add_momentum_features(
     across tickers. See
     :func:`swingtrader.indicators.squeeze_momentum.lazybear_squeeze_momentum` for
     the full definition.
-
-    ``bullish_candle_run_fraction`` is the fraction of the trailing
-    ``rolling_candle_lookback`` candles that closed above their open. It uses the
-    raw ``open`` and ``close`` because the bullish/bearish sign of a candle is
-    unaffected by split and dividend adjustments.
     """
     validate_market_price_index(data)
     validate_required_columns(
-        data, required_columns={"high", "low", "close", "open", "adjusted_close", "volume"}
+        data, required_columns={"high", "low", "close", "adjusted_close", "volume"}
     )
     validate_new_columns(data, new_columns=_MOMENTUM_FEATURE_COLUMNS)
 
@@ -166,11 +157,6 @@ def add_momentum_features(
         atr_length=squeeze_atr_length,
     ).drop(columns=["squeeze_momentum"])
     data[squeeze_block.columns] = squeeze_block
-
-    data["bullish_candle_run_fraction"] = rolling_bullish_candle_fraction(
-        data,
-        lookback=rolling_candle_lookback,
-    )
 
     return data
 

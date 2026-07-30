@@ -3,7 +3,12 @@ import pandas as pd
 import pytest
 
 from swingtrader.data.features import add_price_action_features
-from swingtrader.indicators import candle_geometry, candle_patterns, candle_range_context
+from swingtrader.indicators import (
+    candle_geometry,
+    candle_patterns,
+    candle_range_context,
+    rolling_bullish_candle_fraction,
+)
 
 _FEATURE_COLUMNS = [
     "candle_signed_body_fraction",
@@ -28,6 +33,7 @@ _FEATURE_COLUMNS = [
     "candle_breakout_low_strength_20",
     "candle_failed_breakout_high_strength_20",
     "candle_failed_breakout_low_strength_20",
+    "rolling_bullish_candle_fraction",
 ]
 
 
@@ -103,6 +109,33 @@ def test_add_price_action_features_adds_expected_adjusted_indicator_outputs() ->
     assert result.columns[-len(_FEATURE_COLUMNS) :].tolist() == _FEATURE_COLUMNS
     pd.testing.assert_index_equal(result.index, data.index)
     pd.testing.assert_frame_equal(data, original)
+
+
+def test_add_price_action_features_adds_rolling_bullish_candle_fraction_from_adjusted_ohlc() -> (
+    None
+):
+    data = _prices()
+
+    result = add_price_action_features(
+        data,
+        atr_length=2,
+        range_percentile_length=2,
+        rolling_candle_lookback=2,
+    )
+
+    factor = data["adjusted_close"] / data["close"]
+    adjusted_ohlc = data[["open", "high", "low", "close"]].mul(factor, axis=0)
+    expected = rolling_bullish_candle_fraction(
+        adjusted_ohlc,
+        lookback=2,
+        exclude_current=True,
+    )
+
+    pd.testing.assert_series_equal(
+        result["rolling_bullish_candle_fraction"],
+        expected,
+        check_names=False,
+    )
 
 
 def test_add_price_action_features_does_not_change_when_future_rows_are_appended() -> None:

@@ -41,7 +41,6 @@ def test_add_momentum_features_preserves_source_columns_and_adds_final_features(
         "squeeze_momentum_atr_change",
         "squeeze_duration",
         "squeeze_release_duration",
-        "bullish_candle_run_fraction",
     ]
     assert list(result.columns) == expected_columns
     pd.testing.assert_index_equal(result.index, prices.index)

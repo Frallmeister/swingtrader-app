@@ -137,7 +137,7 @@ The `close_over_ema_{fast,mid,slow}_fraction` features apply `rolling_fraction_a
 
 ## Momentum Features
 
-The momentum feature orchestrator is `swingtrader.data.features.momentum.add_momentum_features`. It validates the source prices once, copies them, calculates PPO and RSI from `adjusted_close`, and calculates stochastic, MFI, and LazyBear squeeze features from adjustment-consistent `high`, `low`, and `close`. MFI combines that price frame with source `volume`, and the bullish-candle-run feature uses raw `open` and `close`. The resulting columns preserve input row alignment.
+The momentum feature orchestrator is `swingtrader.data.features.momentum.add_momentum_features`. It validates the source prices once, copies them, calculates PPO and RSI from `adjusted_close`, and calculates stochastic, MFI, and LazyBear squeeze features from adjustment-consistent `high`, `low`, and `close`. MFI combines that price frame with source `volume`. The resulting columns preserve input row alignment.
 
 With the default settings, the orchestrator adds:
 
@@ -163,8 +163,6 @@ The orchestrator also appends the LazyBear squeeze momentum features:
 - `squeeze_duration`, the number of consecutive rows the current squeeze has been on;
 - `squeeze_release_duration`, the length of the squeeze that fired, recorded on the release row.
 
-The orchestrator also appends `bullish_candle_run_fraction`, the fraction of the trailing `rolling_candle_lookback` candles (14 by default) that closed above their open.
-
 The public numerical momentum indicators, importable from `swingtrader.indicators`, are:
 
 - `ppo`, which has three natural outputs and returns a dataframe with `ppo`, `ppo_signal`, and `ppo_histogram` columns;
@@ -172,8 +170,7 @@ The public numerical momentum indicators, importable from `swingtrader.indicator
 - `stochastic_oscillator`, which has two natural outputs and returns a dataframe with `stochastic_k` and `stochastic_d` columns bounded to `[0, 100]`, and which consumes a dataframe with `high`, `low`, and `close` columns rather than a single series;
 - `mfi`, which has one natural output and returns a bounded `[0, 100]` oscillator series, and which consumes a dataframe with `high`, `low`, `close`, and `volume` columns rather than a single series;
 - `macd`, which has three natural outputs and returns a dataframe with `macd`, `macd_signal`, and `macd_histogram` columns expressed in the input price units;
-- `lazybear_squeeze_momentum`, which consumes a dataframe with `high`, `low`, and `close` columns and returns a dataframe with the squeeze state and momentum columns, computing True Range and ATR internally;
-- `rolling_bullish_candle_fraction`, which consumes a dataframe with `open` and `close` columns and returns the trailing fraction of bullish candles.
+- `lazybear_squeeze_momentum`, which consumes a dataframe with `high`, `low`, and `close` columns and returns a dataframe with the squeeze state and momentum columns, computing True Range and ATR internally.
 
 Each indicator accepts either one ordered series or DataFrame, as appropriate for that indicator for a single ticker or a multi-ticker series that carries the canonical `provider`, `ticker`, and `trading_date` index levels. A standalone single-ticker series does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's, and the original index and row order are preserved. A partial or wrongly ordered MultiIndex, such as `["ticker", "trading_date"]`, is rejected.
 
@@ -202,8 +199,6 @@ Inside `add_momentum_features`, `mfi` is calculated from adjustment-consistent `
 The original LazyBear script multiplied the Bollinger standard deviation by the Keltner multiplier (`kc_mult`); this port uses `bb_mult`, matching LazyBear's own September 2014 fix and the standard 2.0 Bollinger multiplier. The population standard deviation (`ddof=0`) matches the volatility module and most charting platforms. The momentum histogram is a rolling linear regression, over `kc_length` rows, of `close` detrended against the midpoint of its recent high/low range and its moving average; `squeeze_momentum` is the raw histogram in price units, and `squeeze_momentum_atr` divides it by the `atr_length`-row ATR to give a scale-invariant momentum measure comparable across tickers.
 
 Alongside the core state and momentum, the indicator derives modeling-oriented columns not present in the original script: `squeeze_released` flags the first row after a squeeze that is no longer squeezed, `squeeze_width_ratio` is the Bollinger-band width relative to the Keltner-channel width, `squeeze_duration` counts consecutive squeezed rows, `squeeze_release_duration` records the length of the squeeze that just fired, and `squeeze_momentum_atr_change` is the row-over-row change in `squeeze_momentum_atr`. The `bb_length`, `bb_mult`, `kc_length`, `kc_mult`, and `atr_length` defaults (20, 2.0, 20, 1.5, and 14) are calibratable through the matching arguments on `lazybear_squeeze_momentum` and the `squeeze_`-prefixed arguments on `add_momentum_features`. Warm-up rows remain missing until every rolling and smoothing window is full. Inside `add_momentum_features`, the squeeze calculation receives adjustment-consistent `high`, `low`, and `close`. The absolute price-unit `squeeze_momentum` line is dropped so the persisted `squeeze_momentum_atr` feature stays comparable across tickers.
-
-`rolling_bullish_candle_fraction` counts a candle as bullish when `close > open`, treating doji and bearish candles as zero, and averages that indicator over the trailing `lookback` rows to yield a value in `[0, 1]`. Inside `add_momentum_features` it is applied to the raw `open` and `close`, since the bullish/bearish sign of each candle is unaffected by split and dividend adjustments. The lookback defaults to 14 rows through the `rolling_candle_lookback` argument, warm-up rows stay missing until a full window is available, and the calculation stays within each provider/ticker group.
 
 ## Volatility Features
 
@@ -264,7 +259,8 @@ With the default settings, the orchestrator adds:
 - `candle_direction_run_body_atr`, the cumulative sum of each candle's signed real body divided by the ATR known before that candle;
 - `candle_close_to_prior_high_atr_20` and `candle_close_to_prior_low_atr_20`, signed close distances from the preceding 20-row high and low, divided by prior ATR;
 - `candle_breakout_high_strength_20` and `candle_breakout_low_strength_20`, positive close penetration beyond the corresponding prior level, divided by prior ATR;
-- `candle_failed_breakout_high_strength_20` and `candle_failed_breakout_low_strength_20`, positive intraday excursions beyond a prior level when the close finishes back inside the prior range.
+- `candle_failed_breakout_high_strength_20` and `candle_failed_breakout_low_strength_20`, positive intraday excursions beyond a prior level when the close finishes back inside the prior range;
+- `rolling_bullish_candle_fraction`, the share of the trailing `rolling_candle_lookback` candles (14 by default) that closed above their open, excluding the current row.
 
 The public numerical candlestick indicators, importable from `swingtrader.indicators`, are:
 
@@ -272,7 +268,8 @@ The public numerical candlestick indicators, importable from `swingtrader.indica
 - `candle_range_context`, which returns `range_atr`, `gap_atr`, and `range_percentile`;
 - `candle_patterns`, which returns the containment, engulfing, rejection, and inside-bar streak outputs;
 - `candle_direction_runs`, which returns signed run length, cumulative close-to-close return, and cumulative ATR-normalized real-body magnitude;
-- `rolling_level_interactions`, which returns prior rolling high and low levels together with ATR-normalised close distance, accepted-breakout strength, and failed-break strength.
+- `rolling_level_interactions`, which returns prior rolling high and low levels together with ATR-normalised close distance, accepted-breakout strength, and failed-break strength;
+- `rolling_bullish_candle_fraction`, which consumes a dataframe with `open` and `close` columns and returns the trailing fraction of bullish candles.
 
 The candlestick indicators support either one chronologically ordered instrument or the canonical multi-instrument index, and calculations are isolated within each provider/ticker group. Geometry, range context, local patterns, and directional runs consume OHLC data, while rolling level interactions require high, low, and close. Zero-range candles cannot produce normalized geometry and therefore leave the four geometry outputs missing rather than producing infinities. Other outputs follow their own history and denominator requirements.
 
@@ -287,6 +284,8 @@ The candlestick indicators support either one chronologically ordered instrument
 Inside `add_price_action_features`, all four OHLC columns are placed on the `adjusted_close` scale with the row-wise factor `adjusted_close / close`. This leaves same-row geometry ratios unchanged but removes artificial cross-session gaps and True Range spikes caused by splits and dividend adjustments. The standalone indicators remain source-agnostic and operate on whichever OHLC representation the caller supplies.
 
 The default ATR length is 14 rows, while the range-percentile and rolling-level histories both default to 20 preceding rows. Warm-up periods are kept as missing values where a calculation requires prior ATR, a previous candle, or a complete rolling history.
+
+`rolling_bullish_candle_fraction` counts a candle as bullish when `close > open`, treating doji and bearish candles as zero, and averages that indicator over the trailing `lookback` rows to yield a value in `[0, 1]`. Inside `add_price_action_features` it is applied to the adjustment-consistent OHLC with `exclude_current=True`, so each value reflects only already-completed candles and the bullish/bearish sign is unaffected by split and dividend adjustments. The lookback defaults to 14 rows through the `rolling_candle_lookback` argument, warm-up rows stay missing until a full window is available, and the calculation stays within each provider/ticker group.
 
 ## Volume Features
 

@@ -82,7 +82,6 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "mfi_length": 14,
                 "mfi_bollinger_length": 20,
                 "mfi_bollinger_num_std": 2.0,
-                "rolling_candle_lookback": 14,
                 "squeeze_bb_length": 20,
                 "squeeze_bb_mult": 2.0,
                 "squeeze_kc_length": 20,
@@ -108,11 +107,8 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "squeeze_momentum_atr_change",
                 "squeeze_duration",
                 "squeeze_release_duration",
-                "bullish_candle_run_fraction",
             ),
-            required_columns=frozenset(
-                {"open", "high", "low", "close", "adjusted_close", "volume"}
-            ),
+            required_columns=frozenset({"high", "low", "close", "adjusted_close", "volume"}),
             history_requirement=HistoryRequirement.EXPANDING,
         ),
         FeatureBlockSpec(
@@ -140,6 +136,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "atr_length": 14,
                 "range_percentile_length": 20,
                 "breakout_length": 20,
+                "rolling_candle_lookback": 14,
             },
             output_columns=(
                 "candle_signed_body_fraction",
@@ -164,6 +161,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "candle_breakout_low_strength_20",
                 "candle_failed_breakout_high_strength_20",
                 "candle_failed_breakout_low_strength_20",
+                "rolling_bullish_candle_fraction",
             ),
             required_columns=frozenset({"open", "high", "low", "close", "adjusted_close"}),
             history_requirement=HistoryRequirement.EXPANDING,
