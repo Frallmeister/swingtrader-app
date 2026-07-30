@@ -181,6 +181,19 @@ def rolling_bullish_candle_fraction(
     lookback: int = 14,
     exclude_current: bool = False,
 ) -> pd.Series:
+    """Calculate the rolling fraction of bullish candles.
+
+    A candle is bullish when ``close > open``; doji and bearish candles count as
+    zero. The result is the share of the trailing ``lookback`` rows that are
+    bullish, so values lie in ``[0, 1]`` where one marks an unbroken bullish run
+    and zero marks no bullish candles in the window.
+
+    ``data`` must contain ``open`` and ``close`` columns in chronological order.
+    Calculations are isolated per provider/ticker group, and warm-up rows remain
+    missing until a full ``lookback`` window is available. When
+    ``exclude_current`` is set the window is shifted by one row so each value
+    reflects only already-completed candles.
+    """
     validate_length(lookback)
     validate_required_columns(data, required_columns={"open", "close"})
 
@@ -397,7 +410,8 @@ def _rolling_bullish_candle_fraction(
 ) -> pd.Series:
     close = data["close"]
     open_ = data["open"]
-    bullish = close.gt(open_)
+    valid = close.notna() & open_.notna()
+    bullish = close.gt(open_).where(valid)
 
     result = bullish.rolling(
         window=lookback,

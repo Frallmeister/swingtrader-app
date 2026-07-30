@@ -2,7 +2,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from swingtrader.indicators import candle_geometry, candle_patterns, candle_range_context
+from swingtrader.indicators import (
+    candle_geometry,
+    candle_patterns,
+    candle_range_context,
+    rolling_bullish_candle_fraction,
+)
 
 
 def test_candle_geometry_calculates_normalized_body_wicks_and_close_location() -> None:
@@ -258,3 +263,78 @@ def test_candle_patterns_leaves_engulfing_strength_missing_until_prior_atr_exist
 
     assert result["engulfing_strength"].iloc[:3].isna().all()
     assert result["engulfing_strength"].iloc[3] == pytest.approx(0.0)
+
+
+def test_rolling_bullish_candle_fraction_calculates_trailing_share() -> None:
+    data = pd.DataFrame(
+        {
+            "open": [10.0, 10.0, 10.0, 10.0, 10.0],
+            "close": [11.0, 9.0, 12.0, 10.0, 13.0],
+        }
+    )
+
+    result = rolling_bullish_candle_fraction(data, lookback=2)
+
+    pd.testing.assert_series_equal(
+        result,
+        pd.Series([np.nan, 0.5, 0.5, 0.5, 0.5]),
+        check_names=False,
+    )
+
+
+def test_rolling_bullish_candle_fraction_excludes_current_row() -> None:
+    data = pd.DataFrame(
+        {
+            "open": [10.0, 10.0, 10.0, 10.0, 10.0],
+            "close": [11.0, 9.0, 12.0, 10.0, 13.0],
+        }
+    )
+
+    result = rolling_bullish_candle_fraction(data, lookback=2, exclude_current=True)
+
+    pd.testing.assert_series_equal(
+        result,
+        pd.Series([np.nan, np.nan, 0.5, 0.5, 0.5]),
+        check_names=False,
+    )
+
+
+def test_rolling_bullish_candle_fraction_isolates_tickers_and_preserves_index() -> None:
+    index = pd.MultiIndex.from_product(
+        [
+            ["yfinance"],
+            ["AAA.ST", "BBB.ST"],
+            pd.date_range("2026-01-01", periods=3, freq="D"),
+        ],
+        names=["provider", "ticker", "trading_date"],
+    )
+    data = pd.DataFrame(
+        {
+            "open": [10.0, 10.0, 10.0, 20.0, 20.0, 20.0],
+            "close": [11.0, 12.0, 13.0, 19.0, 18.0, 17.0],
+        },
+        index=index,
+    )
+
+    result = rolling_bullish_candle_fraction(data, lookback=2)
+
+    pd.testing.assert_index_equal(result.index, data.index)
+    bullish = result.xs("AAA.ST", level="ticker")
+    bearish = result.xs("BBB.ST", level="ticker")
+    assert pd.isna(bullish.iloc[0])
+    assert (bullish.iloc[1:] == 1.0).all()
+    assert pd.isna(bearish.iloc[0])
+    assert (bearish.iloc[1:] == 0.0).all()
+
+
+@pytest.mark.parametrize("lookback", [0, -1, True, 1.5])
+def test_rolling_bullish_candle_fraction_rejects_invalid_lookback(lookback) -> None:
+    data = pd.DataFrame({"open": [1.0, 2.0], "close": [2.0, 1.0]})
+
+    with pytest.raises(ValueError, match="positive integer"):
+        rolling_bullish_candle_fraction(data, lookback=lookback)
+
+
+def test_rolling_bullish_candle_fraction_requires_open_and_close() -> None:
+    with pytest.raises(ValueError, match="Missing required columns"):
+        rolling_bullish_candle_fraction(pd.DataFrame({"open": [1.0, 2.0]}))
