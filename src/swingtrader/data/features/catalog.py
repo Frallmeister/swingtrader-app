@@ -23,7 +23,7 @@ from swingtrader.data.features.volume import add_volume_features
 
 DEFAULT_FEATURE_SET = FeatureSetSpec(
     name="ohlcv_v1_candidates",
-    version="2",
+    version="3",  # also update test_feature_set_manifest_is_deterministic_and_json_serializable
     blocks=(
         FeatureBlockSpec(
             name="returns",
@@ -43,6 +43,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
             parameters={
                 "ma_lengths": (10, 20, 50),
                 "adx_length": 14,
+                "rolling_fraction_lookback": 20,
                 "vwap_length": 20,
                 "vwap_bollinger_length": 20,
                 "vwap_bollinger_num_std": 2.0,
@@ -54,6 +55,9 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "close_to_ema_fast",
                 "close_to_ema_mid",
                 "close_to_ema_slow",
+                "close_over_ema_fast_fraction",
+                "close_over_ema_mid_fraction",
+                "close_over_ema_slow_fraction",
                 "adx",
                 "plus_di",
                 "minus_di",

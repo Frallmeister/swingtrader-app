@@ -65,7 +65,7 @@ def test_feature_set_manifest_is_deterministic_and_json_serializable() -> None:
     json.dumps(manifest)
 
     assert manifest["name"] == "ohlcv_v1_candidates"
-    assert manifest["version"] == "2"
+    assert manifest["version"] == "3"
 
     history_requirements = {
         block["name"]: block["history_requirement"] for block in manifest["blocks"]

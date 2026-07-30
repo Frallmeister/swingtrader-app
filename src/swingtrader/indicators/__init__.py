@@ -33,7 +33,12 @@ from swingtrader.indicators.market_structure import (
     pivot_points_high_low,
     zigzag,
 )
-from swingtrader.indicators.moving_averages import ema, rolling_vwap, sma
+from swingtrader.indicators.moving_averages import (
+    ema,
+    rolling_fraction_above_ema,
+    rolling_vwap,
+    sma,
+)
 from swingtrader.indicators.oscillators import rsi, stochastic_oscillator
 from swingtrader.indicators.squeeze_momentum import lazybear_squeeze_momentum
 from swingtrader.indicators.volatility import (
@@ -66,6 +71,7 @@ __all__ = [
     "mfi",
     "pivot_points_high_low",
     "ppo",
+    "rolling_fraction_above_ema",
     "rolling_level_interactions",
     "rolling_vwap",
     "rsi",

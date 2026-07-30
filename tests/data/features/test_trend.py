@@ -24,6 +24,9 @@ def test_add_trend_features_preserves_source_columns_and_adds_final_features() -
         "close_to_ema_fast",
         "close_to_ema_mid",
         "close_to_ema_slow",
+        "close_over_ema_fast_fraction",
+        "close_over_ema_mid_fraction",
+        "close_over_ema_slow_fraction",
         "adx",
         "plus_di",
         "minus_di",
@@ -119,6 +122,22 @@ def test_add_trend_features_uses_custom_adx_length() -> None:
     # short custom window produces populated directional-movement values.
     assert default_length["plus_di"].notna().sum() == 0
     assert custom_length["plus_di"].notna().sum() > 0
+
+
+def test_add_trend_features_uses_custom_rolling_fraction_lookback() -> None:
+    prices = _indexed_prices()
+
+    default_lookback = add_trend_features(prices, ma_lengths=(1, 2, 3))
+    custom_lookback = add_trend_features(
+        prices,
+        ma_lengths=(1, 2, 3),
+        rolling_fraction_lookback=2,
+    )
+
+    # The default 20-row lookback never warms up on this short history, while the
+    # short custom lookback produces populated fraction values.
+    assert default_lookback["close_over_ema_fast_fraction"].notna().sum() == 0
+    assert custom_lookback["close_over_ema_fast_fraction"].notna().sum() > 0
 
 
 def test_add_trend_features_requires_high_low_close() -> None:

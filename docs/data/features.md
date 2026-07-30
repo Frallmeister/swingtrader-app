@@ -98,6 +98,9 @@ With the default settings, the orchestrator adds:
 - `close_to_ema_fast`, the adjusted close divided by the fast EMA minus one;
 - `close_to_ema_mid`, the adjusted close divided by the mid EMA minus one;
 - `close_to_ema_slow`, the adjusted close divided by the slow EMA minus one;
+- `close_over_ema_fast_fraction`, the fraction of the trailing 20 completed rows on which adjusted close was above its fast EMA;
+- `close_over_ema_mid_fraction`, the fraction of the trailing 20 completed rows on which adjusted close was above its mid EMA;
+- `close_over_ema_slow_fraction`, the fraction of the trailing 20 completed rows on which adjusted close was above its slow EMA;
 - `adx`, Wilder's Average Directional Index measuring trend strength;
 - `plus_di`, the positive directional indicator measuring upward directional movement;
 - `minus_di`, the negative directional indicator measuring downward directional movement;
@@ -109,7 +112,8 @@ The public numerical trend indicators, importable from `swingtrader.indicators`,
 - `sma`, which has one natural output and returns a series;
 - `ema`, which has one natural output and returns a series;
 - `adx`, which has three natural outputs and returns a dataframe with `adx`, `plus_di`, and `minus_di` columns;
-- `rolling_vwap`, which consumes `high`, `low`, `close`, and `volume` and returns the trailing volume-weighted average typical price.
+- `rolling_vwap`, which consumes `high`, `low`, `close`, and `volume` and returns the trailing volume-weighted average typical price;
+- `rolling_fraction_above_ema`, which consumes a `Series` and returns the trailing fraction of rows that closed above their EMA.
 
 Each indicator accepts either one ordered single-instrument input or a canonical multi-instrument input carrying the `provider`, `ticker`, and `trading_date` index levels. `sma` and `ema` consume a `Series`, while `adx` and `rolling_vwap` consume a `DataFrame` containing their required columns. A standalone single-instrument input does not require the three-level MultiIndex; it only has to be chronologically ordered. When the canonical index levels are present, the calculation is applied independently within each provider/ticker group, so one ticker's history cannot leak into another's. The original index and row order are preserved. A partial or wrongly ordered MultiIndex, such as `["ticker", "trading_date"]`, is rejected.
 
@@ -128,6 +132,8 @@ Inside `add_trend_features`, `vwap_distance` is calculated as `adjusted_close / 
 `vwap_distance_percent_b` applies `bollinger_percent_b` to the VWAP-distance series itself. A value of 0 marks the lower Bollinger band, 1 marks the upper band, and values outside `[0, 1]` lie beyond the bands. This provides historical context for the distance: the same absolute displacement can be ordinary for one ticker or unusually stretched for another.
 
 The default rolling VWAP length is 20 rows. The Bollinger transformation over VWAP distance also defaults to 20 rows and 2 population standard deviations. These values are calibratable through `vwap_length`, `vwap_bollinger_length`, and `vwap_bollinger_num_std`. Warm-up observations remain missing until the underlying VWAP and Bollinger windows have enough valid history.
+
+The `close_over_ema_{fast,mid,slow}_fraction` features apply `rolling_fraction_above_ema` to the adjustment-consistent close. For each row the indicator compares the value against its EMA, then averages the resulting above/below indicator over a trailing 20-row window, yielding a value in `[0, 1]`. A reading near 1 means adjusted close held above the reference EMA on almost every recent session, while a reading near 0 means it rarely did, summarizing how persistently price has stayed on one side of the fast, mid, and slow trends. The EMA lengths follow the configurable `ma_lengths` (10, 20, and 50 rows by default) and the lookback window defaults to 20 rows through the `rolling_fraction_lookback` argument. The current row is excluded from the comparison so each value reflects only already-completed sessions, and warm-up rows stay missing until the EMA is defined and the full lookback window is available.
 
 ## Momentum Features
 
