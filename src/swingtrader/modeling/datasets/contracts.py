@@ -160,7 +160,7 @@ class TargetSetSpec:
 
     def apply(self, data: pd.DataFrame) -> pd.DataFrame:
         """Return an independent frame with the declared targets appended."""
-        result = data.copy(deep=True)
+        result = data.copy(deep=False)
         for family in self.families:
             family_output = family.apply(result)
             result = pd.concat((result, family_output), axis="columns")
