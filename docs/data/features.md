@@ -259,7 +259,8 @@ With the default settings, the orchestrator adds:
 - `candle_direction_run_body_atr`, the cumulative sum of each candle's signed real body divided by the ATR known before that candle;
 - `candle_close_to_prior_high_atr_20` and `candle_close_to_prior_low_atr_20`, signed close distances from the preceding 20-row high and low, divided by prior ATR;
 - `candle_breakout_high_strength_20` and `candle_breakout_low_strength_20`, positive close penetration beyond the corresponding prior level, divided by prior ATR;
-- `candle_failed_breakout_high_strength_20` and `candle_failed_breakout_low_strength_20`, positive intraday excursions beyond a prior level when the close finishes back inside the prior range.
+- `candle_failed_breakout_high_strength_20` and `candle_failed_breakout_low_strength_20`, positive intraday excursions beyond a prior level when the close finishes back inside the prior range;
+- `rolling_bullish_candle_fraction`, the share of the trailing `rolling_candle_lookback` candles (14 by default) that closed above their open, excluding the current row.
 
 The public numerical candlestick indicators, importable from `swingtrader.indicators`, are:
 
@@ -267,7 +268,8 @@ The public numerical candlestick indicators, importable from `swingtrader.indica
 - `candle_range_context`, which returns `range_atr`, `gap_atr`, and `range_percentile`;
 - `candle_patterns`, which returns the containment, engulfing, rejection, and inside-bar streak outputs;
 - `candle_direction_runs`, which returns signed run length, cumulative close-to-close return, and cumulative ATR-normalized real-body magnitude;
-- `rolling_level_interactions`, which returns prior rolling high and low levels together with ATR-normalised close distance, accepted-breakout strength, and failed-break strength.
+- `rolling_level_interactions`, which returns prior rolling high and low levels together with ATR-normalised close distance, accepted-breakout strength, and failed-break strength;
+- `rolling_bullish_candle_fraction`, which consumes a dataframe with `open` and `close` columns and returns the trailing fraction of bullish candles.
 
 The candlestick indicators support either one chronologically ordered instrument or the canonical multi-instrument index, and calculations are isolated within each provider/ticker group. Geometry, range context, local patterns, and directional runs consume OHLC data, while rolling level interactions require high, low, and close. Zero-range candles cannot produce normalized geometry and therefore leave the four geometry outputs missing rather than producing infinities. Other outputs follow their own history and denominator requirements.
 
@@ -282,6 +284,8 @@ The candlestick indicators support either one chronologically ordered instrument
 Inside `add_price_action_features`, all four OHLC columns are placed on the `adjusted_close` scale with the row-wise factor `adjusted_close / close`. This leaves same-row geometry ratios unchanged but removes artificial cross-session gaps and True Range spikes caused by splits and dividend adjustments. The standalone indicators remain source-agnostic and operate on whichever OHLC representation the caller supplies.
 
 The default ATR length is 14 rows, while the range-percentile and rolling-level histories both default to 20 preceding rows. Warm-up periods are kept as missing values where a calculation requires prior ATR, a previous candle, or a complete rolling history.
+
+`rolling_bullish_candle_fraction` counts a candle as bullish when `close > open`, treating doji and bearish candles as zero, and averages that indicator over the trailing `lookback` rows to yield a value in `[0, 1]`. Inside `add_price_action_features` it is applied to the adjustment-consistent OHLC with `exclude_current=True`, so each value reflects only already-completed candles and the bullish/bearish sign is unaffected by split and dividend adjustments. The lookback defaults to 14 rows through the `rolling_candle_lookback` argument, warm-up rows stay missing until a full window is available, and the calculation stays within each provider/ticker group.
 
 ## Volume Features
 

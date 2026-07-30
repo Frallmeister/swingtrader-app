@@ -21,6 +21,7 @@ from swingtrader.indicators import (
     candle_geometry,
     candle_patterns,
     candle_range_context,
+    rolling_bullish_candle_fraction,
     rolling_level_interactions,
 )
 
@@ -53,6 +54,7 @@ def add_price_action_features(
     atr_length: int = 14,
     range_percentile_length: int = 20,
     breakout_length: int = 20,
+    rolling_candle_lookback: int = 14,
 ) -> pd.DataFrame:
     """Return a copy of data with the default price-action features added.
 
@@ -76,6 +78,12 @@ def add_price_action_features(
     breakout penetration, and failed intraday breaks that close back inside the
     prior range. The current
     row is excluded from both rolling levels.
+
+    ``rolling_bullish_candle_fraction`` is the share of the trailing
+    ``rolling_candle_lookback`` candles that closed above their open, excluding
+    the current row so each value reflects only already-completed candles. The
+    bullish/bearish sign of a candle is unchanged by the adjusted-close scaling,
+    so this feature is invariant to split and dividend encoding.
 
     The price columns are first placed on the ``adjusted_close`` scale by
     multiplying every OHLC value by ``adjusted_close / close``. Same-row geometry
@@ -114,6 +122,7 @@ def add_price_action_features(
         *_PATTERN_FEATURE_NAMES.values(),
         *_RUN_FEATURE_NAMES.values(),
         *level_feature_names.values(),
+        "rolling_bullish_candle_fraction",
     ]
     validate_new_columns(data, new_columns=new_columns)
 
@@ -146,6 +155,11 @@ def add_price_action_features(
         adjusted_ohlc,
         atr_length=atr_length,
     ).rename(columns=_RUN_FEATURE_NAMES)
+    bullish_fraction = rolling_bullish_candle_fraction(
+        adjusted_ohlc,
+        lookback=rolling_candle_lookback,
+        exclude_current=True,
+    ).rename("rolling_bullish_candle_fraction")
 
     result = data.copy()
     return (
@@ -154,4 +168,5 @@ def add_price_action_features(
         .join(patterns)
         .join(direction_runs)
         .join(level_context)
+        .join(bullish_fraction)
     )

@@ -463,7 +463,8 @@ def _squeeze_ohlc(*, include_adjusted_and_volume: bool = False) -> pd.DataFrame:
     span = np.abs(rng.normal(0.0, 1.0, n)) * scale + 0.1
     index = pd.DatetimeIndex(pd.date_range("2026-01-01", periods=n, freq="B"), name="trading_date")
 
-    columns = {"high": close + span, "low": close - span, "close": close}
+    open_values = np.concatenate([[close[0]], close[:-1]])
+    columns = {"open": open_values, "high": close + span, "low": close - span, "close": close}
     if include_adjusted_and_volume:
         columns["adjusted_close"] = close
         columns["volume"] = rng.integers(1_000, 5_000, n).astype(float)
@@ -519,6 +520,7 @@ def _prices() -> pd.DataFrame:
                     "2026-07-06",
                 ]
             ).date,
+            "open": [9.5, 11.5, 13.5, 15.5, 100.0, 100.0, 100.0, 100.0],
             "high": [11.0, 13.0, 15.0, 17.0, 100.0, 100.0, 100.0, 100.0],
             "low": [9.0, 11.0, 13.0, 15.0, 100.0, 100.0, 100.0, 100.0],
             "close": [10.0, 12.0, 14.0, 16.0, 100.0, 100.0, 100.0, 100.0],

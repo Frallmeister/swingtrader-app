@@ -23,7 +23,7 @@ from swingtrader.data.features.volume import add_volume_features
 
 DEFAULT_FEATURE_SET = FeatureSetSpec(
     name="ohlcv_v1_candidates",
-    version="3",  # also update test_feature_set_manifest_is_deterministic_and_json_serializable
+    version="4",  # also update test_feature_set_manifest_is_deterministic_and_json_serializable
     blocks=(
         FeatureBlockSpec(
             name="returns",
@@ -136,6 +136,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "atr_length": 14,
                 "range_percentile_length": 20,
                 "breakout_length": 20,
+                "rolling_candle_lookback": 14,
             },
             output_columns=(
                 "candle_signed_body_fraction",
@@ -160,6 +161,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "candle_breakout_low_strength_20",
                 "candle_failed_breakout_high_strength_20",
                 "candle_failed_breakout_low_strength_20",
+                "rolling_bullish_candle_fraction",
             ),
             required_columns=frozenset({"open", "high", "low", "close", "adjusted_close"}),
             history_requirement=HistoryRequirement.EXPANDING,

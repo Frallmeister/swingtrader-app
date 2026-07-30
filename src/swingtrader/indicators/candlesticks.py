@@ -175,6 +175,40 @@ def rolling_level_interactions(
     )
 
 
+def rolling_bullish_candle_fraction(
+    data: pd.DataFrame,
+    *,
+    lookback: int = 14,
+    exclude_current: bool = False,
+) -> pd.Series:
+    """Calculate the rolling fraction of bullish candles.
+
+    A candle is bullish when ``close > open``; doji and bearish candles count as
+    zero. The result is the share of the trailing ``lookback`` rows that are
+    bullish, so values lie in ``[0, 1]`` where one marks an unbroken bullish run
+    and zero marks no bullish candles in the window.
+
+    ``data`` must contain ``open`` and ``close`` columns in chronological order.
+    Calculations are isolated per provider/ticker group, and warm-up rows remain
+    missing until a full ``lookback`` window is available. Rows with a missing
+    ``open`` or ``close`` are excluded rather than counted as bearish, so any
+    window that overlaps one stays missing. When ``exclude_current`` is set the
+    window is shifted by one row so each value reflects only already-completed
+    candles.
+    """
+    validate_length(lookback)
+    validate_required_columns(data, required_columns={"open", "close"})
+
+    return apply_by_ticker(
+        data,
+        lambda group: _rolling_bullish_candle_fraction(
+            group,
+            lookback=lookback,
+            exclude_current=exclude_current,
+        ),
+    )
+
+
 def _candle_geometry(data: pd.DataFrame) -> pd.DataFrame:
     open_values = data.loc[:, "open"]
     high_values = data.loc[:, "high"]
@@ -368,6 +402,25 @@ def _rolling_level_interactions(
         ],
         axis="columns",
     )
+
+
+def _rolling_bullish_candle_fraction(
+    data: pd.DataFrame,
+    *,
+    lookback: int,
+    exclude_current: bool,
+) -> pd.Series:
+    close = data["close"]
+    open_ = data["open"]
+    valid = close.notna() & open_.notna()
+    bullish = close.gt(open_).where(valid)
+
+    result = bullish.rolling(
+        window=lookback,
+        min_periods=lookback,
+    ).mean()
+
+    return result.shift(1) if exclude_current else result
 
 
 def _prior_range_percentile(values: pd.Series, *, length: int) -> pd.Series:
