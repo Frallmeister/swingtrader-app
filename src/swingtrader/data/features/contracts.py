@@ -1,24 +1,16 @@
-"""Versioned contracts for reproducible model feature sets.
+"""Executable contracts for reproducible model feature sets.
 
-This module defines the small vocabulary used to describe feature
-computations declaratively:
+A :class:`FeatureBlockSpec` binds one feature-family builder to its recorded
+parameters, required inputs, and declared output schema. Applying a block
+validates that contract and returns only the declared feature columns.
 
-* A :class:`FeatureBlockSpec` binds one feature-family builder to its
-  parameters and stable input/output column schema.
-* A :class:`FeatureSetSpec` composes an ordered, name-versioned
-  collection of blocks into a single feature contract.
+A :class:`FeatureSetSpec` composes blocks in declaration order. Applying a set
+returns an independent copy of the input with exactly the declared features
+appended in contract order. Manifests and digests are therefore derived from
+the same specifications that execute the feature calculations.
 
-Both specifications are frozen and normalize their declared inputs into
-immutable containers, preventing accidental mutation after construction.
-
-Each specification can emit a deterministic, JSON-serializable manifest
-through ``to_manifest``. :class:`FeatureSetSpec` also exposes a SHA-256
-digest of its canonical manifest for compact experiment and artifact
-provenance.
-
-The manifest and digest identify the declared feature configuration.
-Exact reproduction additionally requires the source revision containing
-the configured builder implementations and the corresponding input data.
+Exact reproduction still requires the source revision containing the builder
+implementations and the corresponding input data.
 """
 
 from __future__ import annotations
@@ -28,11 +20,16 @@ import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from types import MappingProxyType
 
 import pandas as pd
 
-type FeatureParameter = bool | int | float | str | tuple[object, ...]
+from swingtrader.core.dataframe_contracts import (
+    ContractParameter,
+    execute_dataframe_contract,
+    normalize_builder_parameters,
+)
+
+type FeatureParameter = ContractParameter
 type FeatureBuilder = Callable[..., pd.DataFrame]
 
 
@@ -59,13 +56,12 @@ class HistoryRequirement(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class FeatureBlockSpec:
-    """Declare one executable feature-family block and its stable schema.
+    """Define and enforce one feature-family calculation.
 
-    Invariants enforced at construction: the block name is non-empty,
-    ``output_columns`` is a non-empty tuple with no duplicates, and the
-    inputs are frozen (``output_columns`` to a tuple, ``parameters`` to a
-    read-only mapping, ``required_columns`` to a frozenset) so the spec
-    cannot be mutated after creation.
+    The builder receives a DataFrame followed by the recorded parameters as
+    keyword arguments. :meth:`apply` validates required inputs, output
+    collisions, index preservation, and declared outputs, then returns only
+    ``output_columns`` in their declared order.
     """
 
     name: str
@@ -79,17 +75,26 @@ class FeatureBlockSpec:
         if not self.name:
             raise ValueError("Feature block name must not be empty.")
 
-        # Make sure output_columns are immutable in case the caller provided e.g. a list.
         output_columns = tuple(self.output_columns)
-        object.__setattr__(self, "output_columns", output_columns)
-
         if not output_columns:
             raise ValueError(f"Feature block {self.name!r} must declare output columns.")
         if len(output_columns) != len(set(output_columns)):
             raise ValueError(f"Feature block {self.name!r} contains duplicate output columns.")
+        if any(not isinstance(column, str) or not column for column in output_columns):
+            raise ValueError("Feature output columns must be non-empty strings.")
 
-        object.__setattr__(self, "parameters", MappingProxyType(dict(self.parameters)))
-        object.__setattr__(self, "required_columns", frozenset(self.required_columns))
+        parameters = normalize_builder_parameters(
+            self.builder,
+            self.parameters,
+            subject=f"feature block {self.name!r}",
+        )
+        required_columns = frozenset(self.required_columns)
+        if any(not isinstance(column, str) or not column for column in required_columns):
+            raise ValueError("Feature required columns must be non-empty strings.")
+
+        object.__setattr__(self, "output_columns", output_columns)
+        object.__setattr__(self, "parameters", parameters)
+        object.__setattr__(self, "required_columns", required_columns)
 
     @property
     def builder_path(self) -> str:
@@ -97,8 +102,15 @@ class FeatureBlockSpec:
         return f"{self.builder.__module__}.{self.builder.__qualname__}"
 
     def apply(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Apply this block with its declared parameters."""
-        return self.builder(data, **self.parameters)
+        """Execute the block and return its declared feature columns."""
+        return execute_dataframe_contract(
+            data,
+            builder=self.builder,
+            parameters=self.parameters,
+            required_columns=self.required_columns,
+            output_columns=self.output_columns,
+            subject=f"Feature block {self.name!r}",
+        )
 
     def to_manifest(self) -> dict[str, object]:
         """Return a deterministic, JSON-serializable block description."""
@@ -116,12 +128,11 @@ class FeatureBlockSpec:
 
 @dataclass(frozen=True, slots=True)
 class FeatureSetSpec:
-    """Declare an ordered, versioned collection of feature blocks.
+    """Define and execute an ordered, versioned feature set.
 
-    Invariants enforced at construction: the name and version are
-    non-empty, ``blocks`` is a non-empty tuple, block names are unique,
-    and every output column is unique across the whole set. Blocks retain
-    their declared order, which is the order features are computed.
+    Blocks execute in declaration order, allowing a later block to require a
+    feature produced by an earlier block. The returned frame contains the
+    original input columns followed by exactly ``feature_columns``.
     """
 
     name: str
@@ -138,14 +149,9 @@ class FeatureSetSpec:
 
         if not blocks:
             raise ValueError("A feature set must contain at least one block.")
-
-        block_names = self.block_names
-
-        if len(block_names) != len(set(block_names)):
+        if len(self.block_names) != len(set(self.block_names)):
             raise ValueError("Feature block names must be unique within a feature set.")
-
-        output_columns = self.feature_columns
-        if len(output_columns) != len(set(output_columns)):
+        if len(self.feature_columns) != len(set(self.feature_columns)):
             raise ValueError("Feature output columns must be unique across a feature set.")
 
     @property
@@ -170,18 +176,21 @@ class FeatureSetSpec:
 
     @property
     def source_columns(self) -> tuple[str, ...]:
-        """Return external inputs needed before the feature set executes.
-
-        Inputs produced by an earlier block are dependencies within the feature
-        pipeline and therefore are not source columns that a data loader must
-        request.
-        """
+        """Return inputs that must exist before the feature set executes."""
         produced: set[str] = set()
         source_columns: set[str] = set()
         for block in self.blocks:
             source_columns.update(block.required_columns.difference(produced))
             produced.update(block.output_columns)
         return tuple(sorted(source_columns))
+
+    def apply(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Return an independent frame with the declared features appended."""
+        result = data.copy(deep=True)
+        for block in self.blocks:
+            block_output = block.apply(result)
+            result = pd.concat((result, block_output), axis="columns")
+        return result
 
     def select(
         self,

@@ -88,35 +88,8 @@ def generate_target_set(
     *,
     target_set: "TargetSetSpec",
 ) -> pd.DataFrame:
-    """Execute target families in declaration order.
-
-    A family's declared required inputs are ordinarily value columns. The three
-    canonical market identifiers may instead be supplied by index levels. Before
-    and after each family, this function validates required inputs, output
-    collisions, and the presence of all declared target columns. Concrete
-    market-price builders enforce the complete canonical index contract.
-    """
-    result = prices
-    for family in target_set.families:
-        available_inputs = _available_input_names(result)
-        missing = sorted(family.required_columns.difference(available_inputs))
-        if missing:
-            raise ValueError(
-                f"Target family {family.name!r} is missing required inputs: {', '.join(missing)}"
-            )
-        collisions = sorted(set(family.output_columns).intersection(result.columns))
-        if collisions:
-            raise ValueError(
-                f"Target family {family.name!r} would overwrite columns: {', '.join(collisions)}"
-            )
-        result = family.apply(result)
-        missing_outputs = sorted(set(family.output_columns).difference(result.columns))
-        if missing_outputs:
-            raise ValueError(
-                f"Target family {family.name!r} did not produce columns: "
-                f"{', '.join(missing_outputs)}"
-            )
-    return result
+    """Return prices with the targets enforced by ``target_set`` appended."""
+    return target_set.apply(prices)
 
 
 def generate_v1_labels(prices: pd.DataFrame) -> pd.DataFrame:
@@ -131,13 +104,3 @@ def generate_v2_labels(prices: pd.DataFrame) -> pd.DataFrame:
     from swingtrader.modeling.datasets.catalog import V2_TARGET_SET
 
     return generate_target_set(prices, target_set=V2_TARGET_SET)
-
-
-def _available_input_names(data: pd.DataFrame) -> set[str]:
-    available = {column for column in data.columns if isinstance(column, str)}
-    if (
-        isinstance(data.index, pd.MultiIndex)
-        and tuple(data.index.names) == MARKET_PRICE_INDEX_NAMES
-    ):
-        available.update(MARKET_PRICE_INDEX_NAMES)
-    return available

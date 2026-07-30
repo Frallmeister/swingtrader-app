@@ -13,12 +13,10 @@ import numpy as np
 import pandas as pd
 from sqlalchemy.engine import Engine
 
-from swingtrader.data.features.contracts import FeatureSetSpec
 from swingtrader.data.market_frame import (
     MARKET_PRICE_INDEX_NAMES,
     validate_market_price_index,
 )
-from swingtrader.modeling.datasets.labels import generate_target_set
 from swingtrader.modeling.datasets.specifications import TemporalDatasetSpec
 
 TARGET_END_DATE_COLUMN = "target_end_date"
@@ -243,15 +241,8 @@ def construct_temporal_dataset(
     validate_market_price_index(prices)
     _validate_source_scope(prices, spec=spec, eligibility=eligibility)
 
-    feature_result = _generate_feature_set(
-        prices.copy(deep=True),
-        feature_set=spec.feature_set,
-    )
-    target_result = generate_target_set(
-        prices.copy(deep=True),
-        target_set=spec.target_set,
-    )
-    _validate_unchanged_index(prices.index, target_result, family="Target set")
+    feature_result = spec.feature_set.apply(prices)
+    target_result = spec.target_set.apply(prices)
 
     features = feature_result.loc[:, spec.feature_set.feature_columns].copy()
     targets = target_result.loc[:, spec.target_set.target_columns].copy()
@@ -297,40 +288,6 @@ def _source_value_columns(spec: TemporalDatasetSpec) -> tuple[str, ...]:
     return tuple(sorted(names))
 
 
-def _generate_feature_set(
-    prices: pd.DataFrame,
-    *,
-    feature_set: FeatureSetSpec,
-) -> pd.DataFrame:
-    result = prices
-    for block in feature_set.blocks:
-        available = set(result.columns).union(MARKET_PRICE_INDEX_NAMES)
-        missing = sorted(block.required_columns.difference(available))
-        if missing:
-            raise ValueError(
-                f"Feature block {block.name!r} is missing required inputs: {', '.join(missing)}"
-            )
-        collisions = sorted(set(block.output_columns).intersection(result.columns))
-        if collisions:
-            raise ValueError(
-                f"Feature block {block.name!r} would overwrite columns: {', '.join(collisions)}"
-            )
-        previous_index = result.index.copy()
-        result = block.apply(result)
-        _validate_unchanged_index(
-            previous_index,
-            result,
-            family=f"Feature block {block.name!r}",
-        )
-        missing_outputs = sorted(set(block.output_columns).difference(result.columns))
-        if missing_outputs:
-            raise ValueError(
-                f"Feature block {block.name!r} did not produce columns: "
-                f"{', '.join(missing_outputs)}"
-            )
-    return result
-
-
 def _validate_source_scope(
     prices: pd.DataFrame,
     *,
@@ -361,16 +318,6 @@ def _validate_source_scope(
         if ticker != state.ticker:
             raise ValueError("Eligibility mapping keys must match their ticker states.")
 
-
-def _validate_unchanged_index(
-    before: pd.Index,
-    after: pd.DataFrame,
-    *,
-    family: str,
-) -> None:
-    if not before.equals(after.index):
-        raise ValueError(f"{family} changed the canonical sample index.")
-    validate_market_price_index(after)
 
 
 def _target_end_dates(
