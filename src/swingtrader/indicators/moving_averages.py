@@ -1,10 +1,12 @@
 """Moving-average indicators for ordered price and volume histories.
 
 The module provides simple, exponential, and rolling volume-weighted moving
-averages. Each indicator supports either one ordered instrument or a canonical
-multi-instrument input indexed by ``provider``, ``ticker``, and
-``trading_date``. Multi-instrument calculations are isolated within each
-provider/ticker group, preserve row alignment, and do not mutate their input.
+averages, together with the rolling fraction of observations above their
+exponential moving average. Each indicator supports either one ordered
+instrument or a canonical multi-instrument input indexed by ``provider``,
+``ticker``, and ``trading_date``. Multi-instrument calculations are isolated
+within each provider/ticker group, preserve row alignment, and do not mutate
+their input.
 """
 
 import pandas as pd
@@ -85,6 +87,44 @@ def rolling_vwap(data: pd.DataFrame, *, length: int) -> pd.Series:
     ).rename("rolling_vwap")
 
 
+def rolling_fraction_above_ema(
+    values: pd.Series,
+    *,
+    ema_length: int = 10,
+    lookback: int = 20,
+    exclude_current: bool = False,
+) -> pd.Series:
+    """Calculate the rolling fraction of observations above their EMA.
+
+    Each observation is compared against an exponential moving average of
+    ``values`` with span ``ema_length``. The indicator is the share of the
+    trailing ``lookback`` observations whose value exceeds that EMA, ranging from
+    ``0`` when the value was below the EMA on every row in the window to ``1``
+    when it was above on every row.
+
+    ``values`` must contain observations in chronological order. When ``values``
+    carries the canonical ``provider``, ``ticker``, and ``trading_date`` index
+    levels the calculation is isolated within each provider/ticker group. The
+    returned series preserves the input index. A row is missing until its EMA is
+    defined and the trailing window holds ``lookback`` comparable observations.
+
+    When ``exclude_current`` is true the above/below comparison is shifted by one
+    row so the current observation is excluded and the fraction summarizes only
+    prior rows.
+    """
+    validate_length(ema_length)
+    validate_length(lookback)
+    return apply_by_ticker(
+        values,
+        lambda group: _rolling_fraction_above_ema(
+            group,
+            ema_length=ema_length,
+            lookback=lookback,
+            exclude_current=exclude_current,
+        ),
+    )
+
+
 def _sma(values: pd.Series, *, length: int) -> pd.Series:
     return values.rolling(window=length, min_periods=length).mean()
 
@@ -101,3 +141,17 @@ def _rolling_vwap(data: pd.DataFrame, length: int) -> pd.Series:
         price_volume.rolling(length, min_periods=length).sum(),
         volume.rolling(length, min_periods=length).sum(),
     )
+
+
+def _rolling_fraction_above_ema(
+    values: pd.Series,
+    *,
+    ema_length: int,
+    lookback: int,
+    exclude_current: bool,
+) -> pd.Series:
+    ma = _ema(values, length=ema_length)
+    above_ma = values.gt(ma).astype("float64").where(ma.notna())
+    if exclude_current:
+        above_ma = above_ma.shift(1)
+    return above_ma.rolling(window=lookback, min_periods=lookback).mean()

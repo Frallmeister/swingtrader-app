@@ -22,9 +22,14 @@ from swingtrader.data.market_frame import (
     validate_new_columns,
     validate_required_columns,
 )
-from swingtrader.indicators import bollinger_percent_b
-from swingtrader.indicators.directional_movement import adx
-from swingtrader.indicators.moving_averages import ema, rolling_vwap, sma
+from swingtrader.indicators import (
+    adx,
+    bollinger_percent_b,
+    ema,
+    rolling_fraction_above_ema,
+    rolling_vwap,
+    sma,
+)
 
 _TREND_FEATURE_COLUMNS = (
     "ema_fast_to_ema_mid",
@@ -33,6 +38,9 @@ _TREND_FEATURE_COLUMNS = (
     "close_to_ema_fast",
     "close_to_ema_mid",
     "close_to_ema_slow",
+    "close_over_ema_fast_fraction",
+    "close_over_ema_mid_fraction",
+    "close_over_ema_slow_fraction",
     "adx",
     "plus_di",
     "minus_di",
@@ -64,6 +72,12 @@ def add_trend_features(
     same adjusted-close scale. This preserves each session's candle geometry
     while preventing splits and dividend adjustments from appearing as market
     movement between sessions.
+
+    The ``close_over_ema_{fast,mid,slow}_fraction`` columns record the fraction
+    of the trailing 20 rows on which ``adjusted_close`` closed above its fast,
+    mid, and slow exponential moving average, summarizing how persistently price
+    has held above each reference trend. The current row is excluded from the
+    comparison so each value only reflects already-completed sessions.
 
     Rolling VWAP uses adjustment-consistent typical price
     ``(high + low + close) / 3`` together with source ``volume``.
@@ -108,6 +122,21 @@ def add_trend_features(
     data["close_to_ema_fast"] = safe_divide(adjusted_close, ema_fast).sub(1)
     data["close_to_ema_mid"] = safe_divide(adjusted_close, ema_mid).sub(1)
     data["close_to_ema_slow"] = safe_divide(adjusted_close, ema_slow).sub(1)
+    data["close_over_ema_fast_fraction"] = rolling_fraction_above_ema(
+        adjusted_close,
+        ema_length=fast,
+        exclude_current=True,
+    )
+    data["close_over_ema_mid_fraction"] = rolling_fraction_above_ema(
+        adjusted_close,
+        ema_length=mid,
+        exclude_current=True,
+    )
+    data["close_over_ema_slow_fraction"] = rolling_fraction_above_ema(
+        adjusted_close,
+        ema_length=slow,
+        exclude_current=True,
+    )
 
     adx_block = adx(adjusted_hlc, length=adx_length)
     data[adx_block.columns] = adx_block

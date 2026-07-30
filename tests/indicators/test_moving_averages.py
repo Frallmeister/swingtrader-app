@@ -2,7 +2,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from swingtrader.indicators.moving_averages import ema, rolling_vwap, sma
+from swingtrader.indicators.moving_averages import (
+    ema,
+    rolling_fraction_above_ema,
+    rolling_vwap,
+    sma,
+)
 
 
 def test_sma_and_ema_calculate_one_sequence() -> None:
@@ -301,6 +306,63 @@ def test_rolling_vwap_requires_price_and_volume_columns(column: str) -> None:
 
     with pytest.raises(ValueError, match="Missing required columns"):
         rolling_vwap(data, length=2)
+
+
+def test_rolling_fraction_above_ema_calculates_one_sequence() -> None:
+    values = pd.Series([10.0, 12.0, 11.0, 13.0, 9.0], name="close")
+
+    result = rolling_fraction_above_ema(values, ema_length=2, lookback=2)
+
+    pd.testing.assert_series_equal(
+        result,
+        pd.Series([np.nan, np.nan, 0.5, 0.5, 0.5], name="close"),
+    )
+
+
+def test_rolling_fraction_above_ema_excludes_current_row() -> None:
+    values = pd.Series([10.0, 12.0, 11.0, 13.0, 9.0], name="close")
+
+    result = rolling_fraction_above_ema(
+        values,
+        ema_length=2,
+        lookback=2,
+        exclude_current=True,
+    )
+
+    pd.testing.assert_series_equal(
+        result,
+        pd.Series([np.nan, np.nan, np.nan, 0.5, 0.5], name="close"),
+    )
+
+
+def test_rolling_fraction_above_ema_isolates_provider_ticker_groups() -> None:
+    values = _multi_ticker_close()
+
+    result = rolling_fraction_above_ema(values, ema_length=2, lookback=2)
+
+    pd.testing.assert_index_equal(result.index, values.index)
+    for ticker in ["AAA.ST", "BBB.ST"]:
+        group = values.loc[("yfinance", ticker)]
+        expected = rolling_fraction_above_ema(group, ema_length=2, lookback=2)
+        pd.testing.assert_series_equal(
+            result.loc[("yfinance", ticker)].reset_index(drop=True),
+            expected.reset_index(drop=True),
+        )
+
+
+@pytest.mark.parametrize("parameter", ["ema_length", "lookback"])
+@pytest.mark.parametrize("value", [0, -1, True, 1.5])
+def test_rolling_fraction_above_ema_rejects_invalid_lengths(
+    parameter: str,
+    value: object,
+) -> None:
+    kwargs = {"ema_length": 2, "lookback": 2, parameter: value}
+
+    with pytest.raises(ValueError, match="positive integer"):
+        rolling_fraction_above_ema(
+            pd.Series([1.0, 2.0, 3.0]),
+            **kwargs,  # type: ignore[arg-type]
+        )
 
 
 def _multi_ticker_close() -> pd.Series:
