@@ -190,9 +190,11 @@ def rolling_bullish_candle_fraction(
 
     ``data`` must contain ``open`` and ``close`` columns in chronological order.
     Calculations are isolated per provider/ticker group, and warm-up rows remain
-    missing until a full ``lookback`` window is available. When
-    ``exclude_current`` is set the window is shifted by one row so each value
-    reflects only already-completed candles.
+    missing until a full ``lookback`` window is available. Rows with a missing
+    ``open`` or ``close`` are excluded rather than counted as bearish, so any
+    window that overlaps one stays missing. When ``exclude_current`` is set the
+    window is shifted by one row so each value reflects only already-completed
+    candles.
     """
     validate_length(lookback)
     validate_required_columns(data, required_columns={"open", "close"})

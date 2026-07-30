@@ -299,6 +299,23 @@ def test_rolling_bullish_candle_fraction_excludes_current_row() -> None:
     )
 
 
+def test_rolling_bullish_candle_fraction_leaves_missing_candles_missing() -> None:
+    data = pd.DataFrame(
+        {
+            "open": [10.0, 10.0, np.nan, 10.0, 10.0],
+            "close": [11.0, 12.0, 13.0, 9.0, 14.0],
+        }
+    )
+
+    result = rolling_bullish_candle_fraction(data, lookback=2)
+
+    pd.testing.assert_series_equal(
+        result,
+        pd.Series([np.nan, 1.0, np.nan, np.nan, 0.5]),
+        check_names=False,
+    )
+
+
 def test_rolling_bullish_candle_fraction_isolates_tickers_and_preserves_index() -> None:
     index = pd.MultiIndex.from_product(
         [

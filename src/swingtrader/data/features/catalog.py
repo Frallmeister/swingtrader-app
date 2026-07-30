@@ -110,7 +110,9 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "squeeze_release_duration",
                 "bullish_candle_run_fraction",
             ),
-            required_columns=frozenset({"high", "low", "close", "adjusted_close", "volume"}),
+            required_columns=frozenset(
+                {"open", "high", "low", "close", "adjusted_close", "volume"}
+            ),
             history_requirement=HistoryRequirement.EXPANDING,
         ),
         FeatureBlockSpec(
