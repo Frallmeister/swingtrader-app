@@ -23,7 +23,7 @@ from swingtrader.data.features.volume import add_volume_features
 
 DEFAULT_FEATURE_SET = FeatureSetSpec(
     name="ohlcv_v1_candidates",
-    version="1",
+    version="2",
     blocks=(
         FeatureBlockSpec(
             name="returns",
