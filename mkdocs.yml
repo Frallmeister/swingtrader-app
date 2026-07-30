@@ -74,6 +74,7 @@ nav:
           - Versioned Feature-Set Contract: architecture/decisions/0005-versioned-feature-set-contract.md
           - Canonical Temporal Dataset Bundle: architecture/decisions/0006-canonical-temporal-dataset-bundle.md
           - Purged Fixed Temporal Splitting: architecture/decisions/0007-purged-fixed-temporal-splitting.md
+          - Executable Feature and Target Contracts: architecture/decisions/0008-executable-feature-and-target-contracts.md
       - Trading Objective: architecture/trading-objective.md
       - Ticker Universes: architecture/ticker-universes.md
   - Data:

@@ -1,6 +1,6 @@
 # Features
 
-Feature generation currently supports in-memory historical return, trend, momentum, volatility, price-action, volume, and market-structure features for exploratory analysis, screening, backtest analysis, and baseline modeling. A versioned feature-set contract records the default candidate schema and parameters. Persistent feature tables are still future work.
+Feature generation currently supports in-memory historical return, trend, momentum, volatility, price-action, volume, and market-structure features for exploratory analysis, screening, backtest analysis, and baseline modeling. A versioned feature-set contract executes and enforces the default candidate schema and parameters. Persistent feature tables are still future work.
 
 ## Intended Role
 
@@ -73,10 +73,11 @@ This preserves same-session candle geometry while preventing stock splits and di
 
 The indicator layer remains source-agnostic. Standalone indicators calculate from whichever series or price frame the caller supplies, which permits raw-price charting and analysis. Canonical feature orchestrators own the adjustment decision so persisted model columns do not accidentally mix incompatible price histories. `zigzag_features` also accepts an explicitly selected `high`/`low`/`close` frame without `adjusted_close` for direct use; canonical model inputs include `adjusted_close` and use the adjustment-consistent path.
 
-Feature functions follow two contracts:
+Feature generation follows three related contracts:
 
 - public numerical indicators in `swingtrader.indicators` operate per ticker and return either one index-aligned `pd.Series` or, for naturally multi-output indicators, one index-aligned `pd.DataFrame`. Most indicators take a single ordered `pd.Series`; indicators that need several price columns at once, such as the volatility indicators consuming `high`, `low`, and `close`, take a `pd.DataFrame` instead. Every indicator supports two input forms: a single ordered instrument (only required to be chronologically ordered), or a canonical multi-instrument market frame with a `provider`/`ticker`/`trading_date` MultiIndex, in which case calculations are isolated per group and the input index and row order are preserved;
-- application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, `add_volatility_features`, `add_price_action_features`, `add_volume_features`, and `add_market_structure_features` return a copy of the input dataframe with final model feature columns added. They are importable from `swingtrader.data.features`. `DEFAULT_FEATURE_SET` records the versioned default builders, parameters, output columns, required source columns, and history requirements, while `add_feature_set` executes any declared feature set.
+- application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, `add_volatility_features`, `add_price_action_features`, `add_volume_features`, and `add_market_structure_features` return a copy of the input dataframe with available model feature columns added. They remain independently callable for EDA and focused analysis;
+- `FeatureBlockSpec` calls one orchestrator with the recorded parameters, validates required inputs and index preservation, rejects output collisions, and returns only the declared output columns in contract order. `FeatureSetSpec` composes those enforced block outputs. `add_feature_set` and `add_default_features` are compatibility helpers that delegate to `FeatureSetSpec.apply()`.
 
 Every public `add_*_features` family orchestrator rejects input columns that have the same names as its generated features. This prevents applying a family twice, or combining families with an accidental naming collision, from silently replacing existing data.
 
@@ -385,7 +386,7 @@ Because the current bar is excluded, the channel is point-in-time safe: today's 
 
 ## Versioned Feature Sets
 
-`swingtrader.data.features.DEFAULT_FEATURE_SET` is the authoritative contract for the current OHLCV candidate set. Its stable identifier is `ohlcv_v1_candidates:1`. The specification records:
+`swingtrader.data.features.DEFAULT_FEATURE_SET` is the authoritative contract for the current OHLCV candidate set. At this repository revision its identifier is `ohlcv_v1_candidates:4`. The specification records:
 
 - the ordered feature-family blocks;
 - the fully qualified builder used by each block;
@@ -394,7 +395,7 @@ Because the current bar is excluded, the channel is point-in-time safe: today's 
 - required source columns;
 - whether the block has bounded, expanding, or path-dependent history requirements.
 
-`add_feature_set` executes the blocks and parameters declared by a `FeatureSetSpec`. `add_default_features` remains as a compatibility wrapper that executes `DEFAULT_FEATURE_SET`:
+`FeatureSetSpec.apply()` executes the declared blocks and appends exactly the declared feature columns. Every keyword-compatible builder parameter must be explicit in the immutable parameter mapping, even when the builder defines a Python default. The manifest therefore records exactly the values passed during execution. `add_feature_set` and `add_default_features` remain compatibility wrappers:
 
 ```python
 from swingtrader.data.features import (
@@ -426,7 +427,7 @@ baseline_features = add_feature_set(prices, feature_set=baseline_set)
 
 A selected set requires its own name and version so two different schemas cannot share an identifier. The current contract operates at feature-family granularity. It deliberately does not implement dynamic dependency resolution, automatic discovery, a generic feature DAG, or selective calculation of individual columns inside a family. Those optimizations should be driven by model-selection and production evidence.
 
-The JSON-serializable output of `FeatureSetSpec.to_manifest()` is intended to be embedded in later dataset and model manifests. Those broader manifests must also record the label definition, data snapshot, temporal split, code commit, preprocessing, and model parameters; this feature-layer PR does not attempt to own those modeling concerns.
+The JSON-serializable output of `FeatureSetSpec.to_manifest()` is intended to be embedded in later dataset and model manifests. Because the specification now owns execution as well as metadata, missing inputs, undeclared overwrites, missing declared outputs, duplicate builder outputs, and index changes fail at the contract boundary. Broader manifests must still record the label definition, data snapshot, temporal split, code commit, preprocessing, and model parameters.
 
 A feature set also exposes a deterministic SHA-256 digest of its canonical manifest for compact experiment and artifact provenance. The digest identifies the declared configuration; exact reproduction additionally requires the source revision and corresponding input data.
 

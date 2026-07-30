@@ -48,7 +48,7 @@ classDiagram
     cssClass "TemporalSplitSpec,TemporalCrossValidationSpec,ModelSpec,ExperimentSpec" experiment
 ```
 
-Every specification is versioned or composed from versioned contracts and can be serialized into deterministic manifest data. The experiment digest covers static choices; runtime provenance such as the Git revision belongs to the tracking layer.
+Feature and target block/set specifications are executable: their recorded parameters drive builders, while declared inputs, outputs, and index preservation are enforced in declaration order. Every specification is versioned or composed from versioned contracts and can be serialized into deterministic manifest data. The experiment digest covers static choices; runtime provenance such as the Git revision belongs to the tracking layer.
 
 ## Runtime Artifact Object Model
 

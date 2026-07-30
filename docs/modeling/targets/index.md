@@ -1,6 +1,6 @@
 # Modeling Targets
 
-A target contract defines future-dependent outcomes for supervised learning. Target builders intentionally use future observations, expose their maximum horizon, preserve the canonical market index, and record deterministic manifests. They must remain separate from feature builders, which describe information available at prediction time.
+A target contract defines future-dependent outcomes for supervised learning. `TargetFamilySpec` passes its immutable parameter mapping to the builder, validates required inputs and index preservation, rejects output collisions, and selects only its declared target columns. `TargetSetSpec` composes families in declaration order and returns exactly the versioned target schema alongside the source columns. Every keyword-compatible builder parameter must be recorded explicitly, even when the builder defines a Python default, so manifests describe the exact execution. Target builders intentionally use future observations and expose their maximum horizon; they remain separate from feature builders, which describe information available at prediction time.
 
 | Version | Primary task | Primary output | Resolution semantics | Description |
 | --- | --- | --- | --- | --- |

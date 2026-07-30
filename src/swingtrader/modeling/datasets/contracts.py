@@ -1,31 +1,40 @@
-"""Immutable contracts for versioned modeling target sets."""
+"""Executable contracts for reproducible modeling target sets.
+
+A :class:`TargetFamilySpec` binds one future-dependent builder to its recorded
+parameters and output schema. A :class:`TargetSetSpec` composes families in
+declaration order, while :class:`SupervisedTaskSpec` selects one generated
+target and its resolution semantics for downstream dataset construction.
+"""
 
 from __future__ import annotations
 
 import hashlib
-import inspect
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from types import MappingProxyType
 from typing import Literal
 
 import pandas as pd
 
-type TargetParameter = bool | int | float | str | tuple[object, ...]
+from swingtrader.core.dataframe_contracts import (
+    ContractParameter,
+    execute_dataframe_contract,
+    normalize_builder_parameters,
+)
+
+type TargetParameter = ContractParameter
 type TargetBuilder = Callable[..., pd.DataFrame]
 type TaskType = Literal["classification", "regression"]
 
 
 @dataclass(frozen=True, slots=True)
 class TargetFamilySpec:
-    """Describe one executable target family and its declared schema.
+    """Define and enforce one future-dependent target calculation.
 
-    The builder receives a DataFrame as its first argument and the configured
-    parameters as keyword arguments. Required inputs, produced output columns,
-    and the maximum future horizon are recorded for validation and deterministic
-    manifest generation. For canonical market frames, identifier inputs recorded
-    in ``required_columns`` may be supplied by index levels.
+    The builder receives a DataFrame followed by the recorded parameters as
+    keyword arguments. :meth:`apply` validates required inputs, output
+    collisions, index preservation, and declared outputs, then returns only
+    ``output_columns`` in their declared order.
     """
 
     name: str
@@ -40,39 +49,27 @@ class TargetFamilySpec:
             raise ValueError("Target family name must not be empty.")
         if self.maximum_horizon_sessions < 1:
             raise ValueError("Target family maximum horizon must be at least one session.")
+
         output_columns = tuple(self.output_columns)
         if not output_columns:
             raise ValueError(f"Target family {self.name!r} must declare output columns.")
         if len(output_columns) != len(set(output_columns)):
             raise ValueError(f"Target family {self.name!r} contains duplicate output columns.")
+        if any(not isinstance(column, str) or not column for column in output_columns):
+            raise ValueError("Target output columns must be non-empty strings.")
+
+        parameters = normalize_builder_parameters(
+            self.builder,
+            self.parameters,
+            subject=f"target family {self.name!r}",
+        )
+        required_columns = frozenset(self.required_columns)
+        if any(not isinstance(column, str) or not column for column in required_columns):
+            raise ValueError("Target required columns must be non-empty strings.")
+
         object.__setattr__(self, "output_columns", output_columns)
-        object.__setattr__(self, "parameters", MappingProxyType(dict(self.parameters)))
-        object.__setattr__(self, "required_columns", frozenset(self.required_columns))
-        signature = inspect.signature(self.builder)
-        builder_parameters = tuple(signature.parameters.values())[1:]
-        configurable_kinds = {
-            inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            inspect.Parameter.KEYWORD_ONLY,
-        }
-        configurable_parameters = {
-            parameter.name: parameter
-            for parameter in builder_parameters
-            if parameter.kind in configurable_kinds
-        }
-        unknown_parameters = set(self.parameters).difference(configurable_parameters)
-        if unknown_parameters:
-            names = ", ".join(sorted(unknown_parameters))
-            raise ValueError(f"Unknown parameters for target family {self.name!r}: {names}.")
-        missing_parameters = {
-            name
-            for name, parameter in configurable_parameters.items()
-            if parameter.default is inspect.Parameter.empty and name not in self.parameters
-        }
-        if missing_parameters:
-            names = ", ".join(sorted(missing_parameters))
-            raise ValueError(
-                f"Missing required parameters for target family {self.name!r}: {names}."
-            )
+        object.__setattr__(self, "parameters", parameters)
+        object.__setattr__(self, "required_columns", required_columns)
 
     @property
     def builder_path(self) -> str:
@@ -80,8 +77,15 @@ class TargetFamilySpec:
         return f"{self.builder.__module__}.{self.builder.__qualname__}"
 
     def apply(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Apply this family with its declared parameters."""
-        return self.builder(data, **self.parameters)
+        """Execute the family and return its declared target columns."""
+        return execute_dataframe_contract(
+            data,
+            builder=self.builder,
+            parameters=self.parameters,
+            required_columns=self.required_columns,
+            output_columns=self.output_columns,
+            subject=f"Target family {self.name!r}",
+        )
 
     def to_manifest(self) -> dict[str, object]:
         """Return a deterministic, JSON-serializable family description."""
@@ -99,10 +103,11 @@ class TargetFamilySpec:
 
 @dataclass(frozen=True, slots=True)
 class TargetSetSpec:
-    """Declare an ordered, versioned collection of target families.
+    """Define and execute an ordered, versioned target set.
 
-    Families execute in declaration order, allowing later families to consume
-    outputs produced by earlier families.
+    Families execute in declaration order, allowing a later family to require
+    a target produced by an earlier family. The returned frame contains the
+    original input columns followed by exactly ``target_columns``.
     """
 
     name: str
@@ -125,14 +130,17 @@ class TargetSetSpec:
 
     @property
     def identifier(self) -> str:
+        """Return the stable target-set name and version identifier."""
         return f"{self.name}:{self.version}"
 
     @property
     def family_names(self) -> tuple[str, ...]:
+        """Return the family names in declared execution order."""
         return tuple(family.name for family in self.families)
 
     @property
     def target_columns(self) -> tuple[str, ...]:
+        """Return all declared target columns in execution order."""
         return tuple(column for family in self.families for column in family.output_columns)
 
     @property
@@ -142,7 +150,7 @@ class TargetSetSpec:
 
     @property
     def source_columns(self) -> tuple[str, ...]:
-        """Return external inputs needed before the target set executes."""
+        """Return inputs that must exist before the target set executes."""
         produced: set[str] = set()
         source_columns: set[str] = set()
         for family in self.families:
@@ -150,7 +158,16 @@ class TargetSetSpec:
             produced.update(family.output_columns)
         return tuple(sorted(source_columns))
 
+    def apply(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Return an independent frame with the declared targets appended."""
+        result = data.copy(deep=False)
+        for family in self.families:
+            family_output = family.apply(result)
+            result = pd.concat((result, family_output), axis="columns")
+        return result
+
     def to_manifest(self) -> dict[str, object]:
+        """Return a deterministic, JSON-serializable target-set manifest."""
         return {
             "name": self.name,
             "version": self.version,
