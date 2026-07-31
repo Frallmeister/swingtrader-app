@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 from swingtrader.data.features.catalog import DEFAULT_FEATURE_SET
-from swingtrader.modeling.datasets.catalog import V2_PRIMARY_TASK, V2_TARGET_SET
+from swingtrader.modeling.datasets.catalog import V1_PRIMARY_TASK, V1_TARGET_SET
 from swingtrader.modeling.experiments import (
     DatasetSplitSummary,
     DatasetSummary,
@@ -28,8 +28,8 @@ def _experiment_spec() -> ExperimentSpec:
         name="baseline",
         version="1",
         feature_set=DEFAULT_FEATURE_SET,
-        target_set=V2_TARGET_SET,
-        task=V2_PRIMARY_TASK,
+        target_set=V1_TARGET_SET,
+        task=V1_PRIMARY_TASK,
         universe=UniverseSpec(
             name="se_large_mid_cap",
             version="2026-07-24",
@@ -141,7 +141,7 @@ def test_start_experiment_run_logs_configuration_summary_metrics_and_artifacts(
 
     assert fake_mlflow.experiment_name == "tests"
     assert fake_mlflow.params["git.commit"] == "abc123"
-    assert fake_mlflow.params["task.target_column"] == "target_tp_before_sl_5d"
+    assert fake_mlflow.params["task.target_column"] == "target_significant_up_5d"
     assert fake_mlflow.params["dataset.train.rows"] == 1_000
     assert fake_mlflow.params["dataset.test.ticker_count"] == 2
     prevalence_metrics = {

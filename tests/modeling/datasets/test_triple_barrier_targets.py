@@ -4,10 +4,10 @@ import pandas as pd
 import pytest
 
 from swingtrader.modeling.datasets import (
-    V2_PRIMARY_TASK,
-    V2_TARGET_SET,
-    add_atr_barrier_targets,
-    generate_v2_labels,
+    V3_PRIMARY_TASK,
+    V3_TARGET_SET,
+    add_triple_barrier_targets,
+    generate_v3_labels,
 )
 from swingtrader.modeling.datasets.contracts import TargetFamilySpec, TargetSetSpec
 
@@ -41,16 +41,15 @@ def _prices(
 def _add_targets(
     prices: pd.DataFrame,
     *,
-    policy: str = "exclude_ambiguous",
+    policy: str = "stop_loss_first",
     horizons: tuple[int, ...] = (3,),
 ) -> pd.DataFrame:
-    return add_atr_barrier_targets(
+    return add_triple_barrier_targets(
         prices,
         atr_length=1,
         stop_atr_multiple=1.0,
         reward_risk_ratio=1.0,
         horizons=horizons,
-        entry_price_rule="next_open",
         intrabar_policy=policy,
     )
 
@@ -66,11 +65,8 @@ def test_take_profit_uses_next_open_and_observed_session_horizon() -> None:
 
     result = _add_targets(prices)
 
-    assert result.iloc[0]["barrier_event_3d"] == "take_profit"
-    assert bool(result.iloc[0]["target_tp_before_sl_3d"]) is True
-    assert result.iloc[0]["event_session_3d"] == 2
+    assert result.iloc[0]["triple_barrier_label_3d"] == 1
     assert result.iloc[0]["time_to_event_3d"] == 2
-    assert bool(result.iloc[0]["ambiguous_intrabar_3d"]) is False
     assert result.iloc[0]["target_end_date_3d"] == prices.index.get_level_values("trading_date")[2]
 
 
@@ -85,17 +81,17 @@ def test_entry_uses_next_open_instead_of_signal_close() -> None:
 
     result = _add_targets(prices)
 
-    assert result.iloc[0]["barrier_event_3d"] == "stop_loss"
-    assert result.iloc[0]["event_session_3d"] == 1
+    assert result.iloc[0]["triple_barrier_label_3d"] == -1
+    assert result.iloc[0]["time_to_event_3d"] == 1
 
 
 @pytest.mark.parametrize(
-    ("gap_open", "expected_event"),
-    [(97.0, "stop_loss"), (103.0, "take_profit")],
+    ("gap_open", "expected_label"),
+    [(97.0, -1), (103.0, 1)],
 )
 def test_opening_gap_is_evaluated_before_intrabar_range(
     gap_open: float,
-    expected_event: str,
+    expected_label: int,
 ) -> None:
     prices = _prices(
         [
@@ -107,35 +103,31 @@ def test_opening_gap_is_evaluated_before_intrabar_range(
 
     result = _add_targets(prices)
 
-    assert result.iloc[0]["barrier_event_3d"] == expected_event
-    assert result.iloc[0]["event_session_3d"] == 2
-    assert bool(result.iloc[0]["ambiguous_intrabar_3d"]) is False
+    assert result.iloc[0]["triple_barrier_label_3d"] == expected_label
+    assert result.iloc[0]["time_to_event_3d"] == 2
 
 
-def test_timeout_is_negative_and_records_full_horizon() -> None:
+def test_timeout_has_zero_label_and_full_horizon_time() -> None:
     prices = _prices([(100.0, 101.0, 99.0, 100.0)] * 3)
 
     result = _add_targets(prices)
 
-    assert result.iloc[0]["barrier_event_3d"] == "timeout"
-    assert bool(result.iloc[0]["target_tp_before_sl_3d"]) is False
-    assert pd.isna(result.iloc[0]["event_session_3d"])
+    assert result.iloc[0]["triple_barrier_label_3d"] == 0
     assert result.iloc[0]["time_to_event_3d"] == 3
     assert result.iloc[0]["target_end_date_3d"] == prices.index.get_level_values("trading_date")[3]
 
 
 @pytest.mark.parametrize(
-    ("policy", "expected_event", "expected_binary"),
+    ("policy", "expected_label"),
     [
-        ("stop_first", "stop_loss", False),
-        ("target_first", "take_profit", True),
-        ("exclude_ambiguous", "ambiguous", pd.NA),
+        ("stop_loss_first", -1),
+        ("take_profit_first", 1),
+        ("exclude", pd.NA),
     ],
 )
-def test_same_bar_policies_are_deterministic_and_measurable(
+def test_same_bar_policies_are_deterministic(
     policy: str,
-    expected_event: str,
-    expected_binary: object,
+    expected_label: object,
 ) -> None:
     prices = _prices(
         [
@@ -147,21 +139,22 @@ def test_same_bar_policies_are_deterministic_and_measurable(
 
     result = _add_targets(prices, policy=policy)
 
-    assert result.iloc[0]["barrier_event_3d"] == expected_event
-    assert bool(result.iloc[0]["ambiguous_intrabar_3d"]) is True
-    if expected_binary is pd.NA:
-        assert pd.isna(result.iloc[0]["target_tp_before_sl_3d"])
+    if expected_label is pd.NA:
+        assert pd.isna(result.iloc[0]["triple_barrier_label_3d"])
+        assert pd.isna(result.iloc[0]["time_to_event_3d"])
+        assert pd.isna(result.iloc[0]["target_end_date_3d"])
     else:
-        assert result.iloc[0]["target_tp_before_sl_3d"] == expected_binary
+        assert result.iloc[0]["triple_barrier_label_3d"] == expected_label
+        assert result.iloc[0]["time_to_event_3d"] == 1
 
 
 @pytest.mark.parametrize(
-    ("close", "expected_event"),
-    [(101.0, "stop_loss"), (99.0, "take_profit"), (100.0, "stop_loss")],
+    ("close", "expected_label"),
+    [(101.0, -1), (99.0, 1), (100.0, -1)],
 )
 def test_candle_path_policy_handles_green_red_and_doji(
     close: float,
-    expected_event: str,
+    expected_label: int,
 ) -> None:
     prices = _prices(
         [
@@ -173,8 +166,8 @@ def test_candle_path_policy_handles_green_red_and_doji(
 
     result = _add_targets(prices, policy="candle_path")
 
-    assert result.iloc[0]["barrier_event_3d"] == expected_event
-    assert bool(result.iloc[0]["ambiguous_intrabar_3d"]) is True
+    assert result.iloc[0]["triple_barrier_label_3d"] == expected_label
+    assert result.iloc[0]["time_to_event_3d"] == 1
 
 
 def test_terminal_rows_remain_nullable() -> None:
@@ -182,11 +175,10 @@ def test_terminal_rows_remain_nullable() -> None:
 
     result = _add_targets(prices)
 
-    assert result.iloc[1:]["barrier_event_3d"].isna().all()
-    assert result.iloc[1:]["target_tp_before_sl_3d"].isna().all()
-    assert result.iloc[1:]["ambiguous_intrabar_3d"].isna().all()
-    assert result["target_tp_before_sl_3d"].dtype == "boolean"
-    assert result["event_session_3d"].dtype == "Int64"
+    assert result.iloc[1:]["triple_barrier_label_3d"].isna().all()
+    assert result.iloc[1:]["time_to_event_3d"].isna().all()
+    assert result["triple_barrier_label_3d"].dtype == "Int8"
+    assert result["time_to_event_3d"].dtype == "Int64"
 
 
 def test_terminal_event_is_labeled_when_it_resolves_before_data_ends() -> None:
@@ -194,8 +186,8 @@ def test_terminal_event_is_labeled_when_it_resolves_before_data_ends() -> None:
 
     result = _add_targets(prices, horizons=(5,))
 
-    assert result.iloc[0]["barrier_event_5d"] == "take_profit"
-    assert result.iloc[0]["event_session_5d"] == 1
+    assert result.iloc[0]["triple_barrier_label_5d"] == 1
+    assert result.iloc[0]["time_to_event_5d"] == 1
     assert result.iloc[0]["target_end_date_5d"] == prices.index.get_level_values("trading_date")[1]
 
 
@@ -204,9 +196,30 @@ def test_unresolved_terminal_path_remains_unlabeled() -> None:
 
     result = _add_targets(prices, horizons=(5,))
 
-    assert pd.isna(result.iloc[0]["barrier_event_5d"])
-    assert pd.isna(result.iloc[0]["target_tp_before_sl_5d"])
+    assert pd.isna(result.iloc[0]["triple_barrier_label_5d"])
+    assert pd.isna(result.iloc[0]["time_to_event_5d"])
     assert pd.isna(result.iloc[0]["target_end_date_5d"])
+
+
+def test_label_and_time_have_matching_missingness() -> None:
+    prices = _prices([(100.0, 101.0, 99.0, 100.0)] * 4)
+
+    result = _add_targets(prices)
+
+    assert result["triple_barrier_label_3d"].isna().equals(result["time_to_event_3d"].isna())
+
+
+def test_output_schema_contains_one_label_one_time_and_purging_metadata() -> None:
+    prices = _prices([(100.0, 101.0, 99.0, 100.0)] * 3)
+
+    result = _add_targets(prices)
+
+    added_columns = tuple(column for column in result.columns if column not in prices.columns)
+    assert added_columns == (
+        "triple_barrier_label_3d",
+        "time_to_event_3d",
+        "target_end_date_3d",
+    )
 
 
 def test_tickers_are_independent_and_canonical_index_is_preserved() -> None:
@@ -223,12 +236,8 @@ def test_tickers_are_independent_and_canonical_index_is_preserved() -> None:
     result = _add_targets(prices)
 
     assert result.index.equals(prices.index)
-    assert result.loc[("test", "AAA", pd.Timestamp("2026-01-02")), "barrier_event_3d"] == (
-        "take_profit"
-    )
-    assert result.loc[("test", "BBB", pd.Timestamp("2026-01-02")), "barrier_event_3d"] == (
-        "stop_loss"
-    )
+    assert result.loc[("test", "AAA", pd.Timestamp("2026-01-02")), "triple_barrier_label_3d"] == 1
+    assert result.loc[("test", "BBB", pd.Timestamp("2026-01-02")), "triple_barrier_label_3d"] == -1
 
 
 def test_invalid_future_ohlc_leaves_label_missing() -> None:
@@ -242,30 +251,43 @@ def test_invalid_future_ohlc_leaves_label_missing() -> None:
 
     result = _add_targets(prices)
 
-    assert pd.isna(result.iloc[0]["barrier_event_3d"])
+    assert pd.isna(result.iloc[0]["triple_barrier_label_3d"])
+    assert pd.isna(result.iloc[0]["time_to_event_3d"])
     assert pd.isna(result.iloc[0]["target_end_date_3d"])
 
 
-def test_v2_manifest_contains_material_barrier_parameters() -> None:
-    barrier_family = V2_TARGET_SET.families[-1]
+def test_v3_manifest_contains_material_triple_barrier_parameters() -> None:
+    barrier_family = V3_TARGET_SET.families[-1]
     manifest = barrier_family.to_manifest()
 
-    assert V2_TARGET_SET.identifier == "ohlcv_price_targets:2"
-    assert V2_TARGET_SET.maximum_horizon_sessions == 15
-    assert manifest["parameters"]["atr_length"] == 14
-    assert manifest["parameters"]["stop_atr_multiple"] == 2.0
-    assert manifest["parameters"]["reward_risk_ratio"] == 2.0
-    assert manifest["parameters"]["entry_price_rule"] == "next_open"
-    assert manifest["parameters"]["intrabar_policy"] == "exclude_ambiguous"
-    V2_PRIMARY_TASK.validate_target_set(V2_TARGET_SET)
+    assert V3_TARGET_SET.identifier == "ohlcv_price_targets:3"
+    assert V3_TARGET_SET.maximum_horizon_sessions == 15
+    assert manifest["parameters"] == {
+        "atr_length": 14,
+        "stop_atr_multiple": 2.0,
+        "reward_risk_ratio": 2.0,
+        "horizons": [5, 10, 15],
+        "intrabar_policy": "stop_loss_first",
+    }
+    assert barrier_family.output_columns == (
+        "triple_barrier_label_5d",
+        "time_to_event_5d",
+        "target_end_date_5d",
+        "triple_barrier_label_10d",
+        "time_to_event_10d",
+        "target_end_date_10d",
+        "triple_barrier_label_15d",
+        "time_to_event_15d",
+        "target_end_date_15d",
+    )
+    V3_PRIMARY_TASK.validate_target_set(V3_TARGET_SET)
 
     changed_values = {
         "atr_length": 10,
         "stop_atr_multiple": 2.5,
         "reward_risk_ratio": 3.0,
         "horizons": (5, 10),
-        "entry_price_rule": "hypothetical_alternative",
-        "intrabar_policy": "stop_first",
+        "intrabar_policy": "take_profit_first",
     }
     for parameter, changed_value in changed_values.items():
         changed_family = TargetFamilySpec(
@@ -277,20 +299,21 @@ def test_v2_manifest_contains_material_barrier_parameters() -> None:
             maximum_horizon_sessions=barrier_family.maximum_horizon_sessions,
         )
         changed_set = TargetSetSpec(
-            name=V2_TARGET_SET.name,
-            version=V2_TARGET_SET.version,
-            families=(*V2_TARGET_SET.families[:-1], changed_family),
+            name=V3_TARGET_SET.name,
+            version=V3_TARGET_SET.version,
+            families=(*V3_TARGET_SET.families[:-1], changed_family),
         )
-        assert changed_set.digest != V2_TARGET_SET.digest
+        assert changed_set.digest != V3_TARGET_SET.digest
 
 
-def test_generate_v2_labels_executes_all_declared_families() -> None:
+def test_generate_v3_labels_executes_all_declared_families() -> None:
     prices = _prices([(100.0, 101.0, 99.0, 100.0)] * 29)
 
-    result = generate_v2_labels(prices)
+    result = generate_v3_labels(prices)
 
-    assert set(V2_TARGET_SET.target_columns).issubset(result.columns)
-    assert result.iloc[13]["barrier_event_5d"] == "timeout"
+    assert set(V3_TARGET_SET.target_columns).issubset(result.columns)
+    assert result.iloc[13]["triple_barrier_label_5d"] == 0
+    assert result.iloc[13]["time_to_event_5d"] == 5
 
 
 def test_parameter_validation_rejects_unsupported_policies() -> None:
@@ -311,8 +334,8 @@ def test_invalid_bar_after_resolved_event_does_not_remove_label() -> None:
 
     result = _add_targets(prices)
 
-    assert result.iloc[0]["barrier_event_3d"] == "take_profit"
-    assert result.iloc[0]["event_session_3d"] == 1
+    assert result.iloc[0]["triple_barrier_label_3d"] == 1
+    assert result.iloc[0]["time_to_event_3d"] == 1
 
 
 def test_adjustment_consistent_prices_make_split_encoding_invariant() -> None:
@@ -332,10 +355,9 @@ def test_adjustment_consistent_prices_make_split_encoding_invariant() -> None:
     split_result = _add_targets(split_encoded)
 
     columns = [
-        "barrier_event_3d",
-        "target_tp_before_sl_3d",
-        "event_session_3d",
-        "ambiguous_intrabar_3d",
+        "triple_barrier_label_3d",
+        "time_to_event_3d",
+        "target_end_date_3d",
     ]
     pd.testing.assert_series_equal(
         baseline_result.iloc[0][columns],
@@ -359,9 +381,8 @@ def test_empty_input_has_stable_nullable_output_dtypes() -> None:
 
     result = _add_targets(empty)
 
-    assert result["barrier_event_3d"].dtype == "string"
-    assert result["target_tp_before_sl_3d"].dtype == "boolean"
-    assert result["event_session_3d"].dtype == "Int64"
+    assert result["triple_barrier_label_3d"].dtype == "Int8"
+    assert result["time_to_event_3d"].dtype == "Int64"
     assert result["target_end_date_3d"].dtype == "datetime64[ns]"
 
 

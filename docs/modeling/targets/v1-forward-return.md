@@ -6,7 +6,7 @@ Target sets differ from feature sets because target families intentionally use f
 
 A behavior or parameter change that alters target meaning must create a new target-set version rather than silently changing an existing experiment contract. Exact reproduction also requires the source revision containing the configured target builders.
 
-This page defines the V1 target contract. The V2 next-open stop-loss and take-profit contract is documented in [V2 ATR Barrier Target](v2-atr-barrier.md).
+This page defines the V1 target contract. The V3 next-open stop-loss and take-profit contract is documented in [V3 Triple Barrier Target](v3-triple-barrier.md).
 The label-generation code for this contract is implemented in the modeling datasets package, the versioned in-memory OHLCV feature set is implemented in the data package, canonical unsplit temporal dataset construction is documented in [Temporal Datasets](../temporal-datasets.md), and fixed leakage-safe assignment is documented in [Temporal Splitting](../temporal-splitting.md). Shared reporting guidance is documented in [Model Evaluation](../evaluation.md). Model training, persistence, inference, and backtesting remain follow-up implementation work.
 
 | Property | Value |
