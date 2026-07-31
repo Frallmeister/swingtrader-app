@@ -154,7 +154,7 @@ def test_same_bar_policies_are_deterministic(
 )
 def test_candle_path_policy_handles_green_red_and_doji(
     close: float,
-    expected_label: str,
+    expected_label: int,
 ) -> None:
     prices = _prices(
         [

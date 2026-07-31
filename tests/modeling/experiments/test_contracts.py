@@ -7,7 +7,7 @@ from datetime import date
 import pytest
 
 from swingtrader.data.features.catalog import DEFAULT_FEATURE_SET
-from swingtrader.modeling.datasets.catalog import V3_PRIMARY_TASK, V3_TARGET_SET
+from swingtrader.modeling.datasets.catalog import V1_PRIMARY_TASK, V1_TARGET_SET
 from swingtrader.modeling.experiments import (
     ExperimentSpec,
     ModelSpec,
@@ -21,8 +21,8 @@ def _experiment_spec() -> ExperimentSpec:
         name="baseline",
         version="1",
         feature_set=DEFAULT_FEATURE_SET,
-        target_set=V3_TARGET_SET,
-        task=V3_PRIMARY_TASK,
+        target_set=V1_TARGET_SET,
+        task=V1_PRIMARY_TASK,
         universe=UniverseSpec(
             name="se_large_mid_cap",
             version="2026-07-24",
@@ -153,7 +153,7 @@ def test_temporal_split_rejects_overlapping_ranges() -> None:
 
 def test_experiment_rejects_task_for_another_target_set() -> None:
     experiment = _experiment_spec()
-    wrong_task = type(V3_PRIMARY_TASK)(
+    wrong_task = type(V1_PRIMARY_TASK)(
         name="wrong",
         target_set_name="other",
         target_set_version="1",
