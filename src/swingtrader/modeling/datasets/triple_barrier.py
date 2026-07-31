@@ -193,9 +193,7 @@ def _label_group(
             position = positions[signal_row]
             outputs[f"triple_barrier_label_{horizon}d"][position] = label
             outputs[f"time_to_event_{horizon}d"][position] = time_to_event
-            outputs[f"target_end_date_{horizon}d"][position] = dates[
-                signal_row + time_to_event
-            ]
+            outputs[f"target_end_date_{horizon}d"][position] = dates[signal_row + time_to_event]
 
 
 def _first_barrier_label(

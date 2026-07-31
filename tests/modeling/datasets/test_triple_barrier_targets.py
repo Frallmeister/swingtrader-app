@@ -207,9 +207,7 @@ def test_label_and_time_have_matching_missingness() -> None:
 
     result = _add_targets(prices)
 
-    assert result["triple_barrier_label_3d"].isna().equals(
-        result["time_to_event_3d"].isna()
-    )
+    assert result["triple_barrier_label_3d"].isna().equals(result["time_to_event_3d"].isna())
 
 
 def test_output_schema_contains_one_label_one_time_and_purging_metadata() -> None:
@@ -239,12 +237,8 @@ def test_tickers_are_independent_and_canonical_index_is_preserved() -> None:
     result = _add_targets(prices)
 
     assert result.index.equals(prices.index)
-    assert (
-        result.loc[("test", "AAA", pd.Timestamp("2026-01-02")), "triple_barrier_label_3d"] == 1
-    )
-    assert (
-        result.loc[("test", "BBB", pd.Timestamp("2026-01-02")), "triple_barrier_label_3d"] == -1
-    )
+    assert result.loc[("test", "AAA", pd.Timestamp("2026-01-02")), "triple_barrier_label_3d"] == 1
+    assert result.loc[("test", "BBB", pd.Timestamp("2026-01-02")), "triple_barrier_label_3d"] == -1
 
 
 def test_invalid_future_ohlc_leaves_label_missing() -> None:
