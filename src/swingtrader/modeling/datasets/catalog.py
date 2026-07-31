@@ -1,10 +1,5 @@
 """Concrete versioned target sets and supervised tasks."""
 
-from swingtrader.modeling.datasets.barriers import (
-    BARRIER_REQUIRED_PRICE_COLUMNS,
-    add_atr_barrier_targets,
-    barrier_output_columns,
-)
 from swingtrader.modeling.datasets.contracts import (
     SupervisedTaskSpec,
     TargetFamilySpec,
@@ -18,6 +13,11 @@ from swingtrader.modeling.datasets.labels import (
     V1_RETURN_THRESHOLD,
     add_fixed_return_target,
     add_forward_return_targets,
+)
+from swingtrader.modeling.datasets.triple_barrier import (
+    TRIPLE_BARRIER_REQUIRED_PRICE_COLUMNS,
+    add_triple_barrier_targets,
+    triple_barrier_output_columns,
 )
 
 V1_TARGET_SET = TargetSetSpec(
@@ -58,44 +58,42 @@ V1_PRIMARY_TASK = SupervisedTaskSpec(
 V1_PRIMARY_TASK.validate_target_set(V1_TARGET_SET)
 
 
-V2_ATR_LENGTH = 14
-V2_STOP_ATR_MULTIPLE = 2.0
-V2_REWARD_RISK_RATIO = 2.0
-V2_BARRIER_HORIZONS = (5, 10, 15)
-V2_ENTRY_PRICE_RULE = "next_open"
-V2_INTRABAR_POLICY = "exclude_ambiguous"
-V2_BARRIER_OUTPUT_COLUMNS = barrier_output_columns(V2_BARRIER_HORIZONS)
+V3_ATR_LENGTH = 14
+V3_STOP_ATR_MULTIPLE = 2.0
+V3_REWARD_RISK_RATIO = 2.0
+V3_TRIPLE_BARRIER_HORIZONS = (5, 10, 15)
+V3_INTRABAR_POLICY = "stop_loss_first"
+V3_TRIPLE_BARRIER_OUTPUT_COLUMNS = triple_barrier_output_columns(V3_TRIPLE_BARRIER_HORIZONS)
 
-V2_TARGET_SET = TargetSetSpec(
+V3_TARGET_SET = TargetSetSpec(
     name="ohlcv_price_targets",
-    version="2",
+    version="3",
     families=(
         *V1_TARGET_SET.families,
         TargetFamilySpec(
-            name="atr_barrier_events",
-            builder=add_atr_barrier_targets,
+            name="triple_barrier",
+            builder=add_triple_barrier_targets,
             parameters={
-                "atr_length": V2_ATR_LENGTH,
-                "stop_atr_multiple": V2_STOP_ATR_MULTIPLE,
-                "reward_risk_ratio": V2_REWARD_RISK_RATIO,
-                "horizons": V2_BARRIER_HORIZONS,
-                "entry_price_rule": V2_ENTRY_PRICE_RULE,
-                "intrabar_policy": V2_INTRABAR_POLICY,
+                "atr_length": V3_ATR_LENGTH,
+                "stop_atr_multiple": V3_STOP_ATR_MULTIPLE,
+                "reward_risk_ratio": V3_REWARD_RISK_RATIO,
+                "horizons": V3_TRIPLE_BARRIER_HORIZONS,
+                "intrabar_policy": V3_INTRABAR_POLICY,
             },
-            required_columns=frozenset(BARRIER_REQUIRED_PRICE_COLUMNS),
-            output_columns=V2_BARRIER_OUTPUT_COLUMNS,
-            maximum_horizon_sessions=max(V2_BARRIER_HORIZONS),
+            required_columns=frozenset(TRIPLE_BARRIER_REQUIRED_PRICE_COLUMNS),
+            output_columns=V3_TRIPLE_BARRIER_OUTPUT_COLUMNS,
+            maximum_horizon_sessions=max(V3_TRIPLE_BARRIER_HORIZONS),
         ),
     ),
 )
 
-V2_PRIMARY_TASK = SupervisedTaskSpec(
-    name="tp_before_sl_5d_classification",
-    target_set_name=V2_TARGET_SET.name,
-    target_set_version=V2_TARGET_SET.version,
-    target_column="target_tp_before_sl_5d",
+V3_PRIMARY_TASK = SupervisedTaskSpec(
+    name="triple_barrier_5d_classification",
+    target_set_name=V3_TARGET_SET.name,
+    target_set_version=V3_TARGET_SET.version,
+    target_column="triple_barrier_label_5d",
     task_type="classification",
     horizon_sessions=5,
     target_end_date_column="target_end_date_5d",
 )
-V2_PRIMARY_TASK.validate_target_set(V2_TARGET_SET)
+V3_PRIMARY_TASK.validate_target_set(V3_TARGET_SET)

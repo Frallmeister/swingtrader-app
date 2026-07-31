@@ -152,9 +152,9 @@ analysis.
 
 ::: swingtrader.modeling.datasets.labels
 
-### ATR Barrier Targets
+### Triple-Barrier Targets
 
-::: swingtrader.modeling.datasets.barriers
+::: swingtrader.modeling.datasets.triple_barrier
 
 ## Temporal Modeling Datasets
 

@@ -1,10 +1,4 @@
-"""Build ATR-scaled stop-loss and take-profit targets from daily OHLCV data.
-
-Signals use information through the completed signal session and enter at the
-next observed open. The module handles adjustment-consistent prices, opening
-gaps, same-bar ambiguity, incomplete terminal horizons, and deterministic
-versioned output schemas.
-"""
+"""Build next-open ATR-scaled triple-barrier targets from daily OHLC data."""
 
 from typing import Literal
 
@@ -18,15 +12,14 @@ from swingtrader.data.market_frame import (
 )
 from swingtrader.indicators.volatility import atr
 
-EntryPriceRule = Literal["next_open"]
 IntrabarPolicy = Literal[
-    "stop_first",
-    "target_first",
+    "stop_loss_first",
+    "take_profit_first",
     "candle_path",
-    "exclude_ambiguous",
+    "exclude",
 ]
 
-BARRIER_REQUIRED_PRICE_COLUMNS = (
+TRIPLE_BARRIER_REQUIRED_PRICE_COLUMNS = (
     *MARKET_PRICE_INDEX_NAMES,
     "open",
     "high",
@@ -34,104 +27,65 @@ BARRIER_REQUIRED_PRICE_COLUMNS = (
     "close",
     "adjusted_close",
 )
-SUPPORTED_ENTRY_PRICE_RULES = frozenset({"next_open"})
 SUPPORTED_INTRABAR_POLICIES = frozenset(
-    {"stop_first", "target_first", "candle_path", "exclude_ambiguous"}
+    {"stop_loss_first", "take_profit_first", "candle_path", "exclude"}
 )
 
 
-def barrier_output_columns(horizons: tuple[int, ...]) -> tuple[str, ...]:
-    """Return the declared output columns for ATR barrier horizons.
-
-    Parameters
-    ----------
-    horizons
-        Positive observed-session horizons used by the barrier target family.
-
-    Returns
-    -------
-    tuple[str, ...]
-        Output column names in deterministic horizon-major order.
-    """
+def triple_barrier_output_columns(horizons: tuple[int, ...]) -> tuple[str, ...]:
+    """Return the declared V3 output columns in deterministic horizon order."""
     return tuple(
         column
         for horizon in horizons
         for column in (
-            f"barrier_event_{horizon}d",
-            f"target_tp_before_sl_{horizon}d",
-            f"event_session_{horizon}d",
+            f"triple_barrier_label_{horizon}d",
             f"time_to_event_{horizon}d",
-            f"ambiguous_intrabar_{horizon}d",
             f"target_end_date_{horizon}d",
         )
     )
 
 
-def add_atr_barrier_targets(
+def add_triple_barrier_targets(
     prices: pd.DataFrame,
     *,
     atr_length: int,
     stop_atr_multiple: float,
     reward_risk_ratio: float,
     horizons: tuple[int, ...],
-    entry_price_rule: EntryPriceRule,
     intrabar_policy: IntrabarPolicy,
 ) -> pd.DataFrame:
-    """Append next-open ATR barrier outcomes over future observed sessions.
+    """Append next-open ATR-scaled triple-barrier targets.
 
-    The signal row may use information through its completed daily bar. Entry is
-    the next observed session's opening price. Stop and take-profit barriers are
-    fixed from the signal row's point-in-time ATR. Raw OHLC values are first
-    expressed on the adjusted-close scale so corporate actions do not create
-    artificial gaps or volatility. Opening gaps are evaluated before intrabar
-    highs and lows.
-
-    A bar touching both barriers is marked in ``ambiguous_intrabar_{horizon}d``.
-    ``stop_first`` and ``target_first`` resolve it directly. ``candle_path`` uses
-    open-low-high-close for green candles and open-high-low-close for red candles;
-    doji bars resolve conservatively to the stop. ``exclude_ambiguous`` emits the
-    categorical ``ambiguous`` event and leaves the binary target missing.
-
-    Rows remain unlabeled when the available future data cannot resolve an event
-    or a complete timeout horizon, or when required ATR/OHLC values are invalid.
+    For each horizon, the label is ``1`` when take-profit is reached first,
+    ``-1`` when stop-loss is reached first, and ``0`` on timeout. The event time
+    is the 1-based barrier-hit session or the full horizon for a timeout.
 
     Parameters
     ----------
     prices
-        Daily prices using the canonical, unique, sorted MultiIndex with levels
-        ``provider``, ``ticker``, and ``trading_date``. The value columns must
-        contain raw OHLC and adjusted close.
+        Canonical daily market frame with OHLC and adjusted-close columns.
     atr_length
-        Number of completed sessions used by Wilder ATR.
+        Signal-row ATR lookback in observed sessions.
     stop_atr_multiple
-        Positive multiple of signal-row ATR placed below the entry price.
+        Stop-loss distance as a positive multiple of signal-row ATR.
     reward_risk_ratio
-        Positive take-profit distance relative to the initial stop distance.
+        Take-profit distance relative to the stop-loss distance.
     horizons
-        Unique, strictly increasing observed-session horizons.
-    entry_price_rule
-        Entry convention. The current implementation supports ``next_open``.
+        Unique, strictly increasing positive session horizons.
     intrabar_policy
-        Deterministic policy for sessions whose high and low touch both barriers.
+        Resolution rule when one daily bar touches both price barriers.
 
     Returns
     -------
-    pd.DataFrame
-        A copy of ``prices`` with its canonical index preserved and nullable
-        barrier-event outputs appended for every configured horizon.
-
-    Raises
-    ------
-    ValueError
-        If configuration values are invalid, required value columns are missing,
-        or the input violates the canonical market-price index contract.
+    pandas.DataFrame
+        An independent copy with label, event-time, and target-end-date columns
+        for every horizon. Invalid, unresolved, or excluded outcomes are missing.
     """
     _validate_parameters(
         atr_length=atr_length,
         stop_atr_multiple=stop_atr_multiple,
         reward_risk_ratio=reward_risk_ratio,
         horizons=horizons,
-        entry_price_rule=entry_price_rule,
         intrabar_policy=intrabar_policy,
     )
     validate_market_price_index(prices)
@@ -190,10 +144,7 @@ def _label_group(
     atr_input = ohlc.loc[:, ["high", "low", "close"]].copy()
     atr_input.loc[~valid_ohlc, :] = np.nan
     atr_input.index = pd.DatetimeIndex(group["trading_date"])
-    atr_values = atr(atr_input, length=atr_length).to_numpy(
-        dtype="float64",
-        copy=True,
-    )
+    atr_values = atr(atr_input, length=atr_length).to_numpy(dtype="float64", copy=True)
     atr_values[~valid_ohlc] = np.nan
 
     opens = ohlc["open"].to_numpy()
@@ -206,11 +157,15 @@ def _label_group(
     for horizon in horizons:
         for signal_row in range(len(group) - 1):
             signal_atr = atr_values[signal_row]
-            if not np.isfinite(signal_atr) or signal_atr <= 0:
+            entry_price = opens[signal_row + 1]
+            if (
+                not np.isfinite(signal_atr)
+                or signal_atr <= 0
+                or not np.isfinite(entry_price)
+                or entry_price <= 0
+            ):
                 continue
 
-            position = positions[signal_row]
-            entry_price = opens[signal_row + 1]
             initial_risk = stop_atr_multiple * signal_atr
             stop_price = entry_price - initial_risk
             take_profit_price = entry_price + reward_risk_ratio * initial_risk
@@ -218,7 +173,7 @@ def _label_group(
                 continue
 
             available_sessions = min(horizon, len(group) - signal_row - 1)
-            event, event_session, ambiguous = _first_barrier_event(
+            label, time_to_event = _first_barrier_label(
                 opens=opens,
                 highs=highs,
                 lows=lows,
@@ -230,33 +185,20 @@ def _label_group(
                 take_profit_price=take_profit_price,
                 intrabar_policy=intrabar_policy,
             )
-            if event is None or (event == "timeout" and available_sessions < horizon):
+            if label is None or time_to_event is None:
+                continue
+            if label == 0 and available_sessions < horizon:
                 continue
 
-            if event == "timeout":
-                resolution_session = horizon
-            else:
-                assert event_session is not None
-                resolution_session = event_session
+            position = positions[signal_row]
+            outputs[f"triple_barrier_label_{horizon}d"][position] = label
+            outputs[f"time_to_event_{horizon}d"][position] = time_to_event
             outputs[f"target_end_date_{horizon}d"][position] = dates[
-                signal_row + resolution_session
+                signal_row + time_to_event
             ]
-            outputs[f"barrier_event_{horizon}d"][position] = event
-            outputs[f"ambiguous_intrabar_{horizon}d"][position] = ambiguous
-
-            if event == "timeout":
-                outputs[f"target_tp_before_sl_{horizon}d"][position] = False
-                outputs[f"time_to_event_{horizon}d"][position] = horizon
-            else:
-                outputs[f"event_session_{horizon}d"][position] = event_session
-                outputs[f"time_to_event_{horizon}d"][position] = event_session
-                if event == "take_profit":
-                    outputs[f"target_tp_before_sl_{horizon}d"][position] = True
-                elif event == "stop_loss":
-                    outputs[f"target_tp_before_sl_{horizon}d"][position] = False
 
 
-def _first_barrier_event(
+def _first_barrier_label(
     *,
     opens: np.ndarray,
     highs: np.ndarray,
@@ -268,38 +210,36 @@ def _first_barrier_event(
     stop_price: float,
     take_profit_price: float,
     intrabar_policy: IntrabarPolicy,
-) -> tuple[str | None, int | None, bool | None]:
+) -> tuple[int | None, int | None]:
     for session in range(1, sessions + 1):
         row = start + session - 1
         if not valid_ohlc[row]:
-            return None, None, None
+            return None, None
         if opens[row] <= stop_price:
-            return "stop_loss", session, False
+            return -1, session
         if opens[row] >= take_profit_price:
-            return "take_profit", session, False
+            return 1, session
 
         stop_hit = lows[row] <= stop_price
-        target_hit = highs[row] >= take_profit_price
-        if not stop_hit and not target_hit:
+        take_profit_hit = highs[row] >= take_profit_price
+        if not stop_hit and not take_profit_hit:
             continue
-        if stop_hit and not target_hit:
-            return "stop_loss", session, False
-        if target_hit and not stop_hit:
-            return "take_profit", session, False
+        if stop_hit and not take_profit_hit:
+            return -1, session
+        if take_profit_hit and not stop_hit:
+            return 1, session
 
-        if intrabar_policy == "exclude_ambiguous":
-            return "ambiguous", session, True
-        if intrabar_policy == "target_first":
-            return "take_profit", session, True
-        if intrabar_policy == "stop_first":
-            return "stop_loss", session, True
-        if closes[row] > opens[row]:
-            return "stop_loss", session, True
+        if intrabar_policy == "exclude":
+            return None, None
+        if intrabar_policy == "take_profit_first":
+            return 1, session
+        if intrabar_policy == "stop_loss_first":
+            return -1, session
         if closes[row] < opens[row]:
-            return "take_profit", session, True
-        return "stop_loss", session, True
+            return 1, session
+        return -1, session
 
-    return "timeout", None, False
+    return 0, sessions
 
 
 def _valid_ohlc_rows(ohlc: pd.DataFrame) -> np.ndarray:
@@ -316,13 +256,7 @@ def _valid_ohlc_rows(ohlc: pd.DataFrame) -> np.ndarray:
 def _empty_outputs(length: int, *, horizons: tuple[int, ...]) -> dict[str, np.ndarray]:
     outputs: dict[str, np.ndarray] = {}
     for horizon in horizons:
-        for prefix in (
-            "barrier_event",
-            "target_tp_before_sl",
-            "event_session",
-            "time_to_event",
-            "ambiguous_intrabar",
-        ):
+        for prefix in ("triple_barrier_label", "time_to_event"):
             values = np.empty(length, dtype=object)
             values[:] = pd.NA
             outputs[f"{prefix}_{horizon}d"] = values
@@ -341,22 +275,13 @@ def _append_outputs(
     horizons: tuple[int, ...],
 ) -> pd.DataFrame:
     for horizon in horizons:
-        result[f"barrier_event_{horizon}d"] = pd.array(
-            outputs[f"barrier_event_{horizon}d"],
-            dtype="string",
+        result[f"triple_barrier_label_{horizon}d"] = pd.array(
+            outputs[f"triple_barrier_label_{horizon}d"],
+            dtype="Int8",
         )
-        result[f"target_tp_before_sl_{horizon}d"] = pd.array(
-            outputs[f"target_tp_before_sl_{horizon}d"],
-            dtype="boolean",
-        )
-        for prefix in ("event_session", "time_to_event"):
-            result[f"{prefix}_{horizon}d"] = pd.array(
-                outputs[f"{prefix}_{horizon}d"],
-                dtype="Int64",
-            )
-        result[f"ambiguous_intrabar_{horizon}d"] = pd.array(
-            outputs[f"ambiguous_intrabar_{horizon}d"],
-            dtype="boolean",
+        result[f"time_to_event_{horizon}d"] = pd.array(
+            outputs[f"time_to_event_{horizon}d"],
+            dtype="Int64",
         )
         result[f"target_end_date_{horizon}d"] = pd.array(
             outputs[f"target_end_date_{horizon}d"],
@@ -371,7 +296,6 @@ def _validate_parameters(
     stop_atr_multiple: float,
     reward_risk_ratio: float,
     horizons: tuple[int, ...],
-    entry_price_rule: str,
     intrabar_policy: str,
 ) -> None:
     if isinstance(atr_length, bool) or not isinstance(atr_length, int) or atr_length <= 0:
@@ -385,8 +309,6 @@ def _validate_parameters(
         raise ValueError("horizons must contain positive integers")
     if tuple(sorted(set(horizons))) != horizons:
         raise ValueError("horizons must be unique and strictly increasing")
-    if entry_price_rule not in SUPPORTED_ENTRY_PRICE_RULES:
-        raise ValueError(f"Unsupported entry_price_rule {entry_price_rule!r}; expected 'next_open'")
     if intrabar_policy not in SUPPORTED_INTRABAR_POLICIES:
         supported = ", ".join(sorted(SUPPORTED_INTRABAR_POLICIES))
         raise ValueError(f"Unsupported intrabar_policy {intrabar_policy!r}; expected {supported}")
@@ -403,10 +325,7 @@ def _validate_positive_number(value: float, *, name: str) -> None:
 
 
 def _validate_required_columns(prices: pd.DataFrame) -> None:
-    required_value_columns = set(BARRIER_REQUIRED_PRICE_COLUMNS).difference(
+    required_value_columns = set(TRIPLE_BARRIER_REQUIRED_PRICE_COLUMNS).difference(
         MARKET_PRICE_INDEX_NAMES
     )
-    validate_required_columns(
-        prices,
-        required_columns=required_value_columns,
-    )
+    validate_required_columns(prices, required_columns=required_value_columns)

@@ -15,7 +15,7 @@ This roadmap is a planning aid, not a replacement for GitHub issues. It describe
 - V1 model target and evaluation contract.
 - V1 forward-return and binary-target generation.
 - Versioned feature-set and target-set contracts.
-- V2 ATR barrier-event target generation.
+- V3 ATR-scaled triple-barrier target generation with direct `1`, `0`, and `-1` labels.
 - Repository-owned experiment specifications and local MLflow tracking.
 - Canonical unsplit temporal dataset bundles with cutoff-aware eligibility metadata.
 - Purged fixed train, validation, and locked-test splitting with optional embargo and diagnostics.
