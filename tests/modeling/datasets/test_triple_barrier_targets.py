@@ -50,7 +50,6 @@ def _add_targets(
         stop_atr_multiple=1.0,
         reward_risk_ratio=1.0,
         horizons=horizons,
-        entry_price_rule="next_open",
         intrabar_policy=policy,
     )
 
