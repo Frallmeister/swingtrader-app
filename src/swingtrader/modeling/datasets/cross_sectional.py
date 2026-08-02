@@ -30,8 +30,8 @@ def add_cross_sectional_return_targets(
     data: pd.DataFrame,
     *,
     horizons: tuple[int, ...],
-    relevance_grade_count: int = 16,
-    minimum_cross_section_size: int = 20,
+    relevance_grade_count: int = 5,
+    minimum_cross_section_size: int = 2,
 ) -> pd.DataFrame:
     """Append market-relative, percentile, and ordinal future-return targets.
 
@@ -56,10 +56,10 @@ def add_cross_sectional_return_targets(
     relevance_grade_count : int, optional
         Number of ordered relevance buckets, between two and 128. Grades range from
         ``0`` for the weakest future-return region to ``relevance_grade_count - 1`` for
-        the strongest. Defaults to 16.
+        the strongest. Defaults to 5.
     minimum_cross_section_size : int, optional
         Smallest number of valid stocks a cross-section must contain before its targets
-        are emitted; smaller groups stay missing. Must be at least two. Defaults to 20.
+        are emitted; smaller groups stay missing. Must be at least two. Defaults to 2.
 
     Returns
     -------

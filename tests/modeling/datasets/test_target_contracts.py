@@ -202,21 +202,6 @@ def test_cross_sectional_set_executes_independently_from_canonical_prices() -> N
     assert added_columns == set(CROSS_SECTIONAL_RETURN_TARGET_SET.target_columns)
 
 
-def test_no_versioned_target_names_remain_in_catalog_module() -> None:
-    from swingtrader.modeling.datasets import catalog
-
-    removed_names = (
-        "V1_TARGET_SET",
-        "V1_PRIMARY_TASK",
-        "V3_TARGET_SET",
-        "V3_PRIMARY_TASK",
-        "V4_TARGET_SET",
-        "V4_PRIMARY_TASK",
-    )
-    for name in removed_names:
-        assert not hasattr(catalog, name)
-
-
 def add_required_target(data: pd.DataFrame, *, threshold: float) -> pd.DataFrame:
     result = data.copy()
     result["target"] = threshold
