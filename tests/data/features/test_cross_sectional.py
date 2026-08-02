@@ -33,9 +33,7 @@ def test_add_cross_sectional_features_calculates_percentiles_and_market_context(
     )
     assert np.isnan(yfinance["return_1d_cross_sectional_percentile"].iloc[4])
     assert yfinance["market_breadth_positive_1d"].drop_duplicates().tolist() == [0.5]
-    assert yfinance["market_mean_return_1d"].drop_duplicates().tolist() == pytest.approx(
-        [0.005]
-    )
+    assert yfinance["market_mean_return_1d"].drop_duplicates().tolist() == pytest.approx([0.005])
     assert yfinance["market_median_return_1d"].drop_duplicates().tolist() == pytest.approx([0.005])
 
     other = evaluated.xs("other", level="provider")
@@ -119,9 +117,7 @@ def test_add_cross_sectional_features_requires_shared_provider_calendar_window()
         ("yfinance", "CCC"),
         "return_1d_cross_sectional_percentile",
     ] == pytest.approx(0.75)
-    assert final_date["market_mean_return_1d"].dropna().unique().tolist() == (
-        pytest.approx([0.03])
-    )
+    assert final_date["market_mean_return_1d"].dropna().unique().tolist() == (pytest.approx([0.03]))
 
 
 @pytest.mark.parametrize("horizons", [(), (1, 1), (0,), (-1,), (True,), (1.5,)])
