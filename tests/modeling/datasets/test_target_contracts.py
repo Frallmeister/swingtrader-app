@@ -6,6 +6,8 @@ import pytest
 from swingtrader.modeling.datasets import (
     V1_PRIMARY_TASK,
     V1_TARGET_SET,
+    V4_PRIMARY_TASK,
+    V4_TARGET_SET,
     SupervisedTaskSpec,
     TargetFamilySpec,
     TargetSetSpec,
@@ -21,6 +23,23 @@ def test_v1_target_set_manifest_is_deterministic_and_serializable() -> None:
     assert V1_TARGET_SET.identifier == "ohlcv_price_targets:1"
     assert V1_TARGET_SET.family_names == ("forward_returns", "significant_up_5d")
     assert V1_TARGET_SET.maximum_horizon_sessions == 15
+
+
+def test_v4_target_set_adds_cross_sectional_targets() -> None:
+    assert V4_TARGET_SET.identifier == "ohlcv_price_targets:4"
+    assert V4_TARGET_SET.family_names == (
+        "forward_returns",
+        "significant_up_5d",
+        "triple_barrier",
+        "cross_sectional_returns",
+    )
+    assert V4_TARGET_SET.maximum_horizon_sessions == 15
+    assert "market_relative_forward_return_5d" in V4_TARGET_SET.target_columns
+    assert "forward_return_5d_relevance_grade" in V4_TARGET_SET.target_columns
+
+    V4_PRIMARY_TASK.validate_target_set(V4_TARGET_SET)
+    assert V4_PRIMARY_TASK.target_column == "forward_return_5d_cross_sectional_percentile"
+    assert V4_PRIMARY_TASK.task_type == "regression"
 
 
 def test_meaningful_parameter_change_changes_digest() -> None:

@@ -6,7 +6,7 @@ The features area contains reusable transformations that convert point-in-time i
 
 Reusable technical calculations live in `swingtrader.indicators`. Indicators calculate domain quantities; feature builders decide which source columns to use, how quantities are adjusted or normalized, and what the model-facing columns are named. Feature families must import indicator calculations from `swingtrader.indicators` rather than reimplementing them or importing calculations from sibling feature families.
 
-Feature generation currently includes seven in-memory families: returns, trend, momentum, volatility, price action, volume, and market structure.
+Feature generation currently includes eight in-memory families: returns, cross-sectional market context, trend, momentum, volatility, price action, volume, and market structure.
 
 `contracts.py` defines immutable, executable feature-block and feature-set contracts. `catalog.py` contains concrete named and versioned definitions, while `pipeline.py` keeps compatibility helpers that delegate execution to those specifications. A block passes its recorded parameters to the builder, validates required inputs and index preservation, and selects only its declared outputs. A set composes those enforced outputs in declaration order. This directory should not yet be treated as a persistent feature pipeline.
 
@@ -15,6 +15,8 @@ Feature generation currently includes seven in-memory families: returns, trend, 
 Feature code must operate only on information available at or before each observation timestamp. It preserves ticker and trading-date alignment, avoids lookahead leakage and cross-ticker contamination, and leaves incomplete rolling windows missing rather than silently filling them.
 
 Inputs use a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`, in that exact order, plus the value columns consumed by the family. Identifiers must not also appear as ordinary columns. External consumers that need column-oriented records convert explicitly with `features.reset_index()` at their own boundary.
+
+Cross-sectional features compare rows within each provider and trading date. The current index has no separate market or universe identifier, so callers should not combine incomparable exchanges in one provider-scoped modeling frame.
 
 Outputs should remain predictable, testable, and reusable. The same feature dataframe may later support model training, stock-screen filters, API responses, backtest diagnostics, and statistical analysis of recorded trades; those consumers should not require feature formulas to be duplicated in application-specific code.
 

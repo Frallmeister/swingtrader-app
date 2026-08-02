@@ -1,6 +1,6 @@
 # Features
 
-Feature generation currently supports in-memory historical return, trend, momentum, volatility, price-action, volume, and market-structure features for exploratory analysis, screening, backtest analysis, and baseline modeling. A versioned feature-set contract executes and enforces the default candidate schema and parameters. Persistent feature tables are still future work.
+Feature generation currently supports in-memory historical return, cross-sectional market-context, trend, momentum, volatility, price-action, volume, and market-structure features for exploratory analysis, screening, backtest analysis, and baseline modeling. A versioned feature-set contract executes and enforces the default candidate schema and parameters. Persistent feature tables are still future work.
 
 ## Intended Role
 
@@ -76,7 +76,7 @@ The indicator layer remains source-agnostic. Standalone indicators calculate fro
 Feature generation follows three related contracts:
 
 - public numerical indicators in `swingtrader.indicators` operate per ticker and return either one index-aligned `pd.Series` or, for naturally multi-output indicators, one index-aligned `pd.DataFrame`. Most indicators take a single ordered `pd.Series`; indicators that need several price columns at once, such as the volatility indicators consuming `high`, `low`, and `close`, take a `pd.DataFrame` instead. Every indicator supports two input forms: a single ordered instrument (only required to be chronologically ordered), or a canonical multi-instrument market frame with a `provider`/`ticker`/`trading_date` MultiIndex, in which case calculations are isolated per group and the input index and row order are preserved;
-- application feature orchestrators such as `add_return_features`, `add_trend_features`, `add_momentum_features`, `add_volatility_features`, `add_price_action_features`, `add_volume_features`, and `add_market_structure_features` return a copy of the input dataframe with available model feature columns added. They remain independently callable for EDA and focused analysis;
+- application feature orchestrators such as `add_return_features`, `add_cross_sectional_features`, `add_trend_features`, `add_momentum_features`, `add_volatility_features`, `add_price_action_features`, `add_volume_features`, and `add_market_structure_features` return a copy of the input dataframe with available model feature columns added. They remain independently callable for EDA and focused analysis;
 - `FeatureBlockSpec` calls one orchestrator with the recorded parameters, validates required inputs and index preservation, rejects output collisions, and returns only the declared output columns in contract order. `FeatureSetSpec` composes those enforced block outputs. `add_feature_set` and `add_default_features` are compatibility helpers that delegate to `FeatureSetSpec.apply()`.
 
 Every public `add_*_features` family orchestrator rejects input columns that have the same names as its generated features. This prevents applying a family twice, or combining families with an accidental naming collision, from silently replacing existing data.
@@ -86,6 +86,22 @@ Every public `add_*_features` family orchestrator rejects input columns that hav
 The return feature orchestrator is `swingtrader.data.features.returns.add_return_features`. It validates the input once, copies it, calculates trailing percentage-return columns named `return_{horizon}d`, and appends them to the copied dataframe. Each horizon is a positive integer number of trading rows.
 
 For example, `horizons=(1, 5, 10)` produces `return_1d`, `return_5d`, and `return_10d` from `adjusted_close` values. Calculations are grouped by `provider` and `ticker`, so one ticker's history cannot leak into another ticker's features. Within each provider/ticker group, input rows must be strictly ordered by `trading_date`; warm-up rows without enough history remain missing.
+
+## Cross-Sectional Features
+
+The cross-sectional orchestrator is `swingtrader.data.features.cross_sectional.add_cross_sectional_features`. It consumes the trailing-return columns produced by the returns block and compares stocks within each `provider` and `trading_date` cross-section.
+
+For each configured horizon it appends `return_{horizon}d_cross_sectional_percentile`. Valid returns receive average ranks for ties and are converted to midpoint percentiles as `(rank - 0.5) / count`. Missing or non-finite returns remain missing and are excluded from the valid count.
+
+For the configured market-return horizon, one day in the default feature set, it also appends:
+
+- `market_breadth_positive_1d`, the fraction of valid stocks with a strictly positive return;
+- `market_equal_weight_return_1d`, the arithmetic mean return;
+- `market_median_return_1d`, the median return.
+
+The three market-context values are repeated for every stock in the same cross-section. Same-day one-day returns and breadth are available only after that session's close, so they are valid for predictions made after the close and must not be used for an earlier decision timestamp.
+
+The canonical index currently has no separate market or universe identifier. The implementation therefore treats each provider/date input cross-section as one comparable universe. Callers should not mix Stockholm and US securities in the same provider-scoped frame until a market or universe identifier is introduced.
 
 ## Trend Features
 
@@ -386,7 +402,7 @@ Because the current bar is excluded, the channel is point-in-time safe: today's 
 
 ## Versioned Feature Sets
 
-`swingtrader.data.features.DEFAULT_FEATURE_SET` is the authoritative contract for the current OHLCV candidate set. At this repository revision its identifier is `ohlcv_v1_candidates:4`. The specification records:
+`swingtrader.data.features.DEFAULT_FEATURE_SET` is the authoritative contract for the current OHLCV candidate set. At this repository revision its identifier is `ohlcv_v1_candidates:5`. The specification records:
 
 - the ordered feature-family blocks;
 - the fully qualified builder used by each block;
@@ -433,7 +449,7 @@ A feature set also exposes a deterministic SHA-256 digest of its canonical manif
 
 ## Future Feature Ideas
 
-- later macro and market-context joins.
+- later macro, benchmark, sector, fundamental, news, or sentiment joins.
 
 ## Design Constraints
 

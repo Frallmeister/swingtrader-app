@@ -13,6 +13,7 @@ from swingtrader.data.features.contracts import (
     FeatureSetSpec,
     HistoryRequirement,
 )
+from swingtrader.data.features.cross_sectional import add_cross_sectional_features
 from swingtrader.data.features.market_structure import add_market_structure_features
 from swingtrader.data.features.momentum import add_momentum_features
 from swingtrader.data.features.price_action import add_price_action_features
@@ -23,7 +24,7 @@ from swingtrader.data.features.volume import add_volume_features
 
 DEFAULT_FEATURE_SET = FeatureSetSpec(
     name="ohlcv_v1_candidates",
-    version="4",  # also update test_feature_set_manifest_is_deterministic_and_json_serializable
+    version="5",  # also update test_feature_set_manifest_is_deterministic_and_json_serializable
     blocks=(
         FeatureBlockSpec(
             name="returns",
@@ -36,6 +37,26 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "return_20d",
             ),
             required_columns=frozenset({"adjusted_close"}),
+        ),
+        FeatureBlockSpec(
+            name="cross_sectional",
+            builder=add_cross_sectional_features,
+            parameters={
+                "return_horizons": (1, 5, 10, 20),
+                "market_return_horizon": 1,
+            },
+            output_columns=(
+                "return_1d_cross_sectional_percentile",
+                "return_5d_cross_sectional_percentile",
+                "return_10d_cross_sectional_percentile",
+                "return_20d_cross_sectional_percentile",
+                "market_breadth_positive_1d",
+                "market_equal_weight_return_1d",
+                "market_median_return_1d",
+            ),
+            required_columns=frozenset(
+                {"return_1d", "return_5d", "return_10d", "return_20d"}
+            ),
         ),
         FeatureBlockSpec(
             name="trend",

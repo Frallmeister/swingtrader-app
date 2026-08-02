@@ -6,7 +6,8 @@ A target contract defines future-dependent outcomes for supervised learning. `Ta
 | --- | --- | --- | --- | --- |
 | [V1](v1-forward-return.md) | Binary classification | `target_significant_up_5d` | Fixed five-session horizon | Whether adjusted close exceeds an economic return threshold after five observed sessions |
 | [V3](v3-triple-barrier.md) | Three-class classification | `triple_barrier_label_5d` | First barrier event or five-session timeout | Whether take-profit, timeout, or stop-loss occurs first after next-open entry |
+| [V4](v4-cross-sectional.md) | Regression | `forward_return_5d_cross_sectional_percentile` | Fixed five-session horizon | Market-relative returns, same-date future-return percentiles, and five ordinal relevance grades |
 
 Each target page begins with the same high-level taxonomy and then documents its formulas, temporal semantics, outputs, assumptions, and limitations. Shared model-reporting principles are documented under [Model Evaluation](../evaluation.md).
 
-V3 supersedes the experimental V2 ATR-barrier schema. Its direct `1`, `0`, and `-1` label removes parallel categorical and Boolean outcome columns.
+V3 supersedes the experimental V2 ATR-barrier schema. V4 preserves V1 and V3 outputs and adds cross-sectional targets without changing their semantics.

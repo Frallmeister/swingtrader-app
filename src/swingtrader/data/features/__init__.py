@@ -16,6 +16,7 @@ from swingtrader.data.features.contracts import (
     FeatureSetSpec,
     HistoryRequirement,
 )
+from swingtrader.data.features.cross_sectional import add_cross_sectional_features
 from swingtrader.data.features.market_structure import (
     add_market_structure_features,
     donchian_position,
@@ -34,6 +35,7 @@ __all__ = [
     "FeatureBlockSpec",
     "FeatureSetSpec",
     "HistoryRequirement",
+    "add_cross_sectional_features",
     "add_default_features",
     "add_feature_set",
     "add_market_structure_features",

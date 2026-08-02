@@ -95,6 +95,7 @@ nav:
           - Overview: modeling/targets/index.md
           - V1 Significant Forward Return: modeling/targets/v1-forward-return.md
           - V3 Triple Barrier: modeling/targets/v3-triple-barrier.md
+          - V4 Cross-Sectional Returns: modeling/targets/v4-cross-sectional.md
       - Baseline Models and Harness: modeling/baseline-models.md
       - Evaluation: modeling/evaluation.md
       - Backtesting Pilot: modeling/backtesting.md

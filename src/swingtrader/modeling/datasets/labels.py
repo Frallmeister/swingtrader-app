@@ -104,3 +104,10 @@ def generate_v3_labels(prices: pd.DataFrame) -> pd.DataFrame:
     from swingtrader.modeling.datasets.catalog import V3_TARGET_SET
 
     return generate_target_set(prices, target_set=V3_TARGET_SET)
+
+
+def generate_v4_labels(prices: pd.DataFrame) -> pd.DataFrame:
+    """Generate V4 labels for a canonical market-price DataFrame."""
+    from swingtrader.modeling.datasets.catalog import V4_TARGET_SET
+
+    return generate_target_set(prices, target_set=V4_TARGET_SET)

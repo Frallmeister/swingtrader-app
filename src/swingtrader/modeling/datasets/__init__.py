@@ -10,11 +10,19 @@ from swingtrader.modeling.datasets.catalog import (
     V3_STOP_ATR_MULTIPLE,
     V3_TARGET_SET,
     V3_TRIPLE_BARRIER_HORIZONS,
+    V4_CROSS_SECTIONAL_HORIZONS,
+    V4_PRIMARY_TASK,
+    V4_RELEVANCE_GRADE_COUNT,
+    V4_TARGET_SET,
 )
 from swingtrader.modeling.datasets.contracts import (
     SupervisedTaskSpec,
     TargetFamilySpec,
     TargetSetSpec,
+)
+from swingtrader.modeling.datasets.cross_sectional import (
+    add_cross_sectional_return_targets,
+    cross_sectional_return_target_columns,
 )
 from swingtrader.modeling.datasets.labels import (
     V1_ANNUAL_RETURN_TARGET,
@@ -27,6 +35,7 @@ from swingtrader.modeling.datasets.labels import (
     generate_target_set,
     generate_v1_labels,
     generate_v3_labels,
+    generate_v4_labels,
 )
 from swingtrader.modeling.datasets.specifications import TemporalDatasetSpec, UniverseSpec
 from swingtrader.modeling.datasets.tabular import TabularDataset, to_tabular_dataset
@@ -80,12 +89,19 @@ __all__ = [
     "V3_STOP_ATR_MULTIPLE",
     "V3_TARGET_SET",
     "V3_TRIPLE_BARRIER_HORIZONS",
+    "V4_CROSS_SECTIONAL_HORIZONS",
+    "V4_PRIMARY_TASK",
+    "V4_RELEVANCE_GRADE_COUNT",
+    "V4_TARGET_SET",
+    "add_cross_sectional_return_targets",
     "add_triple_barrier_targets",
     "build_temporal_dataset",
     "construct_temporal_dataset",
+    "cross_sectional_return_target_columns",
     "generate_target_set",
     "generate_v1_labels",
     "generate_v3_labels",
+    "generate_v4_labels",
     "to_tabular_dataset",
     "triple_barrier_output_columns",
 ]

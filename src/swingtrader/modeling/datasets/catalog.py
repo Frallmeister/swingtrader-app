@@ -5,6 +5,10 @@ from swingtrader.modeling.datasets.contracts import (
     TargetFamilySpec,
     TargetSetSpec,
 )
+from swingtrader.modeling.datasets.cross_sectional import (
+    add_cross_sectional_return_targets,
+    cross_sectional_return_target_columns,
+)
 from swingtrader.modeling.datasets.labels import (
     FORWARD_RETURN_COLUMNS,
     REQUIRED_PRICE_COLUMNS,
@@ -97,3 +101,37 @@ V3_PRIMARY_TASK = SupervisedTaskSpec(
     target_end_date_column="target_end_date_5d",
 )
 V3_PRIMARY_TASK.validate_target_set(V3_TARGET_SET)
+
+
+V4_CROSS_SECTIONAL_HORIZONS = V1_FORWARD_RETURN_HORIZONS
+V4_RELEVANCE_GRADE_COUNT = 5
+V4_CROSS_SECTIONAL_OUTPUT_COLUMNS = cross_sectional_return_target_columns(
+    V4_CROSS_SECTIONAL_HORIZONS
+)
+V4_TARGET_SET = TargetSetSpec(
+    name="ohlcv_price_targets",
+    version="4",
+    families=(
+        *V3_TARGET_SET.families,
+        TargetFamilySpec(
+            name="cross_sectional_returns",
+            builder=add_cross_sectional_return_targets,
+            parameters={
+                "horizons": V4_CROSS_SECTIONAL_HORIZONS,
+                "relevance_grade_count": V4_RELEVANCE_GRADE_COUNT,
+            },
+            required_columns=frozenset(FORWARD_RETURN_COLUMNS),
+            output_columns=V4_CROSS_SECTIONAL_OUTPUT_COLUMNS,
+            maximum_horizon_sessions=max(V4_CROSS_SECTIONAL_HORIZONS),
+        ),
+    ),
+)
+V4_PRIMARY_TASK = SupervisedTaskSpec(
+    name="forward_return_5d_cross_sectional_percentile_regression",
+    target_set_name=V4_TARGET_SET.name,
+    target_set_version=V4_TARGET_SET.version,
+    target_column="forward_return_5d_cross_sectional_percentile",
+    task_type="regression",
+    horizon_sessions=5,
+)
+V4_PRIMARY_TASK.validate_target_set(V4_TARGET_SET)
