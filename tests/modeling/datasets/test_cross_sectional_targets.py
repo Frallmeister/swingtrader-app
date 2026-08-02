@@ -86,6 +86,70 @@ def test_add_cross_sectional_return_targets_separates_providers() -> None:
     assert other["market_relative_forward_return_5d"].tolist() == pytest.approx([-0.4, 0.4])
 
 
+def test_add_cross_sectional_return_targets_leave_single_stock_cross_section_missing() -> None:
+    result = add_cross_sectional_return_targets(
+        _forward_return_frame([("yfinance", "AAA", 0.1)]),
+        horizons=(5,),
+        relevance_grade_count=5,
+    )
+
+    assert result["market_relative_forward_return_5d"].isna().all()
+    assert result["forward_return_5d_cross_sectional_percentile"].isna().all()
+    assert result["forward_return_5d_relevance_grade"].isna().all()
+
+
+def test_add_cross_sectional_return_targets_require_shared_provider_calendar_window() -> None:
+    rows = [
+        ("yfinance", "AAA", "2026-07-01", 0.10),
+        ("yfinance", "AAA", "2026-07-02", 0.20),
+        ("yfinance", "AAA", "2026-07-03", np.nan),
+        ("yfinance", "BBB", "2026-07-01", 0.50),
+        ("yfinance", "BBB", "2026-07-03", np.nan),
+        ("yfinance", "CCC", "2026-07-01", 0.30),
+        ("yfinance", "CCC", "2026-07-02", 0.40),
+        ("yfinance", "CCC", "2026-07-03", np.nan),
+    ]
+    data = (
+        pd.DataFrame(
+            rows,
+            columns=[
+                "provider",
+                "ticker",
+                "trading_date",
+                "forward_return_1d",
+            ],
+        )
+        .assign(trading_date=lambda frame: pd.to_datetime(frame["trading_date"]))
+        .set_index(["provider", "ticker", "trading_date"])
+        .sort_index()
+    )
+
+    result = add_cross_sectional_return_targets(
+        data,
+        horizons=(1,),
+        relevance_grade_count=5,
+    )
+    first_date = result.xs(
+        pd.Timestamp("2026-07-01"),
+        level="trading_date",
+    )
+
+    assert first_date.loc[
+        ("yfinance", "AAA"),
+        "forward_return_1d_cross_sectional_percentile",
+    ] == pytest.approx(0.25)
+    assert pd.isna(
+        first_date.loc[
+            ("yfinance", "BBB"),
+            "forward_return_1d_cross_sectional_percentile",
+        ]
+    )
+    assert first_date.loc[
+        ("yfinance", "CCC"),
+        "forward_return_1d_cross_sectional_percentile",
+    ] == pytest.approx(0.75)
+
+
 @pytest.mark.parametrize("horizons", [(), (5, 5), (0,), (-1,), (True,), (1.5,)])
 def test_add_cross_sectional_return_targets_rejects_invalid_horizons(
     horizons: tuple[int, ...],
@@ -105,6 +169,19 @@ def test_add_cross_sectional_return_targets_rejects_invalid_grade_count(count: i
             _forward_return_frame([("yfinance", "AAA", 0.1)]),
             horizons=(5,),
             relevance_grade_count=count,
+        )
+
+
+@pytest.mark.parametrize("size", [1, 0, -1, True, 1.5])
+def test_add_cross_sectional_return_targets_rejects_invalid_minimum_size(
+    size: int,
+) -> None:
+    with pytest.raises(ValueError, match="Minimum cross-section size"):
+        add_cross_sectional_return_targets(
+            _forward_return_frame([("yfinance", "AAA", 0.1)]),
+            horizons=(5,),
+            relevance_grade_count=5,
+            minimum_cross_section_size=size,
         )
 
 

@@ -30,6 +30,7 @@ def add_cross_sectional_return_targets(
     *,
     horizons: tuple[int, ...],
     relevance_grade_count: int,
+    minimum_cross_section_size: int = 2,
 ) -> pd.DataFrame:
     """Append market-relative, percentile, and ordinal future-return targets.
 
@@ -42,6 +43,7 @@ def add_cross_sectional_return_targets(
     validate_market_price_index(data)
     _validate_horizons(horizons)
     _validate_relevance_grade_count(relevance_grade_count)
+    _validate_minimum_cross_section_size(minimum_cross_section_size)
 
     forward_return_columns = {f"forward_return_{horizon}d" for horizon in horizons}
     output_columns = cross_sectional_return_target_columns(horizons)
@@ -50,18 +52,30 @@ def add_cross_sectional_return_targets(
 
     result = data.copy()
     for horizon in horizons:
-        forward_returns = _finite_float(result[f"forward_return_{horizon}d"])
+        forward_returns = _finite_float(result[f"forward_return_{horizon}d"]).where(
+            _uses_shared_provider_calendar(result.index, horizon=horizon, future=True)
+        )
         grouped = forward_returns.groupby(level=_CROSS_SECTION_LEVELS, sort=False)
+        valid_cross_section = grouped.transform("count").ge(
+            minimum_cross_section_size
+        )
         market_return = grouped.transform("mean").astype("float64")
         market_gross_return = market_return.add(1)
         stock_gross_return = forward_returns.add(1)
-        valid_relative = stock_gross_return.gt(0) & market_gross_return.gt(0)
+        valid_relative = (
+            stock_gross_return.gt(0)
+            & market_gross_return.gt(0)
+            & valid_cross_section
+        )
 
         relative_column = f"market_relative_forward_return_{horizon}d"
         relative_return = stock_gross_return.div(market_gross_return).sub(1)
         result[relative_column] = relative_return.where(valid_relative).astype("float64")
 
-        percentile = _cross_sectional_percentile(forward_returns)
+        percentile = _cross_sectional_percentile(
+            forward_returns,
+            minimum_cross_section_size=minimum_cross_section_size,
+        )
         percentile_column = f"forward_return_{horizon}d_cross_sectional_percentile"
         result[percentile_column] = percentile
 
@@ -77,17 +91,53 @@ def add_cross_sectional_return_targets(
     return result
 
 
-def _cross_sectional_percentile(values: pd.Series) -> pd.Series:
+def _cross_sectional_percentile(
+    values: pd.Series,
+    *,
+    minimum_cross_section_size: int,
+) -> pd.Series:
     grouped = values.groupby(level=_CROSS_SECTION_LEVELS, sort=False)
     ranks = grouped.rank(method="average")
     counts = grouped.transform("count")
     percentiles = (ranks - 0.5) / counts
-    return percentiles.where(counts.gt(0)).astype("float64")
+    return percentiles.where(counts.ge(minimum_cross_section_size)).astype("float64")
 
 
 def _finite_float(values: pd.Series) -> pd.Series:
     numeric = pd.to_numeric(values, errors="coerce").astype("float64")
     return numeric.mask(~np.isfinite(numeric))
+
+
+def _uses_shared_provider_calendar(
+    index: pd.MultiIndex,
+    *,
+    horizon: int,
+    future: bool,
+) -> pd.Series:
+    index_frame = index.to_frame(index=False)
+    calendar = (
+        index_frame.loc[:, ["provider", "trading_date"]]
+        .drop_duplicates()
+        .sort_values(["provider", "trading_date"])
+    )
+    periods = -horizon if future else horizon
+    calendar["expected_date"] = calendar.groupby("provider", sort=False)[
+        "trading_date"
+    ].shift(periods)
+    expected_by_date = calendar.set_index(["provider", "trading_date"])["expected_date"]
+    row_dates = pd.MultiIndex.from_frame(
+        index_frame.loc[:, ["provider", "trading_date"]]
+    )
+    expected_date = pd.Series(
+        expected_by_date.reindex(row_dates).to_numpy(),
+        index=index,
+    )
+    observed_date = pd.Series(index_frame["trading_date"].to_numpy(), index=index)
+    actual_date = observed_date.groupby(
+        level=["provider", "ticker"],
+        sort=False,
+    ).shift(periods)
+    return actual_date.eq(expected_date) & expected_date.notna()
 
 
 def _validate_horizons(horizons: tuple[int, ...]) -> None:
@@ -105,3 +155,10 @@ def _validate_horizons(horizons: tuple[int, ...]) -> None:
 def _validate_relevance_grade_count(count: int) -> None:
     if isinstance(count, bool) or not isinstance(count, int) or not 2 <= count <= 128:
         raise ValueError("Relevance grade count must be an integer between two and 128.")
+
+
+def _validate_minimum_cross_section_size(size: int) -> None:
+    if isinstance(size, bool) or not isinstance(size, int) or size < 2:
+        raise ValueError(
+            "Minimum cross-section size must be an integer of at least two."
+        )

@@ -44,6 +44,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
             parameters={
                 "return_horizons": (1, 5, 10, 20),
                 "market_return_horizon": 1,
+                "minimum_cross_section_size": 2,
             },
             output_columns=(
                 "return_1d_cross_sectional_percentile",

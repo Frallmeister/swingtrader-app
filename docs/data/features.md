@@ -91,7 +91,7 @@ For example, `horizons=(1, 5, 10)` produces `return_1d`, `return_5d`, and `retur
 
 The cross-sectional orchestrator is `swingtrader.data.features.cross_sectional.add_cross_sectional_features`. It consumes the trailing-return columns produced by the returns block and compares stocks within each `provider` and `trading_date` cross-section.
 
-For each configured horizon it appends `return_{horizon}d_cross_sectional_percentile`. Valid returns receive average ranks for ties and are converted to midpoint percentiles as `(rank - 0.5) / count`. Missing or non-finite returns remain missing and are excluded from the valid count.
+For each configured horizon it appends `return_{horizon}d_cross_sectional_percentile`. Valid returns receive average ranks for ties and are converted to midpoint percentiles as `(rank - 0.5) / count`. Missing or non-finite returns remain missing and are excluded from the valid count. The default minimum cross-section size is two, so a lone valid stock does not become an artificial neutral percentile.
 
 For the configured market-return horizon, one day in the default feature set, it also appends:
 
@@ -100,6 +100,8 @@ For the configured market-return horizon, one day in the default feature set, it
 - `market_median_return_1d`, the median return.
 
 The three market-context values are repeated for every stock in the same cross-section. Same-day one-day returns and breadth are available only after that session's close, so they are valid for predictions made after the close and must not be used for an earlier decision timestamp.
+
+Cross-sectional values also require the return window to use the provider's shared trading-date calendar. If a stock skipped a provider trading date, its row-based return is left available to other consumers but excluded from the cross-sectional comparison for that horizon.
 
 The canonical index currently has no separate market or universe identifier. The implementation therefore treats each provider/date input cross-section as one comparable universe. Callers should not mix Stockholm and US securities in the same provider-scoped frame until a market or universe identifier is introduced.
 

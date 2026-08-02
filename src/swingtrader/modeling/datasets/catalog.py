@@ -105,6 +105,7 @@ V3_PRIMARY_TASK.validate_target_set(V3_TARGET_SET)
 
 V4_CROSS_SECTIONAL_HORIZONS = V1_FORWARD_RETURN_HORIZONS
 V4_RELEVANCE_GRADE_COUNT = 5
+V4_MINIMUM_CROSS_SECTION_SIZE = 2
 V4_CROSS_SECTIONAL_OUTPUT_COLUMNS = cross_sectional_return_target_columns(
     V4_CROSS_SECTIONAL_HORIZONS
 )
@@ -119,6 +120,7 @@ V4_TARGET_SET = TargetSetSpec(
             parameters={
                 "horizons": V4_CROSS_SECTIONAL_HORIZONS,
                 "relevance_grade_count": V4_RELEVANCE_GRADE_COUNT,
+                "minimum_cross_section_size": V4_MINIMUM_CROSS_SECTION_SIZE,
             },
             required_columns=frozenset(FORWARD_RETURN_COLUMNS),
             output_columns=V4_CROSS_SECTIONAL_OUTPUT_COLUMNS,

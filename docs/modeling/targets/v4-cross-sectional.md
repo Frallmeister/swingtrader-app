@@ -17,7 +17,9 @@ Each cross-section contains rows sharing:
 - `provider`;
 - `trading_date`.
 
-Missing or non-finite forward returns are excluded from the benchmark and ranking for that horizon. Their derived cross-sectional targets remain missing.
+Missing or non-finite forward returns are excluded from the benchmark and ranking for that horizon. Their derived cross-sectional targets remain missing. At least two valid stocks are required by default; smaller cross-sections remain missing.
+
+The forward-return endpoint must also match the provider's shared trading-date calendar. A stock that skipped the expected endpoint session is excluded from that horizon's comparison rather than being ranked over a different calendar window.
 
 The canonical index currently has no separate market or universe identifier. The provider/date grouping therefore assumes that the supplied modeling frame represents one comparable universe. Stockholm and US securities should not be mixed in the same provider-scoped cross-section until a market or universe identifier is available.
 
@@ -58,7 +60,7 @@ The output column is:
 forward_return_{horizon}d_cross_sectional_percentile
 ```
 
-The midpoint convention gives a single-stock cross-section a percentile of `0.5` and avoids exact zero or one values. Tied returns receive the same percentile.
+The midpoint convention avoids exact zero or one values. Tied returns receive the same percentile.
 
 ## Ordinal Relevance Grade
 

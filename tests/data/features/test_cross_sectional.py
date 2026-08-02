@@ -60,6 +60,66 @@ def test_add_cross_sectional_features_assigns_equal_percentiles_to_ties() -> Non
     )
 
 
+def test_add_cross_sectional_features_leaves_single_stock_cross_section_missing() -> None:
+    result = add_cross_sectional_features(
+        _return_frame([("yfinance", "AAA", 0.1)]),
+        return_horizons=(1,),
+        market_return_horizon=1,
+    )
+
+    assert result["return_1d_cross_sectional_percentile"].isna().all()
+    assert result["market_breadth_positive_1d"].isna().all()
+    assert result["market_equal_weight_return_1d"].isna().all()
+    assert result["market_median_return_1d"].isna().all()
+
+
+def test_add_cross_sectional_features_requires_shared_provider_calendar_window() -> None:
+    rows = [
+        ("yfinance", "AAA", "2026-07-01", np.nan),
+        ("yfinance", "AAA", "2026-07-02", 0.01),
+        ("yfinance", "AAA", "2026-07-03", 0.02),
+        ("yfinance", "BBB", "2026-07-01", np.nan),
+        ("yfinance", "BBB", "2026-07-03", 0.30),
+        ("yfinance", "CCC", "2026-07-01", np.nan),
+        ("yfinance", "CCC", "2026-07-02", 0.03),
+        ("yfinance", "CCC", "2026-07-03", 0.04),
+    ]
+    data = (
+        pd.DataFrame(
+            rows,
+            columns=["provider", "ticker", "trading_date", "return_1d"],
+        )
+        .assign(trading_date=lambda frame: pd.to_datetime(frame["trading_date"]))
+        .set_index(["provider", "ticker", "trading_date"])
+        .sort_index()
+    )
+
+    result = add_cross_sectional_features(
+        data,
+        return_horizons=(1,),
+        market_return_horizon=1,
+    )
+    final_date = result.xs(
+        pd.Timestamp("2026-07-03"),
+        level="trading_date",
+    )
+
+    assert final_date.loc[
+        ("yfinance", "AAA"),
+        "return_1d_cross_sectional_percentile",
+    ] == pytest.approx(0.25)
+    assert pd.isna(
+        final_date.loc[("yfinance", "BBB"), "return_1d_cross_sectional_percentile"]
+    )
+    assert final_date.loc[
+        ("yfinance", "CCC"),
+        "return_1d_cross_sectional_percentile",
+    ] == pytest.approx(0.75)
+    assert final_date["market_equal_weight_return_1d"].dropna().unique().tolist() == (
+        pytest.approx([0.03])
+    )
+
+
 @pytest.mark.parametrize("horizons", [(), (1, 1), (0,), (-1,), (True,), (1.5,)])
 def test_add_cross_sectional_features_rejects_invalid_horizons(
     horizons: tuple[int, ...],
@@ -81,6 +141,19 @@ def test_add_cross_sectional_features_rejects_invalid_market_return_horizon(
             _return_frame([("yfinance", "AAA", 0.1)]),
             return_horizons=(1,),
             market_return_horizon=horizon,
+        )
+
+
+@pytest.mark.parametrize("size", [1, 0, -1, True, 1.5])
+def test_add_cross_sectional_features_rejects_invalid_minimum_cross_section_size(
+    size: int,
+) -> None:
+    with pytest.raises(ValueError, match="Minimum cross-section size"):
+        add_cross_sectional_features(
+            _return_frame([("yfinance", "AAA", 0.1)]),
+            return_horizons=(1,),
+            market_return_horizon=1,
+            minimum_cross_section_size=size,
         )
 
 
