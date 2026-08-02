@@ -52,10 +52,10 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "return_10d_cross_sectional_percentile",
                 "return_20d_cross_sectional_percentile",
                 "market_breadth_positive_1d",
-                "market_equal_weight_return_1d",
+                "market_mean_return_1d",
                 "market_median_return_1d",
             ),
-            required_columns=frozenset({"return_1d", "return_5d", "return_10d", "return_20d"}),
+            required_columns=frozenset({"adjusted_close"}),
         ),
         FeatureBlockSpec(
             name="trend",

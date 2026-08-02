@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 
+from swingtrader.data.features.returns import add_return_features
 from swingtrader.data.market_frame import (
     validate_market_price_index,
     validate_new_columns,
@@ -34,9 +35,9 @@ def add_cross_sectional_features(
     ----------
     data : pandas.DataFrame
         Canonical market-price frame indexed by a unique, sorted ``MultiIndex`` with
-        levels ``provider``, ``ticker``, and ``trading_date``. It must already contain
-        the ``return_{horizon}d`` columns for every requested horizon and for
-        ``market_return_horizon``.
+        levels ``provider``, ``ticker``, and ``trading_date`` and containing an
+        ``adjusted_close`` column. Trailing returns for each horizon are derived from
+        ``adjusted_close`` internally, so no precomputed return columns are required.
     return_horizons : tuple of int, optional
         Positive, unique trailing-return horizons to rank cross-sectionally.
     market_return_horizon : int, optional
@@ -56,14 +57,14 @@ def add_cross_sectional_features(
 
         - ``return_{horizon}d_cross_sectional_percentile`` for each return horizon;
         - ``market_breadth_positive_{market_return_horizon}d``;
-        - ``market_equal_weight_return_{market_return_horizon}d``;
+        - ``market_mean_return_{market_return_horizon}d``;
         - ``market_median_return_{market_return_horizon}d``.
 
     Raises
     ------
     ValueError
         If the index is not the canonical market-price index, if the horizons or
-        minimum cross-section size are invalid, if a required ``return_*`` column is
+        minimum cross-section size are invalid, if the ``adjusted_close`` column is
         missing, or if any output column already exists on ``data``.
 
     Notes
@@ -81,26 +82,27 @@ def add_cross_sectional_features(
     _validate_market_return_horizon(market_return_horizon)
     _validate_minimum_cross_section_size(minimum_cross_section_size)
 
-    return_columns = {f"return_{horizon}d" for horizon in return_horizons}
     market_return_column = f"return_{market_return_horizon}d"
-    validate_required_columns(
-        data,
-        required_columns={*return_columns, market_return_column},
-    )
+    validate_required_columns(data, required_columns={"adjusted_close"})
 
     percentile_columns = [
         f"return_{horizon}d_cross_sectional_percentile" for horizon in return_horizons
     ]
     market_columns = [
         f"market_breadth_positive_{market_return_horizon}d",
-        f"market_equal_weight_return_{market_return_horizon}d",
+        f"market_mean_return_{market_return_horizon}d",
         f"market_median_return_{market_return_horizon}d",
     ]
     validate_new_columns(data, new_columns=[*percentile_columns, *market_columns])
 
+    return_horizons_all = tuple(sorted({*return_horizons, market_return_horizon}))
+    return_frame = add_return_features(
+        data.loc[:, ["adjusted_close"]], horizons=return_horizons_all
+    )
+
     result = data.copy()
     for horizon, output_column in zip(return_horizons, percentile_columns, strict=True):
-        returns = _finite_float(result[f"return_{horizon}d"]).where(
+        returns = _finite_float(return_frame[f"return_{horizon}d"]).where(
             _uses_shared_provider_calendar(result.index, horizon=horizon, future=False)
         )
         result[output_column] = _cross_sectional_percentile(
@@ -108,7 +110,7 @@ def add_cross_sectional_features(
             minimum_cross_section_size=minimum_cross_section_size,
         )
 
-    market_returns = _finite_float(result[market_return_column]).where(
+    market_returns = _finite_float(return_frame[market_return_column]).where(
         _uses_shared_provider_calendar(
             result.index,
             horizon=market_return_horizon,

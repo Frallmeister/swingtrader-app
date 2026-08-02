@@ -17,7 +17,7 @@ Each cross-section contains rows sharing:
 - `provider`;
 - `trading_date`.
 
-Missing or non-finite forward returns are excluded from the benchmark and ranking for that horizon. Their derived cross-sectional targets remain missing. At least two valid stocks are required by default; smaller cross-sections remain missing.
+Missing or non-finite forward returns are excluded from the benchmark and ranking for that horizon. Their derived cross-sectional targets remain missing. The configured V4 target set requires at least two valid stocks per cross-section; smaller cross-sections remain missing.
 
 The forward-return endpoint must also match the provider's shared trading-date calendar. A stock that skipped the expected endpoint session is excluded from that horizon's comparison rather than being ranked over a different calendar window.
 
@@ -25,7 +25,7 @@ The canonical index currently has no separate market or universe identifier. The
 
 ## Market-Relative Forward Return
 
-For stock \(i\), date \(t\), and horizon \(h\), let \(r_{i,t,h}\) be the existing adjusted-close forward return. The equal-weight market return is:
+For stock \(i\), date \(t\), and horizon \(h\), let \(r_{i,t,h}\) be the adjusted-close forward return over horizon \(h\). The builder derives these forward returns internally from `adjusted_close`, so it accepts the same canonical price frame as the other target builders. The equal-weight market return is:
 
 \[
 \bar r_{t,h}=\frac{1}{N_{t,h}}\sum_i r_{i,t,h}.

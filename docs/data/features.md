@@ -89,14 +89,14 @@ For example, `horizons=(1, 5, 10)` produces `return_1d`, `return_5d`, and `retur
 
 ## Cross-Sectional Features
 
-The cross-sectional orchestrator is `swingtrader.data.features.cross_sectional.add_cross_sectional_features`. It consumes the trailing-return columns produced by the returns block and compares stocks within each `provider` and `trading_date` cross-section.
+The cross-sectional orchestrator is `swingtrader.data.features.cross_sectional.add_cross_sectional_features`. It derives the trailing returns it needs internally from `adjusted_close`, so it accepts the same canonical price frame as the other feature orchestrators, and compares stocks within each `provider` and `trading_date` cross-section.
 
-For each configured horizon it appends `return_{horizon}d_cross_sectional_percentile`. Valid returns receive average ranks for ties and are converted to midpoint percentiles as `(rank - 0.5) / count`. Missing or non-finite returns remain missing and are excluded from the valid count. The default minimum cross-section size is two, so a lone valid stock does not become an artificial neutral percentile.
+For each configured horizon it appends `return_{horizon}d_cross_sectional_percentile`. Valid returns receive average ranks for ties and are converted to midpoint percentiles as `(rank - 0.5) / count`. Missing or non-finite returns remain missing and are excluded from the valid count. The default feature set requires at least two valid stocks per cross-section, so a lone valid stock does not become an artificial neutral percentile.
 
 For the configured market-return horizon, one day in the default feature set, it also appends:
 
 - `market_breadth_positive_1d`, the fraction of valid stocks with a strictly positive return;
-- `market_equal_weight_return_1d`, the arithmetic mean return;
+- `market_mean_return_1d`, the arithmetic mean return;
 - `market_median_return_1d`, the median return.
 
 The three market-context values are repeated for every stock in the same cross-section. Same-day one-day returns and breadth are available only after that session's close, so they are valid for predictions made after the close and must not be used for an earlier decision timestamp.

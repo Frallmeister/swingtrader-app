@@ -33,7 +33,7 @@ def test_add_cross_sectional_features_calculates_percentiles_and_market_context(
     )
     assert np.isnan(yfinance["return_1d_cross_sectional_percentile"].iloc[4])
     assert yfinance["market_breadth_positive_1d"].drop_duplicates().tolist() == [0.5]
-    assert yfinance["market_equal_weight_return_1d"].drop_duplicates().tolist() == pytest.approx(
+    assert yfinance["market_mean_return_1d"].drop_duplicates().tolist() == pytest.approx(
         [0.005]
     )
     assert yfinance["market_median_return_1d"].drop_duplicates().tolist() == pytest.approx([0.005])
@@ -74,25 +74,25 @@ def test_add_cross_sectional_features_leaves_single_stock_cross_section_missing(
 
     assert result["return_1d_cross_sectional_percentile"].isna().all()
     assert result["market_breadth_positive_1d"].isna().all()
-    assert result["market_equal_weight_return_1d"].isna().all()
+    assert result["market_mean_return_1d"].isna().all()
     assert result["market_median_return_1d"].isna().all()
 
 
 def test_add_cross_sectional_features_requires_shared_provider_calendar_window() -> None:
     rows = [
-        ("yfinance", "AAA", "2026-07-01", np.nan),
-        ("yfinance", "AAA", "2026-07-02", 0.01),
-        ("yfinance", "AAA", "2026-07-03", 0.02),
-        ("yfinance", "BBB", "2026-07-01", np.nan),
-        ("yfinance", "BBB", "2026-07-03", 0.30),
-        ("yfinance", "CCC", "2026-07-01", np.nan),
-        ("yfinance", "CCC", "2026-07-02", 0.03),
-        ("yfinance", "CCC", "2026-07-03", 0.04),
+        ("yfinance", "AAA", "2026-07-01", 100.0),
+        ("yfinance", "AAA", "2026-07-02", 100.0),
+        ("yfinance", "AAA", "2026-07-03", 102.0),
+        ("yfinance", "BBB", "2026-07-01", 100.0),
+        ("yfinance", "BBB", "2026-07-03", 130.0),
+        ("yfinance", "CCC", "2026-07-01", 100.0),
+        ("yfinance", "CCC", "2026-07-02", 100.0),
+        ("yfinance", "CCC", "2026-07-03", 104.0),
     ]
     data = (
         pd.DataFrame(
             rows,
-            columns=["provider", "ticker", "trading_date", "return_1d"],
+            columns=["provider", "ticker", "trading_date", "adjusted_close"],
         )
         .assign(trading_date=lambda frame: pd.to_datetime(frame["trading_date"]))
         .set_index(["provider", "ticker", "trading_date"])
@@ -119,7 +119,7 @@ def test_add_cross_sectional_features_requires_shared_provider_calendar_window()
         ("yfinance", "CCC"),
         "return_1d_cross_sectional_percentile",
     ] == pytest.approx(0.75)
-    assert final_date["market_equal_weight_return_1d"].dropna().unique().tolist() == (
+    assert final_date["market_mean_return_1d"].dropna().unique().tolist() == (
         pytest.approx([0.03])
     )
 
@@ -173,23 +173,12 @@ def test_add_cross_sectional_features_rejects_output_collisions() -> None:
         )
 
 
-def test_add_cross_sectional_features_rejects_missing_return_column() -> None:
-    data = _return_frame([("yfinance", "AAA", 0.1)])
-
-    with pytest.raises(ValueError, match="return_5d"):
-        add_cross_sectional_features(
-            data,
-            return_horizons=(1, 5),
-            market_return_horizon=1,
-        )
-
-
 def test_add_cross_sectional_features_handles_empty_input() -> None:
     index = pd.MultiIndex.from_arrays(
         [[], [], []],
         names=["provider", "ticker", "trading_date"],
     )
-    data = pd.DataFrame({"return_1d": pd.Series(index=index, dtype="float64")}, index=index)
+    data = pd.DataFrame({"adjusted_close": pd.Series(index=index, dtype="float64")}, index=index)
 
     result = add_cross_sectional_features(data, return_horizons=(1,), market_return_horizon=1)
 
@@ -199,18 +188,24 @@ def test_add_cross_sectional_features_handles_empty_input() -> None:
 
 _WARMUP_DATE = pd.Timestamp("2026-06-30")
 _EVAL_DATE = pd.Timestamp("2026-07-01")
+_BASE_PRICE = 100.0
 
 
 def _return_frame(rows: list[tuple[str, str, float]]) -> pd.DataFrame:
     records = [
-        (provider, ticker, date, value if date == _EVAL_DATE else 0.0)
+        (
+            provider,
+            ticker,
+            date,
+            _BASE_PRICE * (1 + value) if date == _EVAL_DATE else _BASE_PRICE,
+        )
         for provider, ticker, value in rows
         for date in (_WARMUP_DATE, _EVAL_DATE)
     ]
     return (
         pd.DataFrame(
             records,
-            columns=["provider", "ticker", "trading_date", "return_1d"],
+            columns=["provider", "ticker", "trading_date", "adjusted_close"],
         )
         .set_index(["provider", "ticker", "trading_date"])
         .sort_index()

@@ -65,7 +65,7 @@ def test_add_default_features_matches_manual_family_chain() -> None:
     result = add_default_features(data)
     manual = (
         data.pipe(add_return_features)
-        .pipe(add_cross_sectional_features)
+        .pipe(add_cross_sectional_features, minimum_cross_section_size=2)
         .pipe(add_trend_features)
         .pipe(add_momentum_features)
         .pipe(add_volatility_features)
