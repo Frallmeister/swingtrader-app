@@ -1,14 +1,14 @@
-# V4 Cross-Sectional Return Targets
+# Cross-Sectional Return Targets
 
-V4 preserves all V1 forward-return and fixed-threshold outputs and all V3 triple-barrier outputs. It adds targets that compare each stock's future adjusted-close return with the other valid stocks in the same provider and prediction date.
+The `cross_sectional_return_targets:1` target set compares each stock's future adjusted-close return with the other valid stocks in the same provider and prediction date. It is an independent target variant: it is generated on its own from canonical prices, derives the forward returns it needs internally, and does not include forward-return classification or triple-barrier outputs. It defines a distinct learning objective and does not supersede the other target variants.
 
 ## Purpose
 
-The added targets support stock-selection research where the main question is relative rather than absolute:
+These targets support stock-selection research where the main question is relative rather than absolute:
 
 > Which stocks are likely to outperform the other stocks available on the same date?
 
-They do not replace absolute forward returns or path-dependent triple-barrier labels. A stock can rank highly during a falling market and still have a negative return.
+They are an alternative to absolute forward returns and path-dependent triple-barrier labels, not a replacement. A stock can rank highly during a falling market and still have a negative return.
 
 ## Cross-Section Definition
 
@@ -17,7 +17,7 @@ Each cross-section contains rows sharing:
 - `provider`;
 - `trading_date`.
 
-Missing or non-finite forward returns are excluded from the benchmark and ranking for that horizon. Their derived cross-sectional targets remain missing. The configured V4 target set requires at least two valid stocks per cross-section; smaller cross-sections remain missing.
+Missing or non-finite forward returns are excluded from the benchmark and ranking for that horizon. Their derived cross-sectional targets remain missing. This target set requires at least two valid stocks per cross-section; smaller cross-sections remain missing.
 
 The forward-return endpoint must also match the provider's shared trading-date calendar. A stock that skipped the expected endpoint session is excluded from that horizon's comparison rather than being ranked over a different calendar window.
 
@@ -64,7 +64,7 @@ The midpoint convention avoids exact zero or one values. Tied returns receive th
 
 ## Ordinal Relevance Grade
 
-V4 maps each percentile to five ordered grades:
+This target set maps each percentile to five ordered grades:
 
 \[
 g_i=\min\left(4,\left\lfloor 5p_i\right\rfloor\right).
@@ -76,11 +76,11 @@ The output column is:
 forward_return_{horizon}d_relevance_grade
 ```
 
-The nullable `Int8` values range from `0` for the weakest future-return region to `4` for the strongest. These grades are intended as convenient future relevance labels for later ranking experiments; V4 itself does not introduce a ranking model or ranking-specific task contract.
+The nullable `Int8` values range from `0` for the weakest future-return region to `4` for the strongest. These grades are intended as convenient future relevance labels for later ranking experiments; this target set itself does not introduce a ranking model or ranking-specific task contract.
 
 ## Horizons and Primary Task
 
-The configured V4 horizons are 5, 10, and 15 observed sessions. The V4 primary supervised task is regression on:
+The configured horizons are 5, 10, and 15 observed sessions. The primary supervised task is regression on:
 
 ```text
 forward_return_5d_cross_sectional_percentile
@@ -90,7 +90,7 @@ This keeps the current `classification`/`regression` task contract intact. A fut
 
 ## Temporal Semantics
 
-All V4 targets depend on future prices and must never be used as features. Their maximum horizon remains 15 sessions. The five-session primary task resolves at the same fixed future session as `forward_return_5d`, so the existing temporal dataset and purging logic continue to apply.
+All cross-sectional targets depend on future prices and must never be used as features. Their maximum horizon remains 15 sessions. The five-session primary task resolves at the same fixed future session as `forward_return_5d`, so the existing temporal dataset and purging logic continue to apply.
 
 ## Limitations
 

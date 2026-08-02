@@ -74,7 +74,7 @@ The backend may serve bounded chart-data or indicator requests on demand, but it
 - Pandas loading from bronze daily prices.
 - Reusable technical indicators.
 - In-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation.
-- Versioned V1 forward-return and V2 ATR barrier-event target generation.
+- In-memory forward-return, triple-barrier, and cross-sectional target generation as independent target variants.
 - Canonical unsplit temporal dataset construction.
 - Purged fixed train, validation, and locked-test splitting with diagnostics.
 - Immutable experiment specifications and optional local MLflow tracking.
@@ -94,7 +94,7 @@ The backend may serve bounded chart-data or indicator requests on demand, but it
 - A separate TypeScript and React application under `frontend/`.
 - Render deployment and scheduled jobs.
 - PostgreSQL production storage.
-- Macro-data ingestion and macro/context features after the OHLCV-only V1 path is useful.
+- Macro-data ingestion and macro/context features after the OHLCV-only forward-return path is useful.
 
 ## Package Boundaries
 

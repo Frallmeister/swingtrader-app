@@ -3,7 +3,7 @@
 Swingtrader is a personal trading decision-support application built around a data-first workflow. The project downloads market data for a curated trading universe, stores source-oriented bronze records, builds model-ready features and targets, and will eventually present ranked trade candidates for manual review.
 
 !!! note "Current status"
-    The repository implements the local market-data foundation, runnable onboarding and daily-update jobs, bronze-backed eligibility checks, pandas loading, versioned V1 forward-return and V3 triple-barrier targets, immutable experiment specifications, local MLflow tracking, and in-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation.
+    The repository implements the local market-data foundation, runnable onboarding and daily-update jobs, bronze-backed eligibility checks, pandas loading, independent forward-return, triple-barrier, and cross-sectional target variants, immutable experiment specifications, local MLflow tracking, and in-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation.
 
     The canonical temporal dataset, purged fixed splitting, deterministic baseline models, standardized prediction contract, validation evaluation, and reusable artifact-producing harness are implemented. The next model-development work is nonlinear candidates and feature ablation.
 
@@ -21,7 +21,7 @@ The long-term goal is not automatic order placement. The application should supp
 - [Modeling](modeling/overview.md): understand datasets, experiments, baselines, and evaluation.
 - [Temporal splitting](modeling/temporal-splitting.md): understand fixed calendar ranges, target-end purging, embargo, and diagnostics.
 - [Baseline models](modeling/baseline-models.md): fit the implemented baselines and generate comparable reports.
-- [Triple-barrier targets](modeling/targets/v3-triple-barrier.md): understand the V3 next-open three-class label contract.
+- [Triple-barrier targets](modeling/targets/triple-barrier.md): understand the next-open three-class label contract.
 - [Experiment tracking](modeling/experiments.md): define reproducible experiment semantics and record local MLflow runs.
 - [Operations](operations/daily-runbook.md): run the implemented local daily workflow and understand the planned production sequence.
 - [Reference](reference/glossary.md): shared vocabulary and API reference.

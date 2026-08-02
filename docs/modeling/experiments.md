@@ -102,13 +102,16 @@ The Git revision is intentionally not part of the static `ExperimentSpec`. It de
 
 ## Define an Experiment Before Fitting
 
-The following example uses the current candidate feature set, V2 ATR barrier task, and repository-owned regularized-logistic baseline. The ticker tuple is illustrative; production experiment definitions should use the actual resolved training universe.
+The following example uses the current candidate feature set, triple-barrier task, and repository-owned regularized-logistic baseline. The ticker tuple is illustrative; production experiment definitions should use the actual resolved training universe.
 
 ```python
 from datetime import date
 
 from swingtrader.data.features.catalog import DEFAULT_FEATURE_SET
-from swingtrader.modeling.datasets.catalog import V2_PRIMARY_TASK, V2_TARGET_SET
+from swingtrader.modeling.datasets.catalog import (
+    TRIPLE_BARRIER_PRIMARY_TASK,
+    TRIPLE_BARRIER_TARGET_SET,
+)
 from swingtrader.modeling.experiments import (
     ExperimentSpec,
     ModelSpec,
@@ -121,8 +124,8 @@ experiment_spec = ExperimentSpec(
     name="logistic_atr_barrier_baseline",
     version="1",
     feature_set=DEFAULT_FEATURE_SET,
-    target_set=V2_TARGET_SET,
-    task=V2_PRIMARY_TASK,
+    target_set=TRIPLE_BARRIER_TARGET_SET,
+    task=TRIPLE_BARRIER_PRIMARY_TASK,
     universe=UniverseSpec(
         name="se_large_mid_cap_training",
         version="2026-07-24",

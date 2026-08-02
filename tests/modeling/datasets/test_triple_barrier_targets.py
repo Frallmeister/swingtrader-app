@@ -4,10 +4,10 @@ import pandas as pd
 import pytest
 
 from swingtrader.modeling.datasets import (
-    V3_PRIMARY_TASK,
-    V3_TARGET_SET,
+    TRIPLE_BARRIER_PRIMARY_TASK,
+    TRIPLE_BARRIER_TARGET_SET,
     add_triple_barrier_targets,
-    generate_v3_labels,
+    generate_triple_barrier_labels,
 )
 from swingtrader.modeling.datasets.contracts import TargetFamilySpec, TargetSetSpec
 
@@ -256,12 +256,13 @@ def test_invalid_future_ohlc_leaves_label_missing() -> None:
     assert pd.isna(result.iloc[0]["target_end_date_3d"])
 
 
-def test_v3_manifest_contains_material_triple_barrier_parameters() -> None:
-    barrier_family = V3_TARGET_SET.families[-1]
+def test_triple_barrier_manifest_contains_material_triple_barrier_parameters() -> None:
+    barrier_family = TRIPLE_BARRIER_TARGET_SET.families[-1]
     manifest = barrier_family.to_manifest()
 
-    assert V3_TARGET_SET.identifier == "ohlcv_price_targets:3"
-    assert V3_TARGET_SET.maximum_horizon_sessions == 15
+    assert TRIPLE_BARRIER_TARGET_SET.identifier == "triple_barrier_targets:1"
+    assert TRIPLE_BARRIER_TARGET_SET.family_names == ("triple_barrier",)
+    assert TRIPLE_BARRIER_TARGET_SET.maximum_horizon_sessions == 15
     assert manifest["parameters"] == {
         "atr_length": 14,
         "stop_atr_multiple": 2.0,
@@ -280,7 +281,7 @@ def test_v3_manifest_contains_material_triple_barrier_parameters() -> None:
         "time_to_event_15d",
         "target_end_date_15d",
     )
-    V3_PRIMARY_TASK.validate_target_set(V3_TARGET_SET)
+    TRIPLE_BARRIER_PRIMARY_TASK.validate_target_set(TRIPLE_BARRIER_TARGET_SET)
 
     changed_values = {
         "atr_length": 10,
@@ -299,21 +300,26 @@ def test_v3_manifest_contains_material_triple_barrier_parameters() -> None:
             maximum_horizon_sessions=barrier_family.maximum_horizon_sessions,
         )
         changed_set = TargetSetSpec(
-            name=V3_TARGET_SET.name,
-            version=V3_TARGET_SET.version,
-            families=(*V3_TARGET_SET.families[:-1], changed_family),
+            name=TRIPLE_BARRIER_TARGET_SET.name,
+            version=TRIPLE_BARRIER_TARGET_SET.version,
+            families=(*TRIPLE_BARRIER_TARGET_SET.families[:-1], changed_family),
         )
-        assert changed_set.digest != V3_TARGET_SET.digest
+        assert changed_set.digest != TRIPLE_BARRIER_TARGET_SET.digest
 
 
-def test_generate_v3_labels_executes_all_declared_families() -> None:
+def test_generate_triple_barrier_labels_produces_only_triple_barrier_columns() -> None:
     prices = _prices([(100.0, 101.0, 99.0, 100.0)] * 29)
 
-    result = generate_v3_labels(prices)
+    result = generate_triple_barrier_labels(prices)
 
-    assert set(V3_TARGET_SET.target_columns).issubset(result.columns)
+    assert set(TRIPLE_BARRIER_TARGET_SET.target_columns).issubset(result.columns)
     assert result.iloc[13]["triple_barrier_label_5d"] == 0
     assert result.iloc[13]["time_to_event_5d"] == 5
+    added_columns = set(result.columns).difference(prices.columns)
+    assert added_columns == set(TRIPLE_BARRIER_TARGET_SET.target_columns)
+    assert "forward_return_5d" not in result.columns
+    assert "target_significant_up_5d" not in result.columns
+    assert "forward_return_5d_cross_sectional_percentile" not in result.columns
 
 
 def test_parameter_validation_rejects_unsupported_policies() -> None:

@@ -82,7 +82,7 @@ flowchart TB
 
 ## Implemented Components
 
-Feature and target builders consume the same canonical market-price DataFrame: a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`, with identifiers absent from ordinary columns. V1 calculates forward returns and a fixed-return classification target. V3 preserves those outputs and adds a next-open ATR-scaled triple-barrier label, one time-to-event column, and target-resolution metadata for purging. V4 preserves both earlier schemas and adds market-relative forward returns, same-date future-return percentiles, and ordinal relevance grades.
+Feature and target builders consume the same canonical market-price DataFrame: a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`, with identifiers absent from ordinary columns. The forward-return set calculates forward returns and a fixed-return classification target. The triple-barrier set produces a next-open ATR-scaled triple-barrier label, one time-to-event column, and target-resolution metadata for purging. The cross-sectional-return set produces market-relative forward returns, same-date future-return percentiles, and ordinal relevance grades. These three target sets are independent variants: each is generated on its own from canonical prices, their outputs do not overlap, and none supersedes the others.
 
 `TemporalDatasetSpec` defines only the unsplit data product. Features and targets are calculated independently over the same full historical prefix, then aligned with sample metadata and a deterministic manifest. Feature NaNs are retained; rows are excluded only when the selected target is unavailable.
 

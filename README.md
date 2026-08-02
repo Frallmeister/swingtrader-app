@@ -22,7 +22,7 @@ The project currently implements the data and initial modeling foundation:
 * daily market data updates for already-onboarded tickers
 * inference-readiness and training-eligibility checks based on bronze data quality
 * in-memory return, cross-sectional market-context, trend, momentum, volatility, price-action, volume, and market-structure feature generation
-* versioned in-memory V1, V3, and V4 target generation, including triple-barrier and cross-sectional return targets
+* in-memory forward-return, triple-barrier, and cross-sectional target generation as independent target variants
 * canonical unsplit temporal dataset construction with aligned sample metadata
 * purged fixed train, validation, and locked-test splitting with optional embargo and diagnostics
 * immutable experiment specifications and optional local MLflow tracking
@@ -63,8 +63,8 @@ Useful entry points:
 * [Model feature selection and train-only cross-validation](docs/modeling/feature-selection-and-cross-validation.md)
 * [Baseline models and evaluation harness](docs/modeling/baseline-models.md)
 * [Backtesting pilot](docs/modeling/backtesting.md)
-* [Triple-barrier targets](docs/modeling/targets/v3-triple-barrier.md)
-* [Cross-sectional return targets](docs/modeling/targets/v4-cross-sectional.md)
+* [Triple-barrier targets](docs/modeling/targets/triple-barrier.md)
+* [Cross-sectional return targets](docs/modeling/targets/cross-sectional.md)
 * [Experiment specifications and MLflow tracking](docs/modeling/experiments.md)
 * [Roadmap](docs/architecture/roadmap.md)
 

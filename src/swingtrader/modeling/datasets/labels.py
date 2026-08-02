@@ -14,22 +14,22 @@ from swingtrader.data.market_frame import (
 if TYPE_CHECKING:
     from swingtrader.modeling.datasets.contracts import TargetSetSpec
 
-V1_FORWARD_RETURN_HORIZONS = (5, 10, 15)
-V1_COMMISSION = 0.0025
-V1_ANNUAL_RETURN_TARGET = 0.50
-V1_TRADING_DAYS_PER_YEAR = 252
-V1_PREDICTION_HORIZON = 5
-V1_REQUIRED_NET_RETURN = (1 + V1_ANNUAL_RETURN_TARGET) ** (
-    V1_PREDICTION_HORIZON / V1_TRADING_DAYS_PER_YEAR
+FORWARD_RETURN_HORIZONS = (5, 10, 15)
+SIGNIFICANT_RETURN_COMMISSION = 0.0025
+SIGNIFICANT_RETURN_ANNUAL_TARGET = 0.50
+TRADING_DAYS_PER_YEAR = 252
+SIGNIFICANT_RETURN_PREDICTION_HORIZON = 5
+SIGNIFICANT_RETURN_REQUIRED_NET = (1 + SIGNIFICANT_RETURN_ANNUAL_TARGET) ** (
+    SIGNIFICANT_RETURN_PREDICTION_HORIZON / TRADING_DAYS_PER_YEAR
 ) - 1
-V1_RETURN_THRESHOLD = (1 + V1_COMMISSION + V1_REQUIRED_NET_RETURN) / (1 - V1_COMMISSION) - 1
+SIGNIFICANT_RETURN_THRESHOLD = (
+    1 + SIGNIFICANT_RETURN_COMMISSION + SIGNIFICANT_RETURN_REQUIRED_NET
+) / (1 - SIGNIFICANT_RETURN_COMMISSION) - 1
 
-# These are logical inputs to the versioned family manifest. The three market
+# These are logical inputs to the target family manifest. The three market
 # identifiers are supplied by the canonical index rather than ordinary columns.
 REQUIRED_PRICE_COLUMNS = (*MARKET_PRICE_INDEX_NAMES, "adjusted_close")
-FORWARD_RETURN_COLUMNS = tuple(
-    f"forward_return_{horizon}d" for horizon in V1_FORWARD_RETURN_HORIZONS
-)
+FORWARD_RETURN_COLUMNS = tuple(f"forward_return_{horizon}d" for horizon in FORWARD_RETURN_HORIZONS)
 TARGET_SIGNIFICANT_UP_5D_COLUMN = "target_significant_up_5d"
 
 
@@ -92,22 +92,22 @@ def generate_target_set(
     return target_set.apply(prices)
 
 
-def generate_v1_labels(prices: pd.DataFrame) -> pd.DataFrame:
-    """Generate V1 labels for a canonical market-price DataFrame."""
-    from swingtrader.modeling.datasets.catalog import V1_TARGET_SET
+def generate_forward_return_labels(prices: pd.DataFrame) -> pd.DataFrame:
+    """Generate forward-return targets for a canonical market-price DataFrame."""
+    from swingtrader.modeling.datasets.catalog import FORWARD_RETURN_TARGET_SET
 
-    return generate_target_set(prices, target_set=V1_TARGET_SET)
-
-
-def generate_v3_labels(prices: pd.DataFrame) -> pd.DataFrame:
-    """Generate V3 labels for a canonical market-price DataFrame."""
-    from swingtrader.modeling.datasets.catalog import V3_TARGET_SET
-
-    return generate_target_set(prices, target_set=V3_TARGET_SET)
+    return generate_target_set(prices, target_set=FORWARD_RETURN_TARGET_SET)
 
 
-def generate_v4_labels(prices: pd.DataFrame) -> pd.DataFrame:
-    """Generate V4 labels for a canonical market-price DataFrame."""
-    from swingtrader.modeling.datasets.catalog import V4_TARGET_SET
+def generate_triple_barrier_labels(prices: pd.DataFrame) -> pd.DataFrame:
+    """Generate triple-barrier targets for a canonical market-price DataFrame."""
+    from swingtrader.modeling.datasets.catalog import TRIPLE_BARRIER_TARGET_SET
 
-    return generate_target_set(prices, target_set=V4_TARGET_SET)
+    return generate_target_set(prices, target_set=TRIPLE_BARRIER_TARGET_SET)
+
+
+def generate_cross_sectional_return_labels(prices: pd.DataFrame) -> pd.DataFrame:
+    """Generate cross-sectional return targets for a canonical market-price DataFrame."""
+    from swingtrader.modeling.datasets.catalog import CROSS_SECTIONAL_RETURN_TARGET_SET
+
+    return generate_target_set(prices, target_set=CROSS_SECTIONAL_RETURN_TARGET_SET)

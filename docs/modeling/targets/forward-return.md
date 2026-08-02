@@ -1,17 +1,17 @@
-# V1 Significant Forward Return Target
+# Significant Forward Return Target
 
-The implemented V1 outcomes are described by the versioned `ohlcv_price_targets:1` target set. Its deterministic manifest records ordered target families, parameters, required inputs, produced columns, builder import paths, and the maximum future horizon. The `significant_up_5d_classification` supervised-task specification selects `target_significant_up_5d` unambiguously from that set.
+The forward-return outcomes are described by the `forward_return_targets:1` target set. Its deterministic manifest records ordered target families, parameters, required inputs, produced columns, builder import paths, and the maximum future horizon. The `significant_up_5d_classification` supervised-task specification selects `target_significant_up_5d` unambiguously from that set.
 
 Target sets differ from feature sets because target families intentionally use future observations and expose `maximum_horizon_sessions`, which dataset construction uses to validate the selected task horizon. Temporal splitting uses each retained sample's actual `target_end_date`. Feature sets describe information available to the model at prediction time and must remain point-in-time safe.
 
-A behavior or parameter change that alters target meaning must create a new target-set version rather than silently changing an existing experiment contract. Exact reproduction also requires the source revision containing the configured target builders.
+The forward-return, triple-barrier, and cross-sectional target sets are independent target variants. None universally supersedes the others; each defines a distinct learning objective and can be generated on its own from canonical prices. A behavior or parameter change that alters an existing target's meaning must create a new version of that target set rather than silently changing an established experiment contract. Exact reproduction also requires the source revision containing the configured target builders.
 
-This page defines the V1 target contract. The V3 next-open stop-loss and take-profit contract is documented in [V3 Triple Barrier Target](v3-triple-barrier.md).
-The label-generation code for this contract is implemented in the modeling datasets package, the versioned in-memory OHLCV feature set is implemented in the data package, canonical unsplit temporal dataset construction is documented in [Temporal Datasets](../temporal-datasets.md), and fixed leakage-safe assignment is documented in [Temporal Splitting](../temporal-splitting.md). Shared reporting guidance is documented in [Model Evaluation](../evaluation.md). Model training, persistence, inference, and backtesting remain follow-up implementation work.
+This page defines the forward-return target contract. The next-open stop-loss and take-profit contract is documented in [Triple Barrier Target](triple-barrier.md).
+The label-generation code for this contract is implemented in the modeling datasets package, the in-memory OHLCV feature set is implemented in the data package, canonical unsplit temporal dataset construction is documented in [Temporal Datasets](../temporal-datasets.md), and fixed leakage-safe assignment is documented in [Temporal Splitting](../temporal-splitting.md). Shared reporting guidance is documented in [Model Evaluation](../evaluation.md). Model training, persistence, inference, and backtesting remain follow-up implementation work.
 
 | Property | Value |
 | --- | --- |
-| Target version | V1 (`ohlcv_price_targets:1`) |
+| Target set | `forward_return_targets:1` |
 | Learning task | Binary classification |
 | Selected task output | One selected target value per sample; not multiclass or multilabel |
 | Primary target | `target_significant_up_5d` |
@@ -27,21 +27,21 @@ The label-generation code for this contract is implemented in the modeling datas
 Modeling uses the same canonical market-price representation as indicators and features: a unique, sorted `MultiIndex` named `provider`, `ticker`, and `trading_date`, in that exact order. Those identifiers must not also be ordinary columns. Bronze loader output is column-oriented and should be converted once at the caller boundary:
 
 ```python
-from swingtrader.modeling.datasets import generate_v1_labels
+from swingtrader.modeling.datasets import generate_forward_return_labels
 
 prices = (
     prices
     .set_index(["provider", "ticker", "trading_date"])
     .sort_index()
 )
-labels = generate_v1_labels(prices)
+labels = generate_forward_return_labels(prices)
 ```
 
 Target builders preserve this index. Feature and label frames can therefore be aligned or joined directly without reconstructing observation identity.
 
-## V1 Model Objective
+## Model Objective
 
-The V1 model should estimate the probability that a stock produces a meaningful positive adjusted-close return over the next five observed trading sessions.
+The model should estimate the probability that a stock produces a meaningful positive adjusted-close return over the next five observed trading sessions.
 
 The model is intended primarily as a candidate-ranking tool. A useful model should assign progressively higher probabilities to stocks with progressively better realized outcomes.
 
@@ -59,20 +59,20 @@ The horizon is measured in observed trading sessions for the ticker, not calenda
 
 Adjusted close is used so that historical corporate actions do not create artificial research-label returns.
 
-The implemented V1 label generator also calculates these diagnostic continuous outcomes:
+The label generator also calculates these diagnostic continuous outcomes:
 
 ```text
 forward_return_10d
 forward_return_15d
 ```
 
-The 10-session and 15-session outcomes are initially for EDA and later model comparison. They are not primary V1 classification targets.
+The 10-session and 15-session outcomes are initially for EDA and later model comparison. They are not primary classification targets.
 
 Rows without the required future observation for a horizon must have a missing outcome for that horizon. They must not be assigned to the negative class.
 
 ## Primary Binary Target
 
-The primary V1 target is:
+The primary target is:
 
 ```text
 target_significant_up_5d = forward_return_5d > return_threshold
@@ -133,7 +133,7 @@ return_threshold =
     - 1
 ```
 
-With the V1 assumptions:
+With these assumptions:
 
 ```text
 required_net_return ~= 0.00807739
@@ -152,13 +152,13 @@ Features may use the completed daily bar on date `t`, including its closing valu
 
 The close-to-close target is therefore a research target and not a directly executable trade return. A model score produced using the completed bar at `t` could only be acted on after that bar is available.
 
-V1 does not attempt to model exact entry price, exit price, spread, slippage, order execution, stop-loss behavior, take-profit behavior, position sizing, or portfolio construction.
+This target does not attempt to model exact entry price, exit price, spread, slippage, order execution, stop-loss behavior, take-profit behavior, position sizing, or portfolio construction.
 
 ## Feature Scope
 
-V1 should use only features derived from available OHLCV history.
+The model should use only features derived from available OHLCV history.
 
-V1 should not require:
+This target should not require:
 
 - macroeconomic data;
 - benchmark-index data;
@@ -166,18 +166,18 @@ V1 should not require:
 - fundamental company data;
 - news or sentiment data.
 
-Index-relative labels are deferred. The initial objective is to determine whether OHLCV-derived features contain useful predictive and ranking signal on their own.
+Index-relative labels are covered by the separate [Cross-Sectional Return Targets](cross-sectional.md). The initial objective here is to determine whether OHLCV-derived features contain useful predictive and ranking signal on their own.
 
 ## Evaluation
 
-Use the shared chronological validation, classification, calibration, ranking, and locked-test rules in [Model Evaluation](../evaluation.md). V1 reports should additionally include:
+Use the shared chronological validation, classification, calibration, ranking, and locked-test rules in [Model Evaluation](../evaluation.md). Reports for this target should additionally include:
 
 - mean `forward_return_5d` by prediction quantile;
 - positive-label rate by prediction quantile;
 - mean `forward_return_5d` and hit rate among top-ranked candidates;
 - per-date Spearman correlation between predicted probability and `forward_return_5d`.
 
-V1 baselines should include:
+Baselines should include:
 
 - a dummy probability classifier based on the training-set class prior;
 - random candidate selection from the same dates and eligible stock universe.
@@ -186,7 +186,7 @@ A future evaluation may also compare the model with the equal-weighted return of
 
 ## Assumptions And Limitations
 
-V1 assumes:
+This target assumes:
 
 - a five-session primary prediction horizon;
 - adjusted close for research labels;
@@ -195,7 +195,7 @@ V1 assumes:
 - chronological validation;
 - proportional courtage of `0.25%` on both purchase and sale.
 
-V1 does not yet account for:
+This target does not yet account for:
 
 - minimum courtage amounts or alternative courtage classes;
 - bid-ask spread;
@@ -208,24 +208,3 @@ V1 does not yet account for:
 - survivorship or historical-universe changes beyond the available ticker data.
 
 These limitations should be retained when interpreting initial model results.
-
-## Non-Goals
-
-This contract does not implement or define production behavior for:
-
-- feature engineering;
-- dataset splitting;
-- model training or tuning;
-- backtesting;
-- database schemas;
-- feature or label persistence;
-- macro or index ingestion;
-- index-relative targets;
-- executable trading rules;
-- stop-loss or take-profit simulation;
-- position sizing;
-- portfolio construction;
-- production inference;
-- a web interface.
-
-Database persistence and executable training/evaluation workflows should be handled by separate follow-up implementation issues. Fixed temporal splitting and purging are handled by [Temporal Splitting](../temporal-splitting.md).
