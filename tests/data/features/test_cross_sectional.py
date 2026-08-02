@@ -25,7 +25,8 @@ def test_add_cross_sectional_features_calculates_percentiles_and_market_context(
         market_return_horizon=1,
     )
 
-    yfinance = result.xs("yfinance", level="provider")
+    evaluated = result.xs(_EVAL_DATE, level="trading_date")
+    yfinance = evaluated.xs("yfinance", level="provider")
     assert yfinance["return_1d_cross_sectional_percentile"].tolist()[:4] == pytest.approx(
         [0.125, 0.375, 0.625, 0.875]
     )
@@ -36,7 +37,7 @@ def test_add_cross_sectional_features_calculates_percentiles_and_market_context(
     )
     assert yfinance["market_median_return_1d"].drop_duplicates().tolist() == pytest.approx([0.005])
 
-    other = result.xs("other", level="provider")
+    other = evaluated.xs("other", level="provider")
     assert other["return_1d_cross_sectional_percentile"].tolist() == pytest.approx([0.25, 0.75])
     assert other["market_breadth_positive_1d"].drop_duplicates().tolist() == [0.5]
     pd.testing.assert_frame_equal(data, original)
@@ -55,7 +56,8 @@ def test_add_cross_sectional_features_assigns_equal_percentiles_to_ties() -> Non
 
     result = add_cross_sectional_features(data, return_horizons=(1,), market_return_horizon=1)
 
-    assert result["return_1d_cross_sectional_percentile"].tolist() == pytest.approx(
+    evaluated = result.xs(_EVAL_DATE, level="trading_date")
+    assert evaluated["return_1d_cross_sectional_percentile"].tolist() == pytest.approx(
         [0.2, 0.2, 0.5, 0.7, 0.9]
     )
 
@@ -191,15 +193,20 @@ def test_add_cross_sectional_features_handles_empty_input() -> None:
     assert all(pd.api.types.is_float_dtype(result[column]) for column in result.columns)
 
 
+_WARMUP_DATE = pd.Timestamp("2026-06-30")
+_EVAL_DATE = pd.Timestamp("2026-07-01")
+
+
 def _return_frame(rows: list[tuple[str, str, float]]) -> pd.DataFrame:
+    records = [
+        (provider, ticker, date, value if date == _EVAL_DATE else 0.0)
+        for provider, ticker, value in rows
+        for date in (_WARMUP_DATE, _EVAL_DATE)
+    ]
     return (
         pd.DataFrame(
-            {
-                "provider": [row[0] for row in rows],
-                "ticker": [row[1] for row in rows],
-                "trading_date": pd.Timestamp("2026-07-01"),
-                "return_1d": [row[2] for row in rows],
-            }
+            records,
+            columns=["provider", "ticker", "trading_date", "return_1d"],
         )
         .set_index(["provider", "ticker", "trading_date"])
         .sort_index()

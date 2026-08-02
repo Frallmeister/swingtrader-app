@@ -23,14 +23,15 @@ def test_add_cross_sectional_return_targets_calculates_expected_outputs() -> Non
         relevance_grade_count=5,
     )
 
-    assert result["market_relative_forward_return_5d"].tolist() == pytest.approx(
+    evaluated = result.xs(_EVAL_DATE, level="trading_date")
+    assert evaluated["market_relative_forward_return_5d"].tolist() == pytest.approx(
         [0.9 / 1.1 - 1, 1.0 / 1.1 - 1, 0.0, 1.2 / 1.1 - 1, 1.3 / 1.1 - 1]
     )
-    assert result["forward_return_5d_cross_sectional_percentile"].tolist() == pytest.approx(
+    assert evaluated["forward_return_5d_cross_sectional_percentile"].tolist() == pytest.approx(
         [0.1, 0.3, 0.5, 0.7, 0.9]
     )
-    assert result["forward_return_5d_relevance_grade"].tolist() == [0, 1, 2, 3, 4]
-    assert str(result["forward_return_5d_relevance_grade"].dtype) == "Int8"
+    assert evaluated["forward_return_5d_relevance_grade"].tolist() == [0, 1, 2, 3, 4]
+    assert str(evaluated["forward_return_5d_relevance_grade"].dtype) == "Int8"
     pd.testing.assert_frame_equal(data, original)
 
 
@@ -51,12 +52,13 @@ def test_add_cross_sectional_return_targets_excludes_missing_values() -> None:
         relevance_grade_count=5,
     )
 
-    assert result["forward_return_5d_cross_sectional_percentile"].tolist()[:4] == pytest.approx(
+    evaluated = result.xs(_EVAL_DATE, level="trading_date")
+    assert evaluated["forward_return_5d_cross_sectional_percentile"].tolist()[:4] == pytest.approx(
         [0.125, 0.375, 0.625, 0.875]
     )
-    assert pd.isna(result["forward_return_5d_cross_sectional_percentile"].iloc[4])
-    assert pd.isna(result["forward_return_5d_relevance_grade"].iloc[4])
-    assert result["market_relative_forward_return_5d"].iloc[0] == pytest.approx(0.9 / 1.05 - 1)
+    assert pd.isna(evaluated["forward_return_5d_cross_sectional_percentile"].iloc[4])
+    assert pd.isna(evaluated["forward_return_5d_relevance_grade"].iloc[4])
+    assert evaluated["market_relative_forward_return_5d"].iloc[0] == pytest.approx(0.9 / 1.05 - 1)
 
 
 def test_add_cross_sectional_return_targets_separates_providers() -> None:
@@ -75,8 +77,9 @@ def test_add_cross_sectional_return_targets_separates_providers() -> None:
         relevance_grade_count=5,
     )
 
-    other = result.xs("other", level="provider")
-    yfinance = result.xs("yfinance", level="provider")
+    evaluated = result.xs(_EVAL_DATE, level="trading_date")
+    other = evaluated.xs("other", level="provider")
+    yfinance = evaluated.xs("yfinance", level="provider")
     assert other["forward_return_5d_cross_sectional_percentile"].tolist() == pytest.approx(
         [0.25, 0.75]
     )
@@ -219,15 +222,20 @@ def test_add_cross_sectional_return_targets_handles_empty_input() -> None:
     assert str(result["forward_return_5d_relevance_grade"].dtype) == "Int8"
 
 
+_EVAL_DATE = pd.Timestamp("2026-07-01")
+_CALENDAR = pd.date_range(_EVAL_DATE, periods=6, freq="B")
+
+
 def _forward_return_frame(rows: list[tuple[str, str, float]]) -> pd.DataFrame:
+    records = [
+        (provider, ticker, date, value if date == _EVAL_DATE else 0.0)
+        for provider, ticker, value in rows
+        for date in _CALENDAR
+    ]
     return (
         pd.DataFrame(
-            {
-                "provider": [row[0] for row in rows],
-                "ticker": [row[1] for row in rows],
-                "trading_date": pd.Timestamp("2026-07-01"),
-                "forward_return_5d": [row[2] for row in rows],
-            }
+            records,
+            columns=["provider", "ticker", "trading_date", "forward_return_5d"],
         )
         .set_index(["provider", "ticker", "trading_date"])
         .sort_index()
