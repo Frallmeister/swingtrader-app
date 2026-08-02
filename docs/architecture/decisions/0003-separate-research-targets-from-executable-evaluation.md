@@ -5,7 +5,7 @@
 
 ## Context
 
-The V1 label uses adjusted-close returns from the completed bar on date `t` to a future observed session. It is suitable for testing whether OHLCV-derived features contain predictive and ranking signal, but it is not a directly executable trade return because the completed bar is only known after its close.
+The forward-return label uses adjusted-close returns from the completed bar on date `t` to a future observed session. It is suitable for testing whether OHLCV-derived features contain predictive and ranking signal, but it is not a directly executable trade return because the completed bar is only known after its close.
 
 Mixing signal discovery with entry assumptions, spread, slippage, stops, position sizing, and portfolio constraints would make the first modeling iteration harder to interpret.
 

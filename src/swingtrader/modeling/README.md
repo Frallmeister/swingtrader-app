@@ -7,8 +7,8 @@ Model development and inference code lives here. The package owns reusable targe
 The `swingtrader.modeling.datasets` package contains:
 
 - `contracts.py`, which defines immutable, executable target-family and target-set specifications plus supervised-task selection;
-- `catalog.py`, which defines the concrete V1 and V3 target sets and their primary classification tasks;
-- `labels.py` and `triple_barrier.py`, which implement forward-return and next-open triple-barrier targets;
+- `catalog.py`, which defines the concrete forward-return, triple-barrier, and cross-sectional target sets and their primary tasks;
+- `labels.py`, `cross_sectional.py`, and `triple_barrier.py`, which implement forward-return, cross-sectional return, and next-open triple-barrier targets;
 - `specifications.py`, which binds a feature set, target set, selected task, resolved universe, and data cutoff;
 - `temporal.py`, which builds aligned feature, target, and sample-metadata frames over the full historical prefix;
 - `tabular.py`, which exposes framework-neutral `X`, `y`, and sample metadata without splitting or preprocessing.
@@ -50,7 +50,8 @@ See the main documentation:
 - [Temporal datasets](../../../docs/modeling/temporal-datasets.md)
 - [Temporal splitting](../../../docs/modeling/temporal-splitting.md)
 - [Target overview](../../../docs/modeling/targets/index.md)
-- [Triple-barrier targets](../../../docs/modeling/targets/v3-triple-barrier.md)
+- [Triple-barrier targets](../../../docs/modeling/targets/triple-barrier.md)
+- [Cross-sectional return targets](../../../docs/modeling/targets/cross-sectional.md)
 - [Baseline models and evaluation harness](../../../docs/modeling/baseline-models.md)
 - [Model evaluation](../../../docs/modeling/evaluation.md)
 - [Interactive entry labeling](../../../docs/modeling/data-labeling.md)

@@ -232,4 +232,4 @@ temp_*.py
 # Local modeling artifacts
 /artifacts/
 
-/notebooks/pocs/exports/
+/notebooks/exports/

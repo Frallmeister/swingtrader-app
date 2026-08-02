@@ -93,8 +93,9 @@ nav:
       - Feature Selection and Train-Only CV: modeling/feature-selection-and-cross-validation.md
       - Targets:
           - Overview: modeling/targets/index.md
-          - V1 Significant Forward Return: modeling/targets/v1-forward-return.md
-          - V3 Triple Barrier: modeling/targets/v3-triple-barrier.md
+          - Significant Forward Return: modeling/targets/forward-return.md
+          - Triple Barrier: modeling/targets/triple-barrier.md
+          - Cross-Sectional Returns: modeling/targets/cross-sectional.md
       - Baseline Models and Harness: modeling/baseline-models.md
       - Evaluation: modeling/evaluation.md
       - Backtesting Pilot: modeling/backtesting.md

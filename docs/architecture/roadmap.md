@@ -11,11 +11,12 @@ This roadmap is a planning aid, not a replacement for GitHub issues. It describe
 - Runnable ticker onboarding and daily market-data update jobs.
 - Bronze-backed inference-readiness and training-eligibility rules.
 - Reusable indicator library.
-- In-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation.
-- V1 model target and evaluation contract.
-- V1 forward-return and binary-target generation.
+- In-memory return, cross-sectional market-context, trend, momentum, volatility, price-action, volume, and market-structure feature generation.
+- Forward-return model target and evaluation contract.
+- Forward-return and binary-target generation.
 - Versioned feature-set and target-set contracts.
-- V3 ATR-scaled triple-barrier target generation with direct `1`, `0`, and `-1` labels.
+- ATR-scaled triple-barrier target generation with direct `1`, `0`, and `-1` labels.
+- Market-relative forward-return, cross-sectional percentile, and ordinal relevance-grade targets.
 - Repository-owned experiment specifications and local MLflow tracking.
 - Canonical unsplit temporal dataset bundles with cutoff-aware eligibility metadata.
 - Purged fixed train, validation, and locked-test splitting with optional embargo and diagnostics.

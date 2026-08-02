@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from swingtrader.data.features import (
+    add_cross_sectional_features,
     add_market_structure_features,
     add_momentum_features,
     add_price_action_features,
@@ -19,6 +20,7 @@ def test_add_default_features_includes_all_family_columns_without_duplicates() -
     result = add_default_features(data)
 
     returns_columns = set(add_return_features(data).columns)
+    cross_sectional_columns = set(add_cross_sectional_features(add_return_features(data)).columns)
     trend_columns = set(add_trend_features(data).columns)
     market_structure_columns = set(add_market_structure_features(data).columns)
     momentum_columns = set(add_momentum_features(data).columns)
@@ -27,6 +29,7 @@ def test_add_default_features_includes_all_family_columns_without_duplicates() -
     volume_columns = set(add_volume_features(data).columns)
     expected_columns = (
         returns_columns
+        | cross_sectional_columns
         | trend_columns
         | momentum_columns
         | volatility_columns
@@ -62,6 +65,7 @@ def test_add_default_features_matches_manual_family_chain() -> None:
     result = add_default_features(data)
     manual = (
         data.pipe(add_return_features)
+        .pipe(add_cross_sectional_features, minimum_cross_section_size=2)
         .pipe(add_trend_features)
         .pipe(add_momentum_features)
         .pipe(add_volatility_features)

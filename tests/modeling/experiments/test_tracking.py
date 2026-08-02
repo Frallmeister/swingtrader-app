@@ -10,7 +10,10 @@ from typing import Any
 import pytest
 
 from swingtrader.data.features.catalog import DEFAULT_FEATURE_SET
-from swingtrader.modeling.datasets.catalog import V1_PRIMARY_TASK, V1_TARGET_SET
+from swingtrader.modeling.datasets.catalog import (
+    FORWARD_RETURN_PRIMARY_TASK,
+    FORWARD_RETURN_TARGET_SET,
+)
 from swingtrader.modeling.experiments import (
     DatasetSplitSummary,
     DatasetSummary,
@@ -28,8 +31,8 @@ def _experiment_spec() -> ExperimentSpec:
         name="baseline",
         version="1",
         feature_set=DEFAULT_FEATURE_SET,
-        target_set=V1_TARGET_SET,
-        task=V1_PRIMARY_TASK,
+        target_set=FORWARD_RETURN_TARGET_SET,
+        task=FORWARD_RETURN_PRIMARY_TASK,
         universe=UniverseSpec(
             name="se_large_mid_cap",
             version="2026-07-24",

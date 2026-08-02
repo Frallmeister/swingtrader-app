@@ -1,12 +1,12 @@
-# V3 Triple-Barrier Target
+# Triple-Barrier Target
 
-The versioned `ohlcv_price_targets:3` target set replaces the earlier binary ATR-barrier representation with one direct three-class label. It asks:
+The `triple_barrier_targets:1` target set represents outcomes with one direct three-class label. It asks:
 
 > After a signal on session `t` and entry at the next observed open, which occurs first: the ATR-scaled take-profit barrier, the ATR-scaled stop-loss barrier, or the time barrier?
 
 | Property | Value |
 | --- | --- |
-| Target version | V3 (`ohlcv_price_targets:3`) |
+| Target set | `triple_barrier_targets:1` |
 | Learning task | Three-class classification |
 | Primary target | `triple_barrier_label_5d` |
 | Entry rule | Next observed session open |
@@ -15,7 +15,7 @@ The versioned `ohlcv_price_targets:3` target set replaces the earlier binary ATR
 | Negative outcome | `-1`: stop-loss first |
 | Main limitation | Daily OHLC cannot reveal which barrier was touched first inside one bar |
 
-V3 is a breaking replacement for the experimental V2 contract. The output schema and same-bar policy names changed, so the target-set version was incremented instead of silently redefining V2.
+The triple-barrier set is an independent target variant. It is generated on its own from canonical prices and does not include forward-return or cross-sectional outputs. It defines a distinct learning objective and does not supersede the other target variants.
 
 ## Default Contract
 
@@ -38,7 +38,7 @@ Raw OHLC values are first expressed on the adjusted-close scale using `adjusted_
 
 ## Label and Time Semantics
 
-For each horizon `h`, V3 emits two user-facing outcome columns:
+For each horizon `h`, this target set emits two user-facing outcome columns:
 
 | Column | Meaning |
 | --- | --- |
@@ -87,7 +87,7 @@ When one daily bar touches both barriers, supported policies are:
 | `candle_path` | green/doji: stop first; red: take-profit first |
 | `exclude` | leave label, time, and resolution date missing |
 
-The chosen policy is recorded in the target-family manifest. V3 intentionally does not add another ambiguity flag; callers that need ambiguity analysis should compare separately generated target sets with different policies.
+The chosen policy is recorded in the target-family manifest. This target set intentionally does not add another ambiguity flag; callers that need ambiguity analysis should compare separately generated target sets with different policies.
 
 ## Using the Builder
 
@@ -110,12 +110,12 @@ labeled = add_triple_barrier_targets(
 )
 ```
 
-Generate the complete V3 target set, including V1 forward-return outputs, with:
+Generate the triple-barrier target set, which produces only triple-barrier outputs, with:
 
 ```python
-from swingtrader.modeling.datasets import generate_v3_labels
+from swingtrader.modeling.datasets import generate_triple_barrier_labels
 
-labeled = generate_v3_labels(prices)
+labeled = generate_triple_barrier_labels(prices)
 ```
 
-The current baseline harness and evaluation reports are binary-specific. V3 can be used by the temporal dataset layer, but multiclass estimators and evaluation must handle `-1`, `0`, and `1` explicitly. Estimators requiring zero-based class IDs should encode the labels at the model boundary without changing the stored target contract.
+The current baseline harness and evaluation reports are binary-specific. This target set can be used by the temporal dataset layer, but multiclass estimators and evaluation must handle `-1`, `0`, and `1` explicitly. Estimators requiring zero-based class IDs should encode the labels at the model boundary without changing the stored target contract.

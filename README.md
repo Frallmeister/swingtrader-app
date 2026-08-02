@@ -21,8 +21,8 @@ The project currently implements the data and initial modeling foundation:
 * initial market data onboarding for active tickers with no bronze rows
 * daily market data updates for already-onboarded tickers
 * inference-readiness and training-eligibility checks based on bronze data quality
-* in-memory return, trend, momentum, volatility, price-action, volume, and market-structure feature generation
-* versioned in-memory V1 and V3 target generation, including three-class triple-barrier labels
+* in-memory return, cross-sectional market-context, trend, momentum, volatility, price-action, volume, and market-structure feature generation
+* in-memory forward-return, triple-barrier, and cross-sectional target generation as independent target variants
 * canonical unsplit temporal dataset construction with aligned sample metadata
 * purged fixed train, validation, and locked-test splitting with optional embargo and diagnostics
 * immutable experiment specifications and optional local MLflow tracking
@@ -39,7 +39,7 @@ The project currently implements the data and initial modeling foundation:
 
 Features and targets consume the same canonical market-price DataFrame: a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`. Column-oriented bronze rows are converted once at the caller boundary with `set_index(...).sort_index()`.
 
-Feature persistence, target persistence, nonlinear model training, production inference, prediction storage, dashboarding, deployment, and macro/market-context features are planned.
+Feature persistence, target persistence, nonlinear model training, production inference, prediction storage, dashboarding, deployment, and broader macro, benchmark, sector, fundamental, news, or sentiment features are planned.
 
 ## Documentation
 
@@ -63,7 +63,8 @@ Useful entry points:
 * [Model feature selection and train-only cross-validation](docs/modeling/feature-selection-and-cross-validation.md)
 * [Baseline models and evaluation harness](docs/modeling/baseline-models.md)
 * [Backtesting pilot](docs/modeling/backtesting.md)
-* [Triple-barrier targets](docs/modeling/targets/v3-triple-barrier.md)
+* [Triple-barrier targets](docs/modeling/targets/triple-barrier.md)
+* [Cross-sectional return targets](docs/modeling/targets/cross-sectional.md)
 * [Experiment specifications and MLflow tracking](docs/modeling/experiments.md)
 * [Roadmap](docs/architecture/roadmap.md)
 
@@ -167,6 +168,7 @@ Feature helpers currently run in memory on ordered pandas dataframes. Inputs mus
 
 ```python
 from swingtrader.data.features import (
+    add_cross_sectional_features,
     add_market_structure_features,
     add_momentum_features,
     add_price_action_features,
@@ -184,6 +186,7 @@ features = add_default_features(prices)
 
 # ...or compose the family builders manually.
 features = add_return_features(prices, horizons=(1, 5, 10, 20))
+features = add_cross_sectional_features(features)
 features = add_trend_features(features)
 features = add_momentum_features(features)
 features = add_volatility_features(features)
@@ -194,9 +197,9 @@ features = add_market_structure_features(features)
 
 The codebase separates two responsibilities. **Indicators** in `swingtrader.indicators` calculate reusable technical quantities (moving averages, ADX, ATR, ADR, RSI, MACD, PPO, MFI, Bollinger Bands, squeeze momentum, candlestick price action, turnover, pivot points, Zig Zag) that are meaningful outside any particular model. **Features** in `swingtrader.data.features` transform raw data and indicators into model inputs, deciding which source columns to use, how to combine and normalize them, and what the model-facing columns are named.
 
-Return features add trailing adjusted-close returns. Trend features add moving-average, directional-movement, and VWAP-distance columns. Momentum features add PPO, RSI, stochastic, MFI, and squeeze-momentum columns. Volatility features add ATR, ADR, and Bollinger-derived columns. Price-action features add candle geometry, local patterns, directional runs, range context, and rolling breakout or failed-break signals. Volume features add turnover z-scores. Market-structure features add point-in-time Zig Zag swing, structural-trend, and confirmed swing-level interaction columns.
+Return features add trailing adjusted-close returns. Cross-sectional features rank those returns within each provider/date universe and add one-day breadth, equal-weight return, and median return. Trend features add moving-average, directional-movement, and VWAP-distance columns. Momentum features add PPO, RSI, stochastic, MFI, and squeeze-momentum columns. Volatility features add ATR, ADR, and Bollinger-derived columns. Price-action features add candle geometry, local patterns, directional runs, range context, and rolling breakout or failed-break signals. Volume features add turnover z-scores.
 
-`add_default_features` runs the seven families in a fixed order and is equivalent to applying them manually. All calculations are isolated by provider and ticker, with warm-up rows left missing until enough history is available. Consumers that need identifiers as columns can call `features.reset_index()`.
+`add_default_features` runs the eight families in a fixed order and is equivalent to applying them manually. Time-series calculations are isolated by provider and ticker; cross-sectional calculations compare rows within provider and trading date. Warm-up rows remain missing until enough history is available. Consumers that need identifiers as columns can call `features.reset_index()`.
 
 Standalone indicators can be imported directly for notebooks, tests, and future API or frontend charting:
 

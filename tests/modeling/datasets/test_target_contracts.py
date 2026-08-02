@@ -4,27 +4,50 @@ import pandas as pd
 import pytest
 
 from swingtrader.modeling.datasets import (
-    V1_PRIMARY_TASK,
-    V1_TARGET_SET,
+    CROSS_SECTIONAL_RETURN_PRIMARY_TASK,
+    CROSS_SECTIONAL_RETURN_TARGET_SET,
+    FORWARD_RETURN_PRIMARY_TASK,
+    FORWARD_RETURN_TARGET_SET,
     SupervisedTaskSpec,
     TargetFamilySpec,
     TargetSetSpec,
+    generate_cross_sectional_return_labels,
+    generate_forward_return_labels,
     generate_target_set,
-    generate_v1_labels,
 )
 
 
-def test_v1_target_set_manifest_is_deterministic_and_serializable() -> None:
-    manifest = V1_TARGET_SET.to_manifest()
-    assert manifest == V1_TARGET_SET.to_manifest()
+def test_forward_return_target_set_manifest_is_deterministic_and_serializable() -> None:
+    manifest = FORWARD_RETURN_TARGET_SET.to_manifest()
+    assert manifest == FORWARD_RETURN_TARGET_SET.to_manifest()
     json.dumps(manifest)
-    assert V1_TARGET_SET.identifier == "ohlcv_price_targets:1"
-    assert V1_TARGET_SET.family_names == ("forward_returns", "significant_up_5d")
-    assert V1_TARGET_SET.maximum_horizon_sessions == 15
+    assert FORWARD_RETURN_TARGET_SET.identifier == "forward_return_targets:1"
+    assert FORWARD_RETURN_TARGET_SET.family_names == ("forward_returns", "significant_up_5d")
+    assert FORWARD_RETURN_TARGET_SET.maximum_horizon_sessions == 15
+
+
+def test_cross_sectional_return_target_set_contains_only_cross_sectional_family() -> None:
+    assert CROSS_SECTIONAL_RETURN_TARGET_SET.identifier == "cross_sectional_return_targets:1"
+    assert CROSS_SECTIONAL_RETURN_TARGET_SET.family_names == ("cross_sectional_returns",)
+    assert CROSS_SECTIONAL_RETURN_TARGET_SET.maximum_horizon_sessions == 15
+
+    target_columns = CROSS_SECTIONAL_RETURN_TARGET_SET.target_columns
+    assert "market_relative_forward_return_5d" in target_columns
+    assert "forward_return_5d_relevance_grade" in target_columns
+    assert "forward_return_5d_cross_sectional_percentile" in target_columns
+    assert "target_significant_up_5d" not in target_columns
+    assert "triple_barrier_label_5d" not in target_columns
+
+    CROSS_SECTIONAL_RETURN_PRIMARY_TASK.validate_target_set(CROSS_SECTIONAL_RETURN_TARGET_SET)
+    assert (
+        CROSS_SECTIONAL_RETURN_PRIMARY_TASK.target_column
+        == "forward_return_5d_cross_sectional_percentile"
+    )
+    assert CROSS_SECTIONAL_RETURN_PRIMARY_TASK.task_type == "regression"
 
 
 def test_meaningful_parameter_change_changes_digest() -> None:
-    family = V1_TARGET_SET.families[0]
+    family = FORWARD_RETURN_TARGET_SET.families[0]
     changed = TargetFamilySpec(
         name=family.name,
         builder=family.builder,
@@ -33,12 +56,14 @@ def test_meaningful_parameter_change_changes_digest() -> None:
         output_columns=("forward_return_5d", "forward_return_10d"),
         maximum_horizon_sessions=10,
     )
-    target_set = TargetSetSpec(name=V1_TARGET_SET.name, version="2", families=(changed,))
-    assert target_set.digest != V1_TARGET_SET.digest
+    target_set = TargetSetSpec(
+        name=FORWARD_RETURN_TARGET_SET.name, version="2", families=(changed,)
+    )
+    assert target_set.digest != FORWARD_RETURN_TARGET_SET.digest
 
 
 def test_target_set_rejects_duplicate_family_names() -> None:
-    family = V1_TARGET_SET.families[0]
+    family = FORWARD_RETURN_TARGET_SET.families[0]
     with pytest.raises(ValueError, match="family names must be unique"):
         TargetSetSpec(name="invalid", version="1", families=(family, family))
 
@@ -87,22 +112,22 @@ def test_execution_rejects_output_overwrite() -> None:
         generate_target_set(prices, target_set=target_set)
 
 
-def test_v1_task_selects_one_generated_target() -> None:
-    V1_PRIMARY_TASK.validate_target_set(V1_TARGET_SET)
-    assert V1_PRIMARY_TASK.target_column == "target_significant_up_5d"
-    assert V1_PRIMARY_TASK.task_type == "classification"
+def test_forward_return_task_selects_one_generated_target() -> None:
+    FORWARD_RETURN_PRIMARY_TASK.validate_target_set(FORWARD_RETURN_TARGET_SET)
+    assert FORWARD_RETURN_PRIMARY_TASK.target_column == "target_significant_up_5d"
+    assert FORWARD_RETURN_PRIMARY_TASK.task_type == "classification"
 
 
 def test_task_rejects_unknown_target_column() -> None:
     task = SupervisedTaskSpec(
         name="invalid",
-        target_set_name=V1_TARGET_SET.name,
-        target_set_version=V1_TARGET_SET.version,
+        target_set_name=FORWARD_RETURN_TARGET_SET.name,
+        target_set_version=FORWARD_RETURN_TARGET_SET.version,
         target_column="missing",
         task_type="classification",
     )
     with pytest.raises(ValueError, match="Unknown target column"):
-        task.validate_target_set(V1_TARGET_SET)
+        task.validate_target_set(FORWARD_RETURN_TARGET_SET)
 
 
 def test_target_families_execute_in_declared_order() -> None:
@@ -132,7 +157,7 @@ def test_target_families_execute_in_declared_order() -> None:
     assert result.loc[0, "second"] == 2
 
 
-def test_v1_wrapper_delegates_to_v1_target_set() -> None:
+def test_forward_return_wrapper_delegates_to_forward_return_target_set() -> None:
     prices = (
         pd.DataFrame(
             {
@@ -146,9 +171,35 @@ def test_v1_wrapper_delegates_to_v1_target_set() -> None:
         .sort_index()
     )
     pd.testing.assert_frame_equal(
-        generate_target_set(prices, target_set=V1_TARGET_SET),
-        generate_v1_labels(prices),
+        generate_target_set(prices, target_set=FORWARD_RETURN_TARGET_SET),
+        generate_forward_return_labels(prices),
     )
+
+
+def test_cross_sectional_set_executes_independently_from_canonical_prices() -> None:
+    frames = []
+    for ticker, base in (("AAA.ST", 100), ("BBB.ST", 200)):
+        frames.append(
+            pd.DataFrame(
+                {
+                    "provider": ["yfinance"] * 16,
+                    "ticker": [ticker] * 16,
+                    "trading_date": pd.date_range("2026-01-01", periods=16),
+                    "adjusted_close": range(base, base + 16),
+                }
+            )
+        )
+    prices = pd.concat(frames).set_index(["provider", "ticker", "trading_date"]).sort_index()
+
+    result = generate_cross_sectional_return_labels(prices)
+
+    assert "forward_return_5d_cross_sectional_percentile" in result.columns
+    assert "market_relative_forward_return_5d" in result.columns
+    assert "forward_return_5d_relevance_grade" in result.columns
+    assert "target_significant_up_5d" not in result.columns
+    assert "triple_barrier_label_5d" not in result.columns
+    added_columns = set(result.columns).difference(prices.columns)
+    assert added_columns == set(CROSS_SECTIONAL_RETURN_TARGET_SET.target_columns)
 
 
 def add_required_target(data: pd.DataFrame, *, threshold: float) -> pd.DataFrame:

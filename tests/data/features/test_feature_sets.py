@@ -65,7 +65,7 @@ def test_feature_set_manifest_is_deterministic_and_json_serializable() -> None:
     json.dumps(manifest)
 
     assert manifest["name"] == "ohlcv_v1_candidates"
-    assert manifest["version"] == "4"
+    assert manifest["version"] == "5"
 
     history_requirements = {
         block["name"]: block["history_requirement"] for block in manifest["blocks"]
@@ -73,6 +73,7 @@ def test_feature_set_manifest_is_deterministic_and_json_serializable() -> None:
 
     assert history_requirements == {
         "returns": "bounded",
+        "cross_sectional": "bounded",
         "trend": "expanding",
         "momentum": "expanding",
         "volatility": "expanding",
@@ -139,6 +140,7 @@ def test_default_feature_set_is_exported_from_catalog_and_package() -> None:
 def test_default_feature_set_block_names_match_execution_order() -> None:
     assert DEFAULT_FEATURE_SET.block_names == (
         "returns",
+        "cross_sectional",
         "trend",
         "momentum",
         "volatility",
