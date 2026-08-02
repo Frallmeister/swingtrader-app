@@ -29,16 +29,62 @@ def add_cross_sectional_return_targets(
     data: pd.DataFrame,
     *,
     horizons: tuple[int, ...],
-    relevance_grade_count: int,
-    minimum_cross_section_size: int = 2,
+    relevance_grade_count: int = 16,
+    minimum_cross_section_size: int = 20,
 ) -> pd.DataFrame:
     """Append market-relative, percentile, and ordinal future-return targets.
 
-    Cross-sections are formed independently for each provider and trading date.
-    The market-relative return divides each stock's future gross return by the
-    equal-weight mean future gross return. Percentiles use average ranks, and the
-    ordinal grade maps those percentiles to ``0`` through
-    ``relevance_grade_count - 1``.
+    Cross-sections are formed independently for each ``provider`` and ``trading_date``.
+    Within each, the equal-weight mean future gross return (including the stock itself)
+    serves as the benchmark: the market-relative target is the stock's gross return
+    divided by that benchmark, minus one. Future returns are also ranked into a midpoint
+    percentile, and the ordinal grade buckets that percentile into
+    ``relevance_grade_count`` ordered levels.
+
+    All outputs depend on future prices and must never be used as features.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        Canonical market-price frame indexed by a unique, sorted ``MultiIndex`` with
+        levels ``provider``, ``ticker``, and ``trading_date``. It must already contain
+        the ``forward_return_{horizon}d`` column for every requested horizon.
+    horizons : tuple of int
+        Positive, unique forward-return horizons to build targets for.
+    relevance_grade_count : int
+        Number of ordered relevance buckets, between two and 128. Grades range from
+        ``0`` for the weakest future-return region to ``relevance_grade_count - 1`` for
+        the strongest.
+    minimum_cross_section_size : int, optional
+        Smallest number of valid stocks a cross-section must contain before its targets
+        are emitted; smaller groups stay missing. Must be at least two.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A copy of ``data`` with the original index and row order preserved and, for each
+        horizon, the following columns appended:
+
+        - ``market_relative_forward_return_{horizon}d`` (float);
+        - ``forward_return_{horizon}d_cross_sectional_percentile`` (float);
+        - ``forward_return_{horizon}d_relevance_grade`` (nullable ``Int8``).
+
+    Raises
+    ------
+    ValueError
+        If the index is not the canonical market-price index, if the horizons,
+        relevance grade count, or minimum cross-section size are invalid, if a required
+        ``forward_return_*`` column is missing, or if any output column already exists on
+        ``data``.
+
+    Notes
+    -----
+    Missing or non-finite forward returns are excluded from the benchmark and ranking.
+    A forward return whose endpoint skipped one of the provider's trading sessions is
+    excluded from that horizon's cross-section so every comparison spans the provider's
+    shared calendar. The market-relative target is also left missing when the stock or
+    benchmark gross return is non-positive. The canonical index has no market or universe
+    identifier, so each provider/date group is treated as one comparable universe.
     """
     validate_market_price_index(data)
     _validate_horizons(horizons)
@@ -90,6 +136,13 @@ def _cross_sectional_percentile(
     *,
     minimum_cross_section_size: int,
 ) -> pd.Series:
+    """Rank ``values`` into midpoint percentiles within each provider/date group.
+
+    Ties share an average rank, and the percentile is ``(rank - 0.5) / count`` so the
+    result never reaches exactly zero or one. Groups with fewer than
+    ``minimum_cross_section_size`` valid (non-missing) values yield all-missing
+    percentiles.
+    """
     grouped = values.groupby(level=_CROSS_SECTION_LEVELS, sort=False)
     ranks = grouped.rank(method="average")
     counts = grouped.transform("count")
@@ -108,6 +161,15 @@ def _uses_shared_provider_calendar(
     horizon: int,
     future: bool,
 ) -> pd.Series:
+    """Flag rows whose ``horizon``-session return window aligns with the provider calendar.
+
+    The per-provider calendar of distinct trading dates gives the expected endpoint that
+    is ``horizon`` sessions away (backward when ``future`` is false, forward otherwise).
+    A row is valid only when its own ``horizon``-shifted trading date matches that
+    expected endpoint, which excludes stocks that skipped a provider session. Assumes
+    rows are sorted by ``trading_date`` within each provider/ticker group, as guaranteed
+    by the canonical index.
+    """
     index_frame = index.to_frame(index=False)
     calendar = (
         index_frame.loc[:, ["provider", "trading_date"]]

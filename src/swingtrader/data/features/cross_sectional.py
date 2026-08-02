@@ -17,13 +17,63 @@ def add_cross_sectional_features(
     *,
     return_horizons: tuple[int, ...] = (1, 5, 10, 20),
     market_return_horizon: int = 1,
-    minimum_cross_section_size: int = 2,
+    minimum_cross_section_size: int = 20,
 ) -> pd.DataFrame:
     """Append same-date relative-strength and market-context features.
 
-    Return percentiles compare stocks within each provider and trading date. Market
-    breadth, equal-weight return, and median return use the selected trailing-return
-    horizon and are repeated for every stock in the same cross-section.
+    For each configured horizon, trailing returns are ranked within their
+    ``provider``/``trading_date`` cross-section into a midpoint percentile. For the
+    single market-return horizon, breadth, equal-weight mean, and median summaries of
+    that cross-section are also appended and repeated for every stock in the group.
+
+    Because the market columns are derived from same-session returns, they only become
+    available after that session's close and must not be consumed by a decision made
+    earlier in the day.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        Canonical market-price frame indexed by a unique, sorted ``MultiIndex`` with
+        levels ``provider``, ``ticker``, and ``trading_date``. It must already contain
+        the ``return_{horizon}d`` columns for every requested horizon and for
+        ``market_return_horizon``.
+    return_horizons : tuple of int, optional
+        Positive, unique trailing-return horizons to rank cross-sectionally.
+    market_return_horizon : int, optional
+        Single positive horizon whose returns drive the breadth, equal-weight, and
+        median market-context columns.
+    minimum_cross_section_size : int, optional
+        Smallest number of valid stocks a cross-section must contain before its
+        percentiles and market summaries are emitted; smaller groups stay missing so a
+        lone stock never becomes an artificial neutral value. Must be at least two.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A copy of ``data`` with the original index and row order preserved and the
+        following columns appended:
+
+        - ``return_{horizon}d_cross_sectional_percentile`` for each return horizon;
+        - ``market_breadth_positive_{market_return_horizon}d``;
+        - ``market_equal_weight_return_{market_return_horizon}d``;
+        - ``market_median_return_{market_return_horizon}d``.
+
+    Raises
+    ------
+    ValueError
+        If the index is not the canonical market-price index, if the horizons or
+        minimum cross-section size are invalid, if a required ``return_*`` column is
+        missing, or if any output column already exists on ``data``.
+
+    Notes
+    -----
+    Missing or non-finite returns are excluded from a cross-section's rank and valid
+    count. A return whose window skipped one of the provider's trading sessions is left
+    intact for other consumers but excluded from the cross-sectional comparison for that
+    horizon, so every ranked return spans the provider's shared calendar. The canonical
+    index has no market or universe identifier, so each provider/date group is treated
+    as one comparable universe; callers must not mix incompatible markets in the same
+    provider-scoped frame.
     """
     validate_market_price_index(data)
     _validate_horizons(return_horizons)
@@ -90,6 +140,13 @@ def _cross_sectional_percentile(
     *,
     minimum_cross_section_size: int,
 ) -> pd.Series:
+    """Rank ``values`` into midpoint percentiles within each provider/date group.
+
+    Ties share an average rank, and the percentile is ``(rank - 0.5) / count`` so the
+    result never reaches exactly zero or one. Groups with fewer than
+    ``minimum_cross_section_size`` valid (non-missing) values yield all-missing
+    percentiles.
+    """
     grouped = values.groupby(level=_CROSS_SECTION_LEVELS, sort=False)
     ranks = grouped.rank(method="average")
     counts = grouped.transform("count")
@@ -108,6 +165,15 @@ def _uses_shared_provider_calendar(
     horizon: int,
     future: bool,
 ) -> pd.Series:
+    """Flag rows whose ``horizon``-session return window aligns with the provider calendar.
+
+    The per-provider calendar of distinct trading dates gives the expected endpoint that
+    is ``horizon`` sessions away (backward when ``future`` is false, forward otherwise).
+    A row is valid only when its own ``horizon``-shifted trading date matches that
+    expected endpoint, which excludes stocks that skipped a provider session. Assumes
+    rows are sorted by ``trading_date`` within each provider/ticker group, as guaranteed
+    by the canonical index.
+    """
     index_frame = index.to_frame(index=False)
     calendar = (
         index_frame.loc[:, ["provider", "trading_date"]]
