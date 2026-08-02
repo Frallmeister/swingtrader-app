@@ -122,7 +122,7 @@ V4_TARGET_SET = TargetSetSpec(
                 "relevance_grade_count": V4_RELEVANCE_GRADE_COUNT,
                 "minimum_cross_section_size": V4_MINIMUM_CROSS_SECTION_SIZE,
             },
-            required_columns=frozenset(FORWARD_RETURN_COLUMNS),
+            required_columns=frozenset({"adjusted_close"}),
             output_columns=V4_CROSS_SECTIONAL_OUTPUT_COLUMNS,
             maximum_horizon_sessions=max(V4_CROSS_SECTIONAL_HORIZONS),
         ),

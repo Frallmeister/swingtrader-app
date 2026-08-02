@@ -46,6 +46,7 @@ def add_cross_sectional_features(
         Smallest number of valid stocks a cross-section must contain before its
         percentiles and market summaries are emitted; smaller groups stay missing so a
         lone stock never becomes an artificial neutral value. Must be at least two.
+        Defaults to 20.
 
     Returns
     -------

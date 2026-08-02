@@ -23,6 +23,7 @@ def test_add_cross_sectional_features_calculates_percentiles_and_market_context(
         data,
         return_horizons=(1,),
         market_return_horizon=1,
+        minimum_cross_section_size=2,
     )
 
     evaluated = result.xs(_EVAL_DATE, level="trading_date")
@@ -54,7 +55,9 @@ def test_add_cross_sectional_features_assigns_equal_percentiles_to_ties() -> Non
         ]
     )
 
-    result = add_cross_sectional_features(data, return_horizons=(1,), market_return_horizon=1)
+    result = add_cross_sectional_features(
+        data, return_horizons=(1,), market_return_horizon=1, minimum_cross_section_size=2
+    )
 
     evaluated = result.xs(_EVAL_DATE, level="trading_date")
     assert evaluated["return_1d_cross_sectional_percentile"].tolist() == pytest.approx(
@@ -100,6 +103,7 @@ def test_add_cross_sectional_features_requires_shared_provider_calendar_window()
         data,
         return_horizons=(1,),
         market_return_horizon=1,
+        minimum_cross_section_size=2,
     )
     final_date = result.xs(
         pd.Timestamp("2026-07-03"),

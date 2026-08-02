@@ -21,6 +21,7 @@ def test_add_cross_sectional_return_targets_calculates_expected_outputs() -> Non
         data,
         horizons=(5,),
         relevance_grade_count=5,
+        minimum_cross_section_size=2,
     )
 
     evaluated = result.xs(_EVAL_DATE, level="trading_date")
@@ -50,6 +51,7 @@ def test_add_cross_sectional_return_targets_excludes_missing_values() -> None:
         data,
         horizons=(5,),
         relevance_grade_count=5,
+        minimum_cross_section_size=2,
     )
 
     evaluated = result.xs(_EVAL_DATE, level="trading_date")
@@ -75,6 +77,7 @@ def test_add_cross_sectional_return_targets_separates_providers() -> None:
         data,
         horizons=(5,),
         relevance_grade_count=5,
+        minimum_cross_section_size=2,
     )
 
     evaluated = result.xs(_EVAL_DATE, level="trading_date")
@@ -103,14 +106,14 @@ def test_add_cross_sectional_return_targets_leave_single_stock_cross_section_mis
 
 def test_add_cross_sectional_return_targets_require_shared_provider_calendar_window() -> None:
     rows = [
-        ("yfinance", "AAA", "2026-07-01", 0.10),
-        ("yfinance", "AAA", "2026-07-02", 0.20),
-        ("yfinance", "AAA", "2026-07-03", np.nan),
-        ("yfinance", "BBB", "2026-07-01", 0.50),
-        ("yfinance", "BBB", "2026-07-03", np.nan),
-        ("yfinance", "CCC", "2026-07-01", 0.30),
-        ("yfinance", "CCC", "2026-07-02", 0.40),
-        ("yfinance", "CCC", "2026-07-03", np.nan),
+        ("yfinance", "AAA", "2026-07-01", 100.0),
+        ("yfinance", "AAA", "2026-07-02", 110.0),
+        ("yfinance", "AAA", "2026-07-03", 115.0),
+        ("yfinance", "BBB", "2026-07-01", 100.0),
+        ("yfinance", "BBB", "2026-07-03", 150.0),
+        ("yfinance", "CCC", "2026-07-01", 100.0),
+        ("yfinance", "CCC", "2026-07-02", 130.0),
+        ("yfinance", "CCC", "2026-07-03", 135.0),
     ]
     data = (
         pd.DataFrame(
@@ -119,7 +122,7 @@ def test_add_cross_sectional_return_targets_require_shared_provider_calendar_win
                 "provider",
                 "ticker",
                 "trading_date",
-                "forward_return_1d",
+                "adjusted_close",
             ],
         )
         .assign(trading_date=lambda frame: pd.to_datetime(frame["trading_date"]))
@@ -131,6 +134,7 @@ def test_add_cross_sectional_return_targets_require_shared_provider_calendar_win
         data,
         horizons=(1,),
         relevance_grade_count=5,
+        minimum_cross_section_size=2,
     )
     first_date = result.xs(
         pd.Timestamp("2026-07-01"),
@@ -206,7 +210,7 @@ def test_add_cross_sectional_return_targets_handles_empty_input() -> None:
         names=["provider", "ticker", "trading_date"],
     )
     data = pd.DataFrame(
-        {"forward_return_5d": pd.Series(index=index, dtype="float64")},
+        {"adjusted_close": pd.Series(index=index, dtype="float64")},
         index=index,
     )
 
@@ -224,18 +228,25 @@ def test_add_cross_sectional_return_targets_handles_empty_input() -> None:
 
 _EVAL_DATE = pd.Timestamp("2026-07-01")
 _CALENDAR = pd.date_range(_EVAL_DATE, periods=6, freq="B")
+_BASE_PRICE = 100.0
 
 
 def _forward_return_frame(rows: list[tuple[str, str, float]]) -> pd.DataFrame:
+    endpoint = _CALENDAR[-1]
     records = [
-        (provider, ticker, date, value if date == _EVAL_DATE else 0.0)
+        (
+            provider,
+            ticker,
+            date,
+            _BASE_PRICE * (1 + value) if date == endpoint else _BASE_PRICE,
+        )
         for provider, ticker, value in rows
         for date in _CALENDAR
     ]
     return (
         pd.DataFrame(
             records,
-            columns=["provider", "ticker", "trading_date", "forward_return_5d"],
+            columns=["provider", "ticker", "trading_date", "adjusted_close"],
         )
         .set_index(["provider", "ticker", "trading_date"])
         .sort_index()

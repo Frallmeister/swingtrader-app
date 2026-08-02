@@ -8,6 +8,7 @@ from swingtrader.data.market_frame import (
     validate_new_columns,
     validate_required_columns,
 )
+from swingtrader.modeling.datasets.labels import add_forward_return_targets
 
 _CROSS_SECTION_LEVELS = ["provider", "trading_date"]
 
@@ -47,17 +48,18 @@ def add_cross_sectional_return_targets(
     ----------
     data : pandas.DataFrame
         Canonical market-price frame indexed by a unique, sorted ``MultiIndex`` with
-        levels ``provider``, ``ticker``, and ``trading_date``. It must already contain
-        the ``forward_return_{horizon}d`` column for every requested horizon.
+        levels ``provider``, ``ticker``, and ``trading_date`` and containing an
+        ``adjusted_close`` column. Forward returns for each horizon are derived from
+        ``adjusted_close`` internally, so no precomputed return columns are required.
     horizons : tuple of int
         Positive, unique forward-return horizons to build targets for.
-    relevance_grade_count : int
+    relevance_grade_count : int, optional
         Number of ordered relevance buckets, between two and 128. Grades range from
         ``0`` for the weakest future-return region to ``relevance_grade_count - 1`` for
-        the strongest.
+        the strongest. Defaults to 16.
     minimum_cross_section_size : int, optional
         Smallest number of valid stocks a cross-section must contain before its targets
-        are emitted; smaller groups stay missing. Must be at least two.
+        are emitted; smaller groups stay missing. Must be at least two. Defaults to 20.
 
     Returns
     -------
@@ -73,8 +75,8 @@ def add_cross_sectional_return_targets(
     ------
     ValueError
         If the index is not the canonical market-price index, if the horizons,
-        relevance grade count, or minimum cross-section size are invalid, if a required
-        ``forward_return_*`` column is missing, or if any output column already exists on
+        relevance grade count, or minimum cross-section size are invalid, if the
+        ``adjusted_close`` column is missing, or if any output column already exists on
         ``data``.
 
     Notes
@@ -91,14 +93,15 @@ def add_cross_sectional_return_targets(
     _validate_relevance_grade_count(relevance_grade_count)
     _validate_minimum_cross_section_size(minimum_cross_section_size)
 
-    forward_return_columns = {f"forward_return_{horizon}d" for horizon in horizons}
     output_columns = cross_sectional_return_target_columns(horizons)
-    validate_required_columns(data, required_columns=forward_return_columns)
+    validate_required_columns(data, required_columns={"adjusted_close"})
     validate_new_columns(data, new_columns=output_columns)
+
+    forward_return_frame = add_forward_return_targets(data, horizons=horizons)
 
     result = data.copy()
     for horizon in horizons:
-        forward_returns = _finite_float(result[f"forward_return_{horizon}d"]).where(
+        forward_returns = _finite_float(forward_return_frame[f"forward_return_{horizon}d"]).where(
             _uses_shared_provider_calendar(result.index, horizon=horizon, future=True)
         )
         grouped = forward_returns.groupby(level=_CROSS_SECTION_LEVELS, sort=False)
