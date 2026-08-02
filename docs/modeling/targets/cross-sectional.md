@@ -17,7 +17,7 @@ Each cross-section contains rows sharing:
 - `provider`;
 - `trading_date`.
 
-Missing or non-finite forward returns are excluded from the benchmark and ranking for that horizon. Their derived cross-sectional targets remain missing. This target set requires at least two valid stocks per cross-section; smaller cross-sections remain missing.
+Missing or non-finite forward returns are excluded from the benchmark and ranking for that horizon. Their derived cross-sectional targets remain missing. This target set requires at least 20 valid stocks per cross-section; smaller cross-sections remain missing.
 
 The forward-return endpoint must also match the provider's shared trading-date calendar. A stock that skipped the expected endpoint session is excluded from that horizon's comparison rather than being ranked over a different calendar window.
 
@@ -64,10 +64,10 @@ The midpoint convention avoids exact zero or one values. Tied returns receive th
 
 ## Ordinal Relevance Grade
 
-This target set maps each percentile to five ordered grades:
+This target set maps each percentile to 16 ordered grades:
 
 \[
-g_i=\min\left(4,\left\lfloor 5p_i\right\rfloor\right).
+g_i=\min\left(15,\left\lfloor 16p_i\right\rfloor\right).
 \]
 
 The output column is:
@@ -76,7 +76,7 @@ The output column is:
 forward_return_{horizon}d_relevance_grade
 ```
 
-The nullable `Int8` values range from `0` for the weakest future-return region to `4` for the strongest. These grades are intended as convenient future relevance labels for later ranking experiments; this target set itself does not introduce a ranking model or ranking-specific task contract.
+The nullable `Int8` values range from `0` for the weakest future-return region to `15` for the strongest. These grades are intended as convenient future relevance labels for later ranking experiments; this target set itself does not introduce a ranking model or ranking-specific task contract.
 
 ## Horizons and Primary Task
 
