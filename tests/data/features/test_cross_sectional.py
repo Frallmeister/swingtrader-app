@@ -34,9 +34,7 @@ def test_add_cross_sectional_features_calculates_percentiles_and_market_context(
     assert yfinance["market_equal_weight_return_1d"].drop_duplicates().tolist() == pytest.approx(
         [0.005]
     )
-    assert yfinance["market_median_return_1d"].drop_duplicates().tolist() == pytest.approx(
-        [0.005]
-    )
+    assert yfinance["market_median_return_1d"].drop_duplicates().tolist() == pytest.approx([0.005])
 
     other = result.xs("other", level="provider")
     assert other["return_1d_cross_sectional_percentile"].tolist() == pytest.approx([0.25, 0.75])

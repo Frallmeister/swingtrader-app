@@ -54,9 +54,7 @@ DEFAULT_FEATURE_SET = FeatureSetSpec(
                 "market_equal_weight_return_1d",
                 "market_median_return_1d",
             ),
-            required_columns=frozenset(
-                {"return_1d", "return_5d", "return_10d", "return_20d"}
-            ),
+            required_columns=frozenset({"return_1d", "return_5d", "return_10d", "return_20d"}),
         ),
         FeatureBlockSpec(
             name="trend",

@@ -56,9 +56,7 @@ def test_add_cross_sectional_return_targets_excludes_missing_values() -> None:
     )
     assert pd.isna(result["forward_return_5d_cross_sectional_percentile"].iloc[4])
     assert pd.isna(result["forward_return_5d_relevance_grade"].iloc[4])
-    assert result["market_relative_forward_return_5d"].iloc[0] == pytest.approx(
-        0.9 / 1.05 - 1
-    )
+    assert result["market_relative_forward_return_5d"].iloc[0] == pytest.approx(0.9 / 1.05 - 1)
 
 
 def test_add_cross_sectional_return_targets_separates_providers() -> None:
@@ -140,9 +138,7 @@ def test_add_cross_sectional_return_targets_handles_empty_input() -> None:
 
     assert result.empty
     assert pd.api.types.is_float_dtype(result["market_relative_forward_return_5d"])
-    assert pd.api.types.is_float_dtype(
-        result["forward_return_5d_cross_sectional_percentile"]
-    )
+    assert pd.api.types.is_float_dtype(result["forward_return_5d_cross_sectional_percentile"])
     assert str(result["forward_return_5d_relevance_grade"].dtype) == "Int8"
 
 
