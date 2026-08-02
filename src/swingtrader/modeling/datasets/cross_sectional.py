@@ -56,17 +56,11 @@ def add_cross_sectional_return_targets(
             _uses_shared_provider_calendar(result.index, horizon=horizon, future=True)
         )
         grouped = forward_returns.groupby(level=_CROSS_SECTION_LEVELS, sort=False)
-        valid_cross_section = grouped.transform("count").ge(
-            minimum_cross_section_size
-        )
+        valid_cross_section = grouped.transform("count").ge(minimum_cross_section_size)
         market_return = grouped.transform("mean").astype("float64")
         market_gross_return = market_return.add(1)
         stock_gross_return = forward_returns.add(1)
-        valid_relative = (
-            stock_gross_return.gt(0)
-            & market_gross_return.gt(0)
-            & valid_cross_section
-        )
+        valid_relative = stock_gross_return.gt(0) & market_gross_return.gt(0) & valid_cross_section
 
         relative_column = f"market_relative_forward_return_{horizon}d"
         relative_return = stock_gross_return.div(market_gross_return).sub(1)
@@ -121,13 +115,11 @@ def _uses_shared_provider_calendar(
         .sort_values(["provider", "trading_date"])
     )
     periods = -horizon if future else horizon
-    calendar["expected_date"] = calendar.groupby("provider", sort=False)[
-        "trading_date"
-    ].shift(periods)
-    expected_by_date = calendar.set_index(["provider", "trading_date"])["expected_date"]
-    row_dates = pd.MultiIndex.from_frame(
-        index_frame.loc[:, ["provider", "trading_date"]]
+    calendar["expected_date"] = calendar.groupby("provider", sort=False)["trading_date"].shift(
+        periods
     )
+    expected_by_date = calendar.set_index(["provider", "trading_date"])["expected_date"]
+    row_dates = pd.MultiIndex.from_frame(index_frame.loc[:, ["provider", "trading_date"]])
     expected_date = pd.Series(
         expected_by_date.reindex(row_dates).to_numpy(),
         index=index,
@@ -159,6 +151,4 @@ def _validate_relevance_grade_count(count: int) -> None:
 
 def _validate_minimum_cross_section_size(size: int) -> None:
     if isinstance(size, bool) or not isinstance(size, int) or size < 2:
-        raise ValueError(
-            "Minimum cross-section size must be an integer of at least two."
-        )
+        raise ValueError("Minimum cross-section size must be an integer of at least two.")

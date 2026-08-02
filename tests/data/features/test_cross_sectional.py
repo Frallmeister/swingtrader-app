@@ -108,9 +108,7 @@ def test_add_cross_sectional_features_requires_shared_provider_calendar_window()
         ("yfinance", "AAA"),
         "return_1d_cross_sectional_percentile",
     ] == pytest.approx(0.25)
-    assert pd.isna(
-        final_date.loc[("yfinance", "BBB"), "return_1d_cross_sectional_percentile"]
-    )
+    assert pd.isna(final_date.loc[("yfinance", "BBB"), "return_1d_cross_sectional_percentile"])
     assert final_date.loc[
         ("yfinance", "CCC"),
         "return_1d_cross_sectional_percentile",

@@ -65,15 +65,17 @@ def add_cross_sectional_features(
         )
     )
     grouped_market_returns = market_returns.groupby(level=_CROSS_SECTION_LEVELS, sort=False)
-    valid_cross_section = grouped_market_returns.transform("count").ge(
-        minimum_cross_section_size
-    )
+    valid_cross_section = grouped_market_returns.transform("count").ge(minimum_cross_section_size)
     positive = market_returns.gt(0).where(market_returns.notna()).astype("float64")
 
-    result[market_columns[0]] = positive.groupby(
-        level=_CROSS_SECTION_LEVELS,
-        sort=False,
-    ).transform("mean").where(valid_cross_section)
+    result[market_columns[0]] = (
+        positive.groupby(
+            level=_CROSS_SECTION_LEVELS,
+            sort=False,
+        )
+        .transform("mean")
+        .where(valid_cross_section)
+    )
     result[market_columns[1]] = (
         grouped_market_returns.transform("mean").where(valid_cross_section).astype("float64")
     )
@@ -113,13 +115,11 @@ def _uses_shared_provider_calendar(
         .sort_values(["provider", "trading_date"])
     )
     periods = -horizon if future else horizon
-    calendar["expected_date"] = calendar.groupby("provider", sort=False)[
-        "trading_date"
-    ].shift(periods)
-    expected_by_date = calendar.set_index(["provider", "trading_date"])["expected_date"]
-    row_dates = pd.MultiIndex.from_frame(
-        index_frame.loc[:, ["provider", "trading_date"]]
+    calendar["expected_date"] = calendar.groupby("provider", sort=False)["trading_date"].shift(
+        periods
     )
+    expected_by_date = calendar.set_index(["provider", "trading_date"])["expected_date"]
+    row_dates = pd.MultiIndex.from_frame(index_frame.loc[:, ["provider", "trading_date"]])
     expected_date = pd.Series(
         expected_by_date.reindex(row_dates).to_numpy(),
         index=index,
@@ -151,6 +151,4 @@ def _validate_market_return_horizon(horizon: int) -> None:
 
 def _validate_minimum_cross_section_size(size: int) -> None:
     if isinstance(size, bool) or not isinstance(size, int) or size < 2:
-        raise ValueError(
-            "Minimum cross-section size must be an integer of at least two."
-        )
+        raise ValueError("Minimum cross-section size must be an integer of at least two.")
