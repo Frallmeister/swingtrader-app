@@ -322,10 +322,6 @@ def _validate_source_scope(
         raise ValueError("Source history contains rows before the dataset start.")
     if signal_dates.max().date() > spec.data_end:
         raise ValueError("Source history contains rows after the dataset end.")
-    if signal_dates.min().date() < spec.data_start:
-        raise ValueError("Source history contains rows before the dataset start.")
-    if signal_dates.max().date() > spec.data_end:
-        raise ValueError("Source history contains rows after the dataset end.")
 
 
 def _target_end_dates(
