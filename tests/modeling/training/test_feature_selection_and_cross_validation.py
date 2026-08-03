@@ -193,7 +193,8 @@ def _bundle_and_experiment() -> tuple[TemporalDatasetBundle, ExperimentSpec]:
         target_set=target_set,
         task=task,
         universe=universe,
-        data_cutoff=dataset_spec.data_end,
+        data_start=dataset_spec.data_start,
+        data_end=dataset_spec.data_end,
         split=split,
         model=ModelSpec(
             name="logistic",

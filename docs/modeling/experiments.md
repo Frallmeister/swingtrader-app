@@ -133,7 +133,8 @@ experiment_spec = ExperimentSpec(
         provider="yfinance",
         tickers=("ABB.ST", "SAAB-B.ST", "VOLV-B.ST"),
     ),
-    data_cutoff=date(2025, 12, 31),
+    data_start=date(2010, 1, 1),
+    data_end=date(2025, 12, 31),
     split=TemporalSplitSpec(
         name="initial_holdout",
         version="1",
