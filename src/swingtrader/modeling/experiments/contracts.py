@@ -2,7 +2,7 @@
 
 Feature and target contracts describe how model inputs and labels are computed.
 This module composes those contracts with the remaining choices that define an
-experiment: the resolved universe, temporal split, data cutoff, model
+experiment: the resolved universe, dataset window, temporal split, model
 configuration, selected task, and random seeds.
 
 The specifications are independent of MLflow. They can therefore be validated,
@@ -218,12 +218,12 @@ class ExperimentSpec:
     single deterministic manifest and digest for experiment identity.
 
     Construction enforces the invariants that keep the manifest coherent: the
-    feature set, target set, task, universe, and cutoff must form a valid temporal
-    dataset specification, ``data_cutoff`` must not precede the end of the declared
-    test range, and at least one random seed must be provided as a non-negative
-    integer. Seeds are frozen into a read-only mapping. Runtime
-    provenance such as the Git revision is deliberately excluded because it
-    describes an execution rather than the static experiment configuration.
+    feature set, target set, task, universe, and data window must form a valid
+    temporal dataset specification, the data window must contain the declared
+    split ranges, and at least one random seed must be provided as a non-negative
+    integer. Seeds are frozen into a read-only mapping. Runtime provenance such
+    as the Git revision is deliberately excluded because it describes an execution
+    rather than the static experiment configuration.
     """
 
     name: str
@@ -232,7 +232,8 @@ class ExperimentSpec:
     target_set: TargetSetSpec
     task: SupervisedTaskSpec
     universe: UniverseSpec
-    data_cutoff: date
+    data_start: date
+    data_end: date
     split: TemporalSplitSpec
     model: ModelSpec
     random_seeds: Mapping[str, int]
@@ -240,16 +241,21 @@ class ExperimentSpec:
     def __post_init__(self) -> None:
         _require_text(self.name, field_name="Experiment name")
         _require_text(self.version, field_name="Experiment version")
+        _require_date(self.data_start, field_name="Data start")
+        _require_date(self.data_end, field_name="Data end")
         _ = TemporalDatasetSpec(
             feature_set=self.feature_set,
             target_set=self.target_set,
             task=self.task,
             universe=self.universe,
-            data_cutoff=self.data_cutoff,
+            data_start=self.data_start,
+            data_end=self.data_end,
         )
 
-        if self.data_cutoff < self.split.test_end:
-            raise ValueError("Data cutoff must not precede the end of the declared test range.")
+        if self.data_start > self.split.train_start:
+            raise ValueError("Data start must not follow the training start.")
+        if self.data_end < self.split.test_end:
+            raise ValueError("Data end must not precede the end of the declared test range.")
 
         if not isinstance(self.random_seeds, Mapping):
             raise TypeError("Random seeds must be provided as a mapping.")
@@ -275,7 +281,8 @@ class ExperimentSpec:
             target_set=self.target_set,
             task=self.task,
             universe=self.universe,
-            data_cutoff=self.data_cutoff,
+            data_start=self.data_start,
+            data_end=self.data_end,
         )
 
     def to_manifest(self) -> dict[str, object]:
@@ -295,7 +302,8 @@ class ExperimentSpec:
             "target_set": {**target_manifest, "digest": self.target_set.digest},
             "task": self.task.to_manifest(),
             "universe": {**universe_manifest, "digest": self.universe.digest},
-            "data_cutoff": self.data_cutoff.isoformat(),
+            "data_start": self.data_start.isoformat(),
+            "data_end": self.data_end.isoformat(),
             "split": {**split_manifest, "digest": self.split.digest},
             "model": {**model_manifest, "digest": self.model.digest},
             "random_seeds": dict(sorted(self.random_seeds.items())),

@@ -1,6 +1,6 @@
 # Modeling Overview
 
-The modeling layer turns point-in-time-safe market history into reproducible supervised-learning datasets, assigns leakage-safe temporal splits, trains and evaluates reference models through a standardized baseline harness, and provides a small executable daily-bar backtesting pilot. The individual contracts and operations are described on focused pages; this page provides the end-to-end red line.
+The modeling layer turns point-in-time-safe market history into reproducible supervised-learning datasets, assigns leakage-safe temporal splits, trains and evaluates reference models through a standardized baseline harness, supports a notebook-led cross-sectional XGBoost comparison, and provides a small executable daily-bar backtesting pilot. The individual contracts and operations are described on focused pages; this page provides the end-to-end red line.
 
 The implemented target contracts are grouped under [Targets](targets/index.md), dataset construction is documented in [Temporal Datasets](temporal-datasets.md), split semantics in [Temporal Splitting](temporal-splitting.md), model-level input schemas and train-only diagnostics in [Model Feature Selection and Train-Only Cross-Validation](feature-selection-and-cross-validation.md), baseline fitting in [Baseline Models and Evaluation Harness](baseline-models.md), executable simulation in [Backtesting Pilot](backtesting.md), and experiment provenance in [Experiment Specifications and MLflow Tracking](experiments.md). [Modeling Workflows](workflows.md) describes how these components are composed, while the [Modeling Object Model](../reference/modeling-object-model.md) is the canonical reference for relationships between specifications and runtime artifacts.
 
@@ -84,11 +84,11 @@ flowchart TB
 
 Feature and target builders consume the same canonical market-price DataFrame: a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`, with identifiers absent from ordinary columns. The forward-return set calculates forward returns and a fixed-return classification target. The triple-barrier set produces a next-open ATR-scaled triple-barrier label, one time-to-event column, and target-resolution metadata for purging. The cross-sectional-return set produces market-relative forward returns, same-date future-return percentiles, and ordinal relevance grades. These three target sets are independent variants: each is generated on its own from canonical prices, their outputs do not overlap, and none supersedes the others.
 
-`TemporalDatasetSpec` defines only the unsplit data product. Features and targets are calculated independently over the same full historical prefix, then aligned with sample metadata and a deterministic manifest. Feature NaNs are retained; rows are excluded only when the selected target is unavailable.
+`TemporalDatasetSpec` defines only the unsplit data product. Features and targets are calculated independently over the same complete configured dataset window, then aligned with sample metadata and a deterministic manifest. Feature NaNs are retained; rows are excluded only when the selected target is unavailable.
 
 The experiment package applies split policy downstream, using each row's actual target resolution date for purging and an optional global pre-boundary embargo. `ModelSpec.feature_columns` separately defines an optional exact ordered estimator schema without changing feature-generation contracts. `ExperimentSpec.dataset_spec` keeps dataset construction independent of model, seed, and MLflow concerns, while the optional MLflow adapter records executions and runtime provenance.
 
-The training package implements a constant-prior classifier, deterministic date-matched random ranker, regularized logistic regression with train-only median imputation and scaling, expanding global-date cross-validation confined to outer train, a canonical prediction frame, and reusable classification, calibration, cross-sectional ranking, artifact, and MLflow logging workflows. Each inner fold fits preprocessing and the estimator independently and reports compact train/validation diagnostics.
+The training package implements a constant-prior classifier, deterministic date-matched random ranker, regularized logistic regression with train-only median imputation and scaling, expanding global-date cross-validation confined to outer train, a canonical prediction frame, and reusable classification, calibration, cross-sectional ranking, artifact, and MLflow logging workflows. Small ranking helpers support the exploratory XGBoost comparison without extending the baseline harness. Each inner fold fits preprocessing and the estimator independently and reports compact train/validation diagnostics.
 
 The entry-labeling workflow records one authoritative binary label per provider, ticker, and trading date. Deterministic planned windows remain independent of Plotly zoom and pan state, and the configured validation-end boundary prevents the workflow from displaying locked-test candles or outcomes.
 
@@ -96,7 +96,7 @@ The backtesting pilot is intentionally separate from research-target evaluation.
 
 Validation is the routine outer evaluation split; locked-test evaluation requires explicit opt-in.
 
-Feature and target persistence, materialized dataset snapshots, nonlinear model candidates, model registration, and production inference remain planned.
+Feature and target persistence, materialized dataset snapshots, reusable nonlinear training contracts, model registration, and production inference remain planned.
 
 ## Inference Readiness
 
@@ -108,7 +108,7 @@ Training eligibility remains distinct from active-universe membership and infere
 
 ## Planned Components
 
-- XGBoost classification and regression candidates;
+- reusable training contracts for selected nonlinear candidates;
 - automated feature ablation, candidate ranking, and winner-selection policies;
 - local model registry;
 - production inference workflow.

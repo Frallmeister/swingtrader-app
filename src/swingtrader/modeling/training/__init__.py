@@ -1,4 +1,4 @@
-"""Baseline models and reusable temporal evaluation harness."""
+"""Baseline training, temporal evaluation, and notebook ranking helpers."""
 
 from swingtrader.modeling.training.baselines import (
     CONSTANT_PRIOR_MODEL_TYPE,
@@ -27,6 +27,10 @@ from swingtrader.modeling.training.harness import (
     run_baseline_experiment,
     write_baseline_artifacts,
 )
+from swingtrader.modeling.training.ranking import (
+    evaluate_cross_sectional_scores,
+    prepare_xgboost_ranking_data,
+)
 from swingtrader.modeling.training.reporting import write_evaluation_artifacts
 
 __all__ = [
@@ -45,8 +49,10 @@ __all__ = [
     "RegularizedLogisticRegression",
     "build_prediction_frame",
     "deterministic_random_scores",
+    "evaluate_cross_sectional_scores",
     "evaluate_predictions",
     "fit_baseline_model",
+    "prepare_xgboost_ranking_data",
     "select_model_features",
     "run_baseline_cross_validation",
     "run_baseline_experiment",

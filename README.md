@@ -30,6 +30,7 @@ The project currently implements the data and initial modeling foundation:
 * train-only median imputation and standardization retained with the fitted logistic artifact
 * explicit ordered model-input schemas and expanding temporal cross-validation confined to outer train
 * standardized classification, calibration, daily ranking, and dataset-context evaluation reports
+* a reusable validation-only notebook comparing XGBoost regression, classification, and learning-to-rank scores
 * deterministic local or MLflow model, prediction, table, Markdown, and SVG artifacts
 * resumable rolling-window candle labeling with interactive Plotly charts and commission-aware forward-outcome heatmaps
 * a small daily-bar backtesting pilot with next-open execution and ATR-based risk sizing
@@ -39,7 +40,7 @@ The project currently implements the data and initial modeling foundation:
 
 Features and targets consume the same canonical market-price DataFrame: a unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`. Column-oriented bronze rows are converted once at the caller boundary with `set_index(...).sort_index()`.
 
-Feature persistence, target persistence, nonlinear model training, production inference, prediction storage, dashboarding, deployment, and broader macro, benchmark, sector, fundamental, news, or sentiment features are planned.
+Feature persistence, target persistence, reusable nonlinear training contracts, production inference, prediction storage, dashboarding, deployment, and broader macro, benchmark, sector, fundamental, news, or sentiment features are planned.
 
 ## Documentation
 
@@ -62,6 +63,7 @@ Useful entry points:
 * [Temporal splitting](docs/modeling/temporal-splitting.md)
 * [Model feature selection and train-only cross-validation](docs/modeling/feature-selection-and-cross-validation.md)
 * [Baseline models and evaluation harness](docs/modeling/baseline-models.md)
+* [Cross-sectional XGBoost ranking study](docs/modeling/cross-sectional-ranking-study.md)
 * [Backtesting pilot](docs/modeling/backtesting.md)
 * [Triple-barrier targets](docs/modeling/targets/triple-barrier.md)
 * [Cross-sectional return targets](docs/modeling/targets/cross-sectional.md)
@@ -197,7 +199,9 @@ features = add_market_structure_features(features)
 
 The codebase separates two responsibilities. **Indicators** in `swingtrader.indicators` calculate reusable technical quantities (moving averages, ADX, ATR, ADR, RSI, MACD, PPO, MFI, Bollinger Bands, squeeze momentum, candlestick price action, turnover, pivot points, Zig Zag) that are meaningful outside any particular model. **Features** in `swingtrader.data.features` transform raw data and indicators into model inputs, deciding which source columns to use, how to combine and normalize them, and what the model-facing columns are named.
 
-Return features add trailing adjusted-close returns. Cross-sectional features rank those returns within each provider/date universe and add one-day breadth, equal-weight return, and median return. Trend features add moving-average, directional-movement, and VWAP-distance columns. Momentum features add PPO, RSI, stochastic, MFI, and squeeze-momentum columns. Volatility features add ATR, ADR, and Bollinger-derived columns. Price-action features add candle geometry, local patterns, directional runs, range context, and rolling breakout or failed-break signals. Volume features add turnover z-scores.
+Return features add trailing adjusted-close returns. Cross-sectional features rank those returns within each provider/date universe and add one-day breadth, mean return, and median return. Trend features add moving-average, directional-movement, and VWAP-distance columns. Momentum features add PPO, RSI, stochastic, MFI, and squeeze-momentum columns. Volatility features add ATR, ADR, and Bollinger-derived columns.
+
+Price-action features add candle geometry, local patterns, directional runs, range context, and rolling breakout or failed-break signals. Volume features add turnover z-scores.
 
 `add_default_features` runs the eight families in a fixed order and is equivalent to applying them manually. Time-series calculations are isolated by provider and ticker; cross-sectional calculations compare rows within provider and trading date. Warm-up rows remain missing until enough history is available. Consumers that need identifiers as columns can call `features.reset_index()`.
 
@@ -236,7 +240,7 @@ result = run_baseline_experiment(
 print(result.reports["validation"].aggregate_metrics)
 ```
 
-The bundle aligns feature, target, and sample-metadata frames on the canonical market index. It computes features and targets over the full historical prefix through the data cutoff, keeps feature warm-up missing values, and excludes only rows where the selected supervised target is unavailable.
+The bundle aligns feature, target, and sample-metadata frames on the canonical market index. It computes features and targets over the complete configured dataset window before split assignment, keeps feature warm-up missing values, and excludes only rows where the selected supervised target is unavailable.
 
 `FixedTemporalSplitter` applies shared calendar ranges, purges rows whose actual target resolution crosses a split end, optionally embargoes final train and validation signal dates, and returns positional indices without mutating the bundle. The baseline harness fits preprocessing and model state on train only, evaluates validation by default, and reads the locked test only through explicit opt-in.
 
