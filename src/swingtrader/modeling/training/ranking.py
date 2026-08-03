@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import ndcg_score
 
+from swingtrader.modeling.training.baselines import deterministic_random_scores
+
 _CANONICAL_INDEX_NAMES = ["provider", "ticker", "trading_date"]
 _QUERY_LEVELS = ["provider", "trading_date"]
 
@@ -46,8 +48,13 @@ def evaluate_cross_sectional_scores(
     ranking_return: pd.Series,
     *,
     top_k: int = 10,
+    random_seed: int = 0,
 ) -> tuple[pd.Series, pd.DataFrame]:
-    """Evaluate scores independently within each provider and trading date."""
+    """Evaluate scores independently within each provider and trading date.
+
+    ``random_seed`` seeds a deterministic secondary sort key so exact score ties
+    resolve independently of the incoming row or ticker order.
+    """
     _validate_aligned_series(scores, relevance, ranking_return)
     if isinstance(top_k, bool) or not isinstance(top_k, int) or top_k < 1:
         raise ValueError("top_k must be a positive integer.")
@@ -61,6 +68,7 @@ def evaluate_cross_sectional_scores(
     )
     if not np.isfinite(frame.to_numpy(dtype="float64")).all():
         raise ValueError("Ranking evaluation inputs must be complete and finite.")
+    frame["tiebreak"] = deterministic_random_scores(frame.index, seed=random_seed)
 
     rows: list[dict[str, object]] = []
     for (provider, trading_date), group in frame.groupby(
@@ -68,7 +76,11 @@ def evaluate_cross_sectional_scores(
         sort=False,
     ):
         selected_count = min(top_k, len(group))
-        ordered = group.sort_values("score", ascending=False, kind="stable")
+        ordered = group.sort_values(
+            ["score", "tiebreak"],
+            ascending=False,
+            kind="stable",
+        )
         selected = ordered.head(selected_count)
         rows.append(
             {
@@ -88,12 +100,10 @@ def evaluate_cross_sectional_scores(
                     method="spearman",
                 ),
                 "top_k_mean_return": float(selected["ranking_return"].mean()),
-                "universe_mean_return": float(group["ranking_return"].mean()),
             }
         )
 
     daily = pd.DataFrame(rows).set_index(_QUERY_LEVELS).sort_index()
-    daily["top_k_excess_return"] = daily["top_k_mean_return"] - daily["universe_mean_return"]
     valid_rank_ic = daily["rank_ic"].dropna()
     summary = pd.Series(
         {
@@ -102,7 +112,6 @@ def evaluate_cross_sectional_scores(
             "mean_rank_ic": float(valid_rank_ic.mean()),
             "positive_rank_ic_fraction": float(valid_rank_ic.gt(0).mean()),
             "mean_top_k_return": float(daily["top_k_mean_return"].mean()),
-            "mean_top_k_excess_return": float(daily["top_k_excess_return"].mean()),
         },
         dtype="float64",
     )

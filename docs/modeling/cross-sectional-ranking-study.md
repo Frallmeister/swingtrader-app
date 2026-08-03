@@ -1,6 +1,6 @@
 # Cross-Sectional XGBoost Ranking Study
 
-The reusable notebook `notebooks/workflows/modeling/06_cross_sectional_xgboost_ranking.ipynb` compares three exploratory XGBoost formulations on the same cross-sectional dataset:
+The reusable notebook `notebooks/workflows/modeling/10_cross_sectional_xgboost_ranking.ipynb` compares three exploratory XGBoost formulations on the same cross-sectional dataset:
 
 - regression on five-session market-relative return;
 - classification of future top-quintile membership;
@@ -15,8 +15,7 @@ Every model output is treated as a ranking score. The notebook reports:
 - NDCG at the configured top `k`, using ordinal relevance grades;
 - daily rank IC, defined as Spearman correlation with continuous market-relative return;
 - the fraction of dates with positive rank IC;
-- mean return among the top `k` candidates;
-- top-`k` return minus the same-date universe mean.
+- mean return among the top `k` candidates.
 
 The date-level results remain available for distribution plots and regime inspection. Aggregate values alone are not sufficient evidence that one formulation is stable.
 

@@ -1,4 +1,4 @@
-"""Baseline models and reusable temporal evaluation harness."""
+"""Baseline training, temporal evaluation, and notebook ranking helpers."""
 
 from swingtrader.modeling.training.baselines import (
     CONSTANT_PRIOR_MODEL_TYPE,

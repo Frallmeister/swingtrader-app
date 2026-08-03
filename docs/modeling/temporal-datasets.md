@@ -82,7 +82,7 @@ bundle = build_temporal_dataset(
 )
 ```
 
-The builder loads all required bronze source columns through the cutoff, evaluates cutoff-aware training eligibility, and delegates to `construct_temporal_dataset()`. The lower-level constructor computes every configured feature block over the complete legitimate historical prefix. Targets are computed independently from the same canonical price frame. This is required for expanding and path-dependent features whose values would change if history were truncated at a train-split boundary.
+The builder loads all required bronze source columns across the configured `data_start`–`data_end` window, evaluates eligibility as of `data_end`, and delegates to `construct_temporal_dataset()`. The lower-level constructor computes every configured feature block over the complete configured dataset window. Targets are computed independently from the same canonical price frame. This is required for expanding and path-dependent features whose values would change if history were truncated at a train-split boundary. `data_start` may precede the first training date to provide feature warm-up history.
 
 ### Construct from an in-memory frame
 

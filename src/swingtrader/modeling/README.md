@@ -9,8 +9,8 @@ The `swingtrader.modeling.datasets` package contains:
 - `contracts.py`, which defines immutable, executable target-family and target-set specifications plus supervised-task selection;
 - `catalog.py`, which defines the concrete forward-return, triple-barrier, and cross-sectional target sets and their primary tasks;
 - `labels.py`, `cross_sectional.py`, and `triple_barrier.py`, which implement forward-return, cross-sectional return, and next-open triple-barrier targets;
-- `specifications.py`, which binds a feature set, target set, selected task, resolved universe, and data cutoff;
-- `temporal.py`, which builds aligned feature, target, and sample-metadata frames over the full historical prefix;
+- `specifications.py`, which binds a feature set, target set, selected task, resolved universe, and a `data_start`–`data_end` window;
+- `temporal.py`, which builds aligned feature, target, and sample-metadata frames over the configured dataset window;
 - `tabular.py`, which exposes framework-neutral `X`, `y`, and sample metadata without splitting or preprocessing.
 
 Features, targets, and sample metadata use the same unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`. Feature and target specifications pass their recorded parameters to builders, enforce required inputs and index preservation, and select exactly their declared outputs before temporal alignment. The dataset builder retains feature warm-up missing values, removes only rows where the selected supervised target is unavailable, records each sample's `target_end_date`, and evaluates ticker training eligibility using data at or before the dataset cutoff.

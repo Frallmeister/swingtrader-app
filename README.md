@@ -240,7 +240,7 @@ result = run_baseline_experiment(
 print(result.reports["validation"].aggregate_metrics)
 ```
 
-The bundle aligns feature, target, and sample-metadata frames on the canonical market index. It computes features and targets over the full historical prefix through the data cutoff, keeps feature warm-up missing values, and excludes only rows where the selected supervised target is unavailable.
+The bundle aligns feature, target, and sample-metadata frames on the canonical market index. It computes features and targets over the complete configured dataset window before split assignment, keeps feature warm-up missing values, and excludes only rows where the selected supervised target is unavailable.
 
 `FixedTemporalSplitter` applies shared calendar ranges, purges rows whose actual target resolution crosses a split end, optionally embargoes final train and validation signal dates, and returns positional indices without mutating the bundle. The baseline harness fits preprocessing and model state on train only, evaluates validation by default, and reads the locked test only through explicit opt-in.
 

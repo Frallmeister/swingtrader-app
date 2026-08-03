@@ -35,7 +35,7 @@ flowchart LR
 
 **Status:** Implemented.
 
-This workflow produces one canonical, unsplit `TemporalDatasetBundle`. It deliberately computes features and targets before any split is assigned so expanding and path-dependent calculations see the complete legitimate historical prefix through the dataset cutoff.
+This workflow produces one canonical, unsplit `TemporalDatasetBundle`. It deliberately computes features and targets over the complete configured dataset window before any split is assigned, so expanding and path-dependent calculations see the full window. `data_start` may precede the first training date to provide feature warm-up history.
 
 ```mermaid
 flowchart LR
@@ -137,7 +137,7 @@ Candidate ranking and winner selection remain manual. After choosing a schema, p
 
 **Status:** Implemented as a reusable exploration notebook.
 
-`06_cross_sectional_xgboost_ranking.ipynb` fits regression, top-quintile classification, and learning-to-rank candidates on outer train and compares their validation rankings. One provider/date cross-section is one ranking query. The notebook keeps model parameters and plots visible for quick studies, while two small helpers standardize query preparation and common ranking diagnostics. It does not read the locked test or extend the reusable baseline harness.
+`10_cross_sectional_xgboost_ranking.ipynb` fits regression, top-quintile classification, and learning-to-rank candidates on outer train and compares their validation rankings. One provider/date cross-section is one ranking query. The notebook keeps model parameters and plots visible for quick studies, while two small helpers standardize query preparation and common ranking diagnostics. It does not read the locked test or extend the reusable baseline harness.
 
 See [Cross-Sectional XGBoost Ranking Study](cross-sectional-ranking-study.md).
 

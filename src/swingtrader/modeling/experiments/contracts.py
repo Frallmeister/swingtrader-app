@@ -232,7 +232,8 @@ class ExperimentSpec:
     target_set: TargetSetSpec
     task: SupervisedTaskSpec
     universe: UniverseSpec
-    data_cutoff: date
+    data_start: date
+    data_end: date
     split: TemporalSplitSpec
     model: ModelSpec
     random_seeds: Mapping[str, int]
@@ -277,8 +278,8 @@ class ExperimentSpec:
             target_set=self.target_set,
             task=self.task,
             universe=self.universe,
-            data_start=self.split.train_start,
-            data_end=self.data_cutoff,
+            data_start=self.data_start,
+            data_end=self.data_end,
         )
 
     def to_manifest(self) -> dict[str, object]:
@@ -298,7 +299,8 @@ class ExperimentSpec:
             "target_set": {**target_manifest, "digest": self.target_set.digest},
             "task": self.task.to_manifest(),
             "universe": {**universe_manifest, "digest": self.universe.digest},
-            "data_cutoff": self.data_cutoff.isoformat(),
+            "data_start": self.data_start.isoformat(),
+            "data_end": self.data_end.isoformat(),
             "split": {**split_manifest, "digest": self.split.digest},
             "model": {**model_manifest, "digest": self.model.digest},
             "random_seeds": dict(sorted(self.random_seeds.items())),

@@ -213,8 +213,8 @@ def construct_temporal_dataset(
 
     The input must use the canonical market index schema, although its rows
     may be unordered. The constructor sorts the frame, calculates features
-    and targets independently over the full history, and retains only rows
-    where the selected supervised target and its resolution date exist.
+    and targets independently over the full provided window, and retains only
+    rows where the selected supervised target and its resolution date exist.
     Feature missing values are preserved.
 
     Parameters
@@ -318,6 +318,14 @@ def _validate_source_scope(
     for ticker, state in eligibility.items():
         if ticker != state.ticker:
             raise ValueError("Eligibility mapping keys must match their ticker states.")
+    if signal_dates.min().date() < spec.data_start:
+        raise ValueError("Source history contains rows before the dataset start.")
+    if signal_dates.max().date() > spec.data_end:
+        raise ValueError("Source history contains rows after the dataset end.")
+    if signal_dates.min().date() < spec.data_start:
+        raise ValueError("Source history contains rows before the dataset start.")
+    if signal_dates.max().date() > spec.data_end:
+        raise ValueError("Source history contains rows after the dataset end.")
 
 
 def _target_end_dates(

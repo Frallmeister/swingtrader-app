@@ -81,6 +81,8 @@ class TemporalDatasetSpec:
         self.task.validate_target_set(self.target_set)
         _require_date(self.data_start, field_name="Data start")
         _require_date(self.data_end, field_name="Data end")
+        if self.data_start > self.data_end:
+            raise ValueError("Data start must not follow data end.")
         if self.task.horizon_sessions is None:
             raise ValueError("Temporal dataset tasks must declare horizon_sessions.")
         if self.task.horizon_sessions > self.target_set.maximum_horizon_sessions:
