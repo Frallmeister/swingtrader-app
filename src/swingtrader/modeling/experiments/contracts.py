@@ -2,7 +2,7 @@
 
 Feature and target contracts describe how model inputs and labels are computed.
 This module composes those contracts with the remaining choices that define an
-experiment: the resolved universe, temporal split, data cutoff, model
+experiment: the resolved universe, dataset window, temporal split, model
 configuration, selected task, and random seeds.
 
 The specifications are independent of MLflow. They can therefore be validated,
@@ -218,12 +218,12 @@ class ExperimentSpec:
     single deterministic manifest and digest for experiment identity.
 
     Construction enforces the invariants that keep the manifest coherent: the
-    feature set, target set, task, universe, and cutoff must form a valid temporal
-    dataset specification, ``data_cutoff`` must not precede the end of the declared
-    test range, and at least one random seed must be provided as a non-negative
-    integer. Seeds are frozen into a read-only mapping. Runtime
-    provenance such as the Git revision is deliberately excluded because it
-    describes an execution rather than the static experiment configuration.
+    feature set, target set, task, universe, and data window must form a valid
+    temporal dataset specification, the data window must contain the declared
+    split ranges, and at least one random seed must be provided as a non-negative
+    integer. Seeds are frozen into a read-only mapping. Runtime provenance such
+    as the Git revision is deliberately excluded because it describes an execution
+    rather than the static experiment configuration.
     """
 
     name: str

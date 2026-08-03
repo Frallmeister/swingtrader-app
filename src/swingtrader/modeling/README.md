@@ -13,7 +13,9 @@ The `swingtrader.modeling.datasets` package contains:
 - `temporal.py`, which builds aligned feature, target, and sample-metadata frames over the configured dataset window;
 - `tabular.py`, which exposes framework-neutral `X`, `y`, and sample metadata without splitting or preprocessing.
 
-Features, targets, and sample metadata use the same unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`. Feature and target specifications pass their recorded parameters to builders, enforce required inputs and index preservation, and select exactly their declared outputs before temporal alignment. The dataset builder retains feature warm-up missing values, removes only rows where the selected supervised target is unavailable, records each sample's `target_end_date`, and evaluates ticker training eligibility using data at or before the dataset cutoff.
+Features, targets, and sample metadata use the same unique, sorted `MultiIndex` with levels `provider`, `ticker`, and `trading_date`. Feature and target specifications pass their recorded parameters to builders, enforce required inputs and index preservation, and select exactly their declared outputs before temporal alignment.
+
+The dataset builder retains feature warm-up missing values, removes only rows where the selected supervised target is unavailable, records each sample's `target_end_date`, and evaluates ticker training eligibility using data at or before the dataset end.
 
 `build_temporal_dataset()` loads the required bronze columns. `construct_temporal_dataset()` is the source-independent constructor used by tests and callers that already own a canonical historical frame. Both return an unsplit `TemporalDatasetBundle`; the experiment splitter then assigns shared calendar ranges, purges boundary-crossing targets, and optionally applies a pre-boundary embargo.
 

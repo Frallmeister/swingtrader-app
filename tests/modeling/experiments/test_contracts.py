@@ -32,7 +32,8 @@ def _experiment_spec() -> ExperimentSpec:
             provider="yfinance",
             tickers=("VOLV-B.ST", "ABB.ST"),
         ),
-        data_cutoff=date(2025, 12, 31),
+        data_start=date(2010, 1, 1),
+        data_end=date(2025, 12, 31),
         split=TemporalSplitSpec(
             name="holdout",
             version="1",
@@ -77,7 +78,8 @@ def test_meaningful_configuration_change_changes_experiment_digest() -> None:
         target_set=original.target_set,
         task=original.task,
         universe=original.universe,
-        data_cutoff=original.data_cutoff,
+        data_start=original.data_start,
+        data_end=original.data_end,
         split=original.split,
         model=ModelSpec(
             name=original.model.name,
@@ -121,7 +123,8 @@ def test_specs_freeze_caller_owned_collections() -> None:
         target_set=experiment.target_set,
         task=experiment.task,
         universe=universe,
-        data_cutoff=experiment.data_cutoff,
+        data_start=experiment.data_start,
+        data_end=experiment.data_end,
         split=experiment.split,
         model=model,
         random_seeds=seeds,
@@ -172,17 +175,18 @@ def test_experiment_rejects_task_for_another_target_set() -> None:
             target_set=experiment.target_set,
             task=wrong_task,
             universe=experiment.universe,
-            data_cutoff=experiment.data_cutoff,
+            data_start=experiment.data_start,
+            data_end=experiment.data_end,
             split=experiment.split,
             model=experiment.model,
             random_seeds=experiment.random_seeds,
         )
 
 
-def test_experiment_rejects_cutoff_before_test_end() -> None:
+def test_experiment_rejects_data_end_before_test_end() -> None:
     experiment = _experiment_spec()
 
-    with pytest.raises(ValueError, match="Data cutoff"):
+    with pytest.raises(ValueError, match="Data end"):
         ExperimentSpec(
             name=experiment.name,
             version=experiment.version,
@@ -190,7 +194,8 @@ def test_experiment_rejects_cutoff_before_test_end() -> None:
             target_set=experiment.target_set,
             task=experiment.task,
             universe=experiment.universe,
-            data_cutoff=date(2024, 12, 31),
+            data_start=experiment.data_start,
+            data_end=date(2024, 12, 31),
             split=experiment.split,
             model=experiment.model,
             random_seeds=experiment.random_seeds,
@@ -209,7 +214,8 @@ def test_experiment_rejects_invalid_random_seeds(seed: object) -> None:
             target_set=experiment.target_set,
             task=experiment.task,
             universe=experiment.universe,
-            data_cutoff=experiment.data_cutoff,
+            data_start=experiment.data_start,
+            data_end=experiment.data_end,
             split=experiment.split,
             model=experiment.model,
             random_seeds={"model": seed},  # type: ignore[dict-item]
@@ -261,10 +267,10 @@ def test_temporal_split_rejects_non_date_values() -> None:
         )
 
 
-def test_experiment_rejects_non_date_cutoff() -> None:
+def test_experiment_rejects_non_date_window_boundary() -> None:
     experiment = _experiment_spec()
 
-    with pytest.raises(TypeError, match="Data cutoff"):
+    with pytest.raises(TypeError, match="Data start"):
         ExperimentSpec(
             name=experiment.name,
             version=experiment.version,
@@ -272,7 +278,23 @@ def test_experiment_rejects_non_date_cutoff() -> None:
             target_set=experiment.target_set,
             task=experiment.task,
             universe=experiment.universe,
-            data_cutoff="2025-12-31",  # type: ignore[arg-type]
+            data_start="2010-01-01",  # type: ignore[arg-type]
+            data_end=experiment.data_end,
+            split=experiment.split,
+            model=experiment.model,
+            random_seeds=experiment.random_seeds,
+        )
+
+    with pytest.raises(TypeError, match="Data end"):
+        ExperimentSpec(
+            name=experiment.name,
+            version=experiment.version,
+            feature_set=experiment.feature_set,
+            target_set=experiment.target_set,
+            task=experiment.task,
+            universe=experiment.universe,
+            data_start=experiment.data_start,
+            data_end="2025-12-31",  # type: ignore[arg-type]
             split=experiment.split,
             model=experiment.model,
             random_seeds=experiment.random_seeds,
@@ -310,7 +332,8 @@ def test_random_seeds_must_be_a_mapping() -> None:
             target_set=experiment.target_set,
             task=experiment.task,
             universe=experiment.universe,
-            data_cutoff=experiment.data_cutoff,
+            data_start=experiment.data_start,
+            data_end=experiment.data_end,
             split=experiment.split,
             model=experiment.model,
             random_seeds=[("model", 17)],  # type: ignore[arg-type]

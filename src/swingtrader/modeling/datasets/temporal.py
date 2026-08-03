@@ -310,8 +310,6 @@ def _validate_source_scope(
         names = ", ".join(unexpected_tickers)
         raise ValueError(f"Source history contains unexpected tickers: {names}")
     signal_dates = pd.DatetimeIndex(prices.index.get_level_values("trading_date"))
-    if signal_dates.max().date() > spec.data_end:
-        raise ValueError("Source history contains rows after the dataset cutoff.")
     eligibility_tickers = set(eligibility)
     if eligibility_tickers != set(spec.universe.tickers):
         raise ValueError("Eligibility metadata must cover exactly the universe tickers.")

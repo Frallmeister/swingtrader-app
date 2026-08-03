@@ -91,7 +91,7 @@ def test_ticker_eligibility_rejects_duplicate_failure_reasons() -> None:
         )
 
 
-def test_build_temporal_dataset_loads_required_history_through_the_cutoff(
+def test_build_temporal_dataset_loads_the_configured_window(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
@@ -125,7 +125,7 @@ def test_build_temporal_dataset_loads_required_history_through_the_cutoff(
 
     bundle = build_temporal_dataset(
         engine=engine,
-        spec=_spec(data_cutoff=date(2026, 1, 6)),
+        spec=_spec(data_end=date(2026, 1, 6)),
     )
 
     assert captured["data_cutoff"] == date(2026, 1, 6)
@@ -141,7 +141,7 @@ def test_construct_temporal_dataset_aligns_frames_and_preserves_feature_nans() -
 
     bundle = construct_temporal_dataset(
         prices,
-        spec=_spec(data_cutoff=date(2026, 1, 6)),
+        spec=_spec(data_end=date(2026, 1, 6)),
         eligibility=_eligibility(),
     )
 
@@ -161,7 +161,7 @@ def test_construct_temporal_dataset_aligns_frames_and_preserves_feature_nans() -
 def test_source_row_order_does_not_affect_the_bundle() -> None:
     prices = _prices(periods=6)
     shuffled = prices.sample(frac=1.0, random_state=17)
-    spec = _spec(data_cutoff=date(2026, 1, 6))
+    spec = _spec(data_end=date(2026, 1, 6))
 
     ordered = construct_temporal_dataset(
         prices,
@@ -187,7 +187,7 @@ def test_duplicate_sample_keys_are_rejected() -> None:
     with pytest.raises(ValueError, match="unique index"):
         construct_temporal_dataset(
             duplicate,
-            spec=_spec(data_cutoff=date(2026, 1, 6)),
+            spec=_spec(data_end=date(2026, 1, 6)),
             eligibility=_eligibility(),
         )
 
@@ -196,7 +196,7 @@ def test_changing_one_ticker_does_not_affect_another_ticker() -> None:
     baseline_prices = _prices(periods=6)
     changed_prices = baseline_prices.copy()
     changed_prices.loc[("test", "BBB"), "adjusted_close"] *= 10
-    spec = _spec(data_cutoff=date(2026, 1, 6))
+    spec = _spec(data_end=date(2026, 1, 6))
 
     baseline = construct_temporal_dataset(
         baseline_prices,
@@ -232,7 +232,7 @@ def test_feature_blocks_cannot_mutate_the_index_in_place() -> None:
             ),
         ),
     )
-    spec = _spec(data_cutoff=date(2026, 1, 6))
+    spec = _spec(data_end=date(2026, 1, 6))
     spec = TemporalDatasetSpec(
         feature_set=feature_set,
         target_set=spec.target_set,
@@ -253,7 +253,7 @@ def test_feature_blocks_cannot_mutate_the_index_in_place() -> None:
 def test_fixed_horizon_target_end_dates_use_observed_sessions() -> None:
     bundle = construct_temporal_dataset(
         _prices(periods=6),
-        spec=_spec(data_cutoff=date(2026, 1, 6)),
+        spec=_spec(data_end=date(2026, 1, 6)),
         eligibility=_eligibility(),
     )
 
@@ -285,7 +285,7 @@ def test_explicit_target_end_dates_are_used_for_event_targets() -> None:
         target_end_date_column="target_end_date_2d",
     )
     spec = _spec(
-        data_cutoff=date(2026, 1, 6),
+        data_end=date(2026, 1, 6),
         target_set=target_set,
         task=task,
     )
@@ -303,12 +303,12 @@ def test_explicit_target_end_dates_are_used_for_event_targets() -> None:
 def test_extending_the_cutoff_does_not_change_existing_feature_values() -> None:
     short = construct_temporal_dataset(
         _prices(periods=6),
-        spec=_spec(data_cutoff=date(2026, 1, 6)),
+        spec=_spec(data_end=date(2026, 1, 6)),
         eligibility=_eligibility(),
     )
     long = construct_temporal_dataset(
         _prices(periods=8),
-        spec=_spec(data_cutoff=date(2026, 1, 8)),
+        spec=_spec(data_end=date(2026, 1, 8)),
         eligibility=_eligibility(),
     )
 
@@ -320,7 +320,7 @@ def test_extending_the_cutoff_does_not_change_existing_feature_values() -> None:
 def test_tabular_adapter_preserves_missing_values_and_metadata() -> None:
     bundle = construct_temporal_dataset(
         _prices(periods=6),
-        spec=_spec(data_cutoff=date(2026, 1, 6)),
+        spec=_spec(data_end=date(2026, 1, 6)),
         eligibility=_eligibility(),
     )
 
@@ -348,7 +348,7 @@ def test_manifest_is_deterministic_and_excludes_downstream_concepts() -> None:
 
         return set()
 
-    spec = _spec(data_cutoff=date(2026, 1, 6))
+    spec = _spec(data_end=date(2026, 1, 6))
     first = construct_temporal_dataset(
         _prices(periods=6),
         spec=spec,
@@ -411,7 +411,7 @@ def test_regression_manifest_uses_compact_numeric_summary() -> None:
     bundle = construct_temporal_dataset(
         _prices(periods=6),
         spec=_spec(
-            data_cutoff=date(2026, 1, 6),
+            data_end=date(2026, 1, 6),
             target_set=target_set,
             task=task,
         ),
@@ -464,7 +464,7 @@ def test_regression_manifest_rejects_non_finite_targets() -> None:
         construct_temporal_dataset(
             _prices(periods=6),
             spec=_spec(
-                data_cutoff=date(2026, 1, 6),
+                data_end=date(2026, 1, 6),
                 target_set=target_set,
                 task=task,
             ),
@@ -473,7 +473,7 @@ def test_regression_manifest_rejects_non_finite_targets() -> None:
 
 
 def test_source_scope_requires_exact_universe_and_eligibility_membership() -> None:
-    spec = _spec(data_cutoff=date(2026, 1, 6))
+    spec = _spec(data_end=date(2026, 1, 6))
 
     with pytest.raises(ValueError, match="missing universe tickers"):
         construct_temporal_dataset(
@@ -490,11 +490,21 @@ def test_source_scope_requires_exact_universe_and_eligibility_membership() -> No
         )
 
 
-def test_source_rows_after_the_cutoff_are_rejected() -> None:
-    with pytest.raises(ValueError, match="after the dataset cutoff"):
+def test_source_rows_outside_the_dataset_window_are_rejected() -> None:
+    with pytest.raises(ValueError, match="after the dataset end"):
         construct_temporal_dataset(
             _prices(periods=7),
-            spec=_spec(data_cutoff=date(2026, 1, 6)),
+            spec=_spec(data_end=date(2026, 1, 6)),
+            eligibility=_eligibility(),
+        )
+
+    with pytest.raises(ValueError, match="before the dataset start"):
+        construct_temporal_dataset(
+            _prices(periods=6),
+            spec=_spec(
+                data_start=date(2026, 1, 2),
+                data_end=date(2026, 1, 6),
+            ),
             eligibility=_eligibility(),
         )
 
@@ -503,7 +513,7 @@ def test_empty_selected_target_is_rejected() -> None:
     with pytest.raises(ValueError, match="No rows have an available"):
         construct_temporal_dataset(
             _prices(periods=2),
-            spec=_spec(data_cutoff=date(2026, 1, 2)),
+            spec=_spec(data_end=date(2026, 1, 2)),
             eligibility=_eligibility(),
         )
 
@@ -548,7 +558,8 @@ def _prices(*, periods: int) -> pd.DataFrame:
 
 def _spec(
     *,
-    data_cutoff: date,
+    data_end: date,
+    data_start: date = date(2026, 1, 1),
     target_set: TargetSetSpec | None = None,
     task: SupervisedTaskSpec | None = None,
 ) -> TemporalDatasetSpec:
@@ -596,8 +607,8 @@ def _spec(
             provider="test",
             tickers=("BBB", "AAA"),
         ),
-        data_start=date(2026, 1, 1),
-        data_end=data_cutoff,
+        data_start=data_start,
+        data_end=data_end,
     )
 
 

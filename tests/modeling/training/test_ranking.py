@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -81,4 +80,37 @@ def test_evaluate_cross_sectional_scores_reports_perfect_ranking() -> None:
     assert summary["mean_rank_ic"] == pytest.approx(1.0)
     assert summary["positive_rank_ic_fraction"] == pytest.approx(1.0)
     assert summary["mean_top_k_return"] == pytest.approx(0.045)
-    assert np.allclose(daily["top_k_excess_return"], [0.01, 0.01])
+    assert daily["top_k_mean_return"].tolist() == pytest.approx([0.03, 0.06])
+
+
+def test_evaluate_cross_sectional_scores_resolves_ties_independently_of_row_order() -> None:
+    index = _index(
+        [
+            ("yfinance", "AAA", "2026-01-02"),
+            ("yfinance", "BBB", "2026-01-02"),
+            ("yfinance", "CCC", "2026-01-02"),
+        ]
+    )
+    scores = pd.Series(1.0, index=index)
+    relevance = pd.Series([2, 1, 0], index=index, dtype="int64")
+    ranking_return = pd.Series([0.03, 0.02, 0.01], index=index)
+
+    _, ordered = evaluate_cross_sectional_scores(
+        scores,
+        relevance,
+        ranking_return,
+        top_k=1,
+        random_seed=23,
+    )
+    reversed_order = index[::-1]
+    _, reordered = evaluate_cross_sectional_scores(
+        scores.reindex(reversed_order),
+        relevance.reindex(reversed_order),
+        ranking_return.reindex(reversed_order),
+        top_k=1,
+        random_seed=23,
+    )
+
+    assert ordered["top_k_mean_return"].tolist() == pytest.approx(
+        reordered["top_k_mean_return"].tolist()
+    )
