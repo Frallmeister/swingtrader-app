@@ -266,7 +266,7 @@ def construct_temporal_dataset(
     targets = targets.loc[retained].copy()
     samples = samples.loc[retained].copy()
 
-    _validate_target_dates(samples, data_cutoff=spec.data_end)
+    _validate_target_dates(samples, data_end=spec.data_end)
     manifest = _build_manifest(
         spec=spec,
         features=features,
@@ -370,15 +370,15 @@ def _sample_metadata(
     )
 
 
-def _validate_target_dates(samples: pd.DataFrame, *, data_cutoff: date) -> None:
+def _validate_target_dates(samples: pd.DataFrame, *, data_end: date) -> None:
     signal_dates = pd.DatetimeIndex(samples.index.get_level_values("trading_date"))
     target_end_dates = pd.DatetimeIndex(samples[TARGET_END_DATE_COLUMN])
     if target_end_dates.hasnans:
         raise ValueError("Retained samples must have non-missing target end dates.")
     if (target_end_dates <= signal_dates).any():
         raise ValueError("Target end dates must follow their signal dates.")
-    if target_end_dates.max().date() > data_cutoff:
-        raise ValueError("Target end dates must not exceed the dataset cutoff.")
+    if target_end_dates.max().date() > data_end:
+        raise ValueError("Target end dates must not exceed the dataset end.")
 
 
 def _build_manifest(
@@ -451,7 +451,7 @@ def _validate_bundle_frames(
         raise ValueError("Manifest source and excluded row counts are inconsistent.")
     if targets[manifest.spec.task.target_column].isna().any():
         raise ValueError("The selected supervised target must be complete.")
-    _validate_target_dates(samples, data_cutoff=manifest.spec.data_end)
+    _validate_target_dates(samples, data_end=manifest.spec.data_end)
 
 
 def _selected_target_summary(

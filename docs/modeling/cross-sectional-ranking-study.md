@@ -15,7 +15,7 @@ Every model output is treated as a ranking score. The notebook reports:
 - NDCG at the configured top `k`, using ordinal relevance grades;
 - daily rank IC, defined as Spearman correlation with continuous market-relative return;
 - the fraction of dates with positive rank IC;
-- mean return among the top `k` candidates.
+- mean market-relative forward return among the top `k` candidates.
 
 The date-level results remain available for distribution plots and regime inspection. Aggregate values alone are not sufficient evidence that one formulation is stable.
 
