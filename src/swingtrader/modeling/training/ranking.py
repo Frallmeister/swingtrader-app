@@ -23,10 +23,14 @@ def prepare_xgboost_ranking_data(
     if (values < 0).any() or not np.equal(values, np.floor(values)).all():
         raise ValueError("Ranking relevance labels must be non-negative integers.")
 
-    order = features.index.to_frame(index=False).sort_values(
-        ["provider", "trading_date", "ticker"],
-        kind="stable",
-    ).index.to_numpy()
+    order = (
+        features.index.to_frame(index=False)
+        .sort_values(
+            ["provider", "trading_date", "ticker"],
+            kind="stable",
+        )
+        .index.to_numpy()
+    )
     sorted_features = features.iloc[order].copy()
     sorted_relevance = numeric_relevance.iloc[order].astype("int64").copy()
     query_index = pd.MultiIndex.from_frame(
@@ -89,9 +93,7 @@ def evaluate_cross_sectional_scores(
         )
 
     daily = pd.DataFrame(rows).set_index(_QUERY_LEVELS).sort_index()
-    daily["top_k_excess_return"] = (
-        daily["top_k_mean_return"] - daily["universe_mean_return"]
-    )
+    daily["top_k_excess_return"] = daily["top_k_mean_return"] - daily["universe_mean_return"]
     valid_rank_ic = daily["rank_ic"].dropna()
     summary = pd.Series(
         {
@@ -109,9 +111,7 @@ def evaluate_cross_sectional_scores(
 
 def _validate_aligned_index(features: pd.DataFrame, relevance: pd.Series) -> None:
     if list(features.index.names) != _CANONICAL_INDEX_NAMES:
-        raise ValueError(
-            "Ranking data must use index levels provider, ticker, and trading_date."
-        )
+        raise ValueError("Ranking data must use index levels provider, ticker, and trading_date.")
     if not features.index.is_unique:
         raise ValueError("Ranking data index must be unique.")
     if not features.index.equals(relevance.index):
@@ -121,9 +121,7 @@ def _validate_aligned_index(features: pd.DataFrame, relevance: pd.Series) -> Non
 def _validate_aligned_series(*series: pd.Series) -> None:
     first = series[0]
     if list(first.index.names) != _CANONICAL_INDEX_NAMES:
-        raise ValueError(
-            "Ranking data must use index levels provider, ticker, and trading_date."
-        )
+        raise ValueError("Ranking data must use index levels provider, ticker, and trading_date.")
     if not first.index.is_unique:
         raise ValueError("Ranking data index must be unique.")
     if any(not first.index.equals(item.index) for item in series[1:]):
