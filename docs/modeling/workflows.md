@@ -4,7 +4,7 @@ A workflow is an ordered composition of public operations and runtime artifacts 
 
 ## End-to-End Lifecycle
 
-Solid nodes are implemented. Dashed nodes describe planned nonlinear model-development and production workflows. The lifecycle diagram follows the objective-target path; the separate human-labeling path is documented below.
+Solid nodes are implemented. Dashed nodes describe planned reusable nonlinear-training and production workflows. The notebook-led XGBoost comparison is documented separately below. The lifecycle diagram follows the objective-target path; the separate human-labeling path is documented below.
 
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 34, "rankSpacing": 52}}}%%
@@ -17,7 +17,7 @@ flowchart LR
     train([Fit baseline model])
     validate([Evaluate validation results])
     test([Evaluate locked test explicitly])
-    advanced([Train nonlinear candidates])
+    advanced([Reusable nonlinear training])
     register([Register selected model])
     infer([Run production inference])
     rank([Rank trade candidates])
@@ -132,6 +132,14 @@ flowchart LR
 ```
 
 Candidate ranking and winner selection remain manual. After choosing a schema, pass that `ModelSpec` to the existing outer baseline harness. See [Model Feature Selection and Train-Only Cross-Validation](feature-selection-and-cross-validation.md).
+
+## Exploratory Cross-Sectional XGBoost Comparison
+
+**Status:** Implemented as a reusable exploration notebook.
+
+`06_cross_sectional_xgboost_ranking.ipynb` fits regression, top-quintile classification, and learning-to-rank candidates on outer train and compares their validation rankings. One provider/date cross-section is one ranking query. The notebook keeps model parameters and plots visible for quick studies, while two small helpers standardize query preparation and common ranking diagnostics. It does not read the locked test or extend the reusable baseline harness.
+
+See [Cross-Sectional XGBoost Ranking Study](cross-sectional-ranking-study.md).
 
 ## Interactive Entry Labeling
 

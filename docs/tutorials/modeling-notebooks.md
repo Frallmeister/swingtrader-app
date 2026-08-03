@@ -7,7 +7,8 @@ The repository contains executable onboarding notebooks under `notebooks/workflo
 3. `03_baseline_models_and_evaluation.ipynb` compares the constant-prior, date-matched random-ranking, and regularized-logistic baselines on validation and inspects the standardized reports and local artifacts.
 4. `04_feature_selection_and_temporal_cross_validation.ipynb` compares ordered model input schemas with expanding folds confined to outer train, then demonstrates manually passing a chosen schema to the existing outer evaluation harness.
 5. `05_interactive_entry_labeling.ipynb` runs the resumable rolling-window workflow for binary entry labels, Plotly candle selection, hover-driven ATR risk guides, and commission-aware forward-outcome heatmaps.
+6. `06_cross_sectional_xgboost_ranking.ipynb` compares XGBoost regression, classification, and learning-to-rank formulations on outer validation.
 
 Run the notebooks from the repository's Jupyter environment after completing local installation and market-data ingestion. The labeling notebook additionally requires an explicit validation-end boundary before a new session is created. They use public application APIs and intentionally avoid reimplementing production logic inside notebook cells.
 
-The baseline and cross-validation notebooks leave the locked test disabled. Use inner folds and outer validation for preprocessing, feature-schema, model, hyperparameter, threshold, and ranking-rule choices. Enable locked-test evaluation only after those choices are frozen.
+The baseline, cross-validation, and XGBoost ranking notebooks leave the locked test disabled. Use inner folds and outer validation for preprocessing, feature-schema, model, hyperparameter, threshold, and ranking-rule choices. Enable locked-test evaluation only after those choices are frozen.

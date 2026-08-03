@@ -1,6 +1,6 @@
 # Modeling
 
-Model development and inference code lives here. The package owns reusable target calculations, versioned target contracts, canonical unsplit temporal dataset construction, immutable experiment specifications, purged fixed temporal splitting, baseline fitting, standardized evaluation, interactive entry-labeling support, a small daily-bar backtesting pilot, generated model artifacts, and optional local MLflow tracking. Nonlinear candidates, model registration, and production inference remain follow-up work.
+Model development and inference code lives here. The package owns reusable target calculations, versioned target contracts, canonical unsplit temporal dataset construction, immutable experiment specifications, purged fixed temporal splitting, baseline fitting, standardized evaluation, interactive entry-labeling support, a small daily-bar backtesting pilot, generated model artifacts, and optional local MLflow tracking. A notebook-led cross-sectional XGBoost comparison is available for exploration. Reusable nonlinear training contracts, model registration, and production inference remain follow-up work.
 
 ## Dataset Package
 
@@ -31,7 +31,8 @@ The `swingtrader.modeling.training` package contains:
 - `baselines.py`, which implements constant-prior, deterministic random-ranking, and regularized logistic baselines;
 - `evaluation.py`, which computes pooled classification, calibration, per-date, cross-sectional ranking, random-comparison, and missingness results;
 - `reporting.py`, which writes deterministic JSON, CSV, Markdown, compressed prediction, and SVG artifacts;
-- `harness.py`, which fits on train, evaluates validation by default, optionally evaluates locked test, and logs results through `ExperimentRun`.
+- `harness.py`, which fits on train, evaluates validation by default, optionally evaluates locked test, and logs results through `ExperimentRun`;
+- `ranking.py`, which prepares date-grouped XGBoost ranking inputs and calculates compact cross-sectional ranking diagnostics for notebooks.
 
 Logistic preprocessing is fitted on training rows only and retained with the fitted coefficients. Validation and test reports are independent; locked-test rows are not read during routine validation runs.
 
@@ -54,6 +55,7 @@ See the main documentation:
 - [Cross-sectional return targets](../../../docs/modeling/targets/cross-sectional.md)
 - [Baseline models and evaluation harness](../../../docs/modeling/baseline-models.md)
 - [Model evaluation](../../../docs/modeling/evaluation.md)
+- [Cross-sectional XGBoost ranking study](../../../docs/modeling/cross-sectional-ranking-study.md)
 - [Interactive entry labeling](../../../docs/modeling/data-labeling.md)
 - [Backtesting pilot](../../../docs/modeling/backtesting.md)
 - [Experiment specifications and MLflow tracking](../../../docs/modeling/experiments.md)
