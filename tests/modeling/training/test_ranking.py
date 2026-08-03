@@ -83,6 +83,7 @@ def test_evaluate_cross_sectional_scores_reports_perfect_ranking() -> None:
     assert daily["top_k_mean_return"].tolist() == pytest.approx([0.03, 0.06])
 
 
+@pytest.mark.filterwarnings("ignore::scipy.stats.ConstantInputWarning")
 def test_evaluate_cross_sectional_scores_resolves_ties_independently_of_row_order() -> None:
     index = _index(
         [
