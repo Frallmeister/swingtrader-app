@@ -11,7 +11,7 @@ flowchart TB
     target_spec["TargetSetSpec"]
     task_spec["SupervisedTaskSpec"]
     universe_spec["UniverseSpec"]
-    cutoff["data_cutoff"]
+    cutoff["data_start / data_end"]
     dataset_spec["TemporalDatasetSpec"]
     bronze[(Bronze market history)]
     eligibility[(Cutoff-aware eligibility)]
@@ -62,7 +62,7 @@ flowchart TB
 - a versioned `TargetSetSpec`;
 - one `SupervisedTaskSpec`;
 - a resolved `UniverseSpec` with concrete provider and ticker membership;
-- an inclusive `data_cutoff`.
+- an inclusive `data_start` and `data_end` window.
 
 Split dates, model hyperparameters, random seeds, and MLflow are intentionally absent. An `ExperimentSpec` exposes the same lower-level contract through `experiment_spec.dataset_spec`.
 

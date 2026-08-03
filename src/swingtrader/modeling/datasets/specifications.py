@@ -74,11 +74,13 @@ class TemporalDatasetSpec:
     target_set: TargetSetSpec
     task: SupervisedTaskSpec
     universe: UniverseSpec
-    data_cutoff: date
+    data_start: date
+    data_end: date
 
     def __post_init__(self) -> None:
         self.task.validate_target_set(self.target_set)
-        _require_date(self.data_cutoff, field_name="Data cutoff")
+        _require_date(self.data_start, field_name="Data start")
+        _require_date(self.data_end, field_name="Data end")
         if self.task.horizon_sessions is None:
             raise ValueError("Temporal dataset tasks must declare horizon_sessions.")
         if self.task.horizon_sessions > self.target_set.maximum_horizon_sessions:
@@ -95,7 +97,8 @@ class TemporalDatasetSpec:
             "target_set": {**target_manifest, "digest": self.target_set.digest},
             "task": self.task.to_manifest(),
             "universe": {**universe_manifest, "digest": self.universe.digest},
-            "data_cutoff": self.data_cutoff.isoformat(),
+            "data_start": self.data_start.isoformat(),
+            "data_end": self.data_end.isoformat(),
         }
 
     def to_json(self, *, indent: int | None = 2) -> str:

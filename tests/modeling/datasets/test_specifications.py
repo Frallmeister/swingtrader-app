@@ -154,5 +154,6 @@ def test_temporal_dataset_spec_requires_task_horizon() -> None:
             target_set=target_set,
             task=task,
             universe=UniverseSpec(name="universe", version="1", provider="test", tickers=("AAA",)),
-            data_cutoff=date(2026, 1, 1),
+            data_start=date(2020, 1, 1),
+            data_end=date(2026, 1, 1),
         )

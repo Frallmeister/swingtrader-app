@@ -146,9 +146,9 @@ def build_temporal_dataset(
 ) -> TemporalDatasetBundle:
     """Build an unsplit temporal dataset from bronze market data.
 
-    The complete available history through ``spec.data_cutoff`` is loaded for
-    the exact resolved universe. Features, targets, and training eligibility
-    are therefore evaluated against the same inclusive data cutoff.
+    The available history between ``spec.data_start`` and ``spec.data_end`` is
+    loaded for the exact resolved universe. Features, targets, and training
+    eligibility are therefore evaluated against the same inclusive data window.
 
     Parameters
     ----------
@@ -156,7 +156,7 @@ def build_temporal_dataset(
         SQLAlchemy engine containing the bronze daily-price table.
     spec
         Immutable description of the feature set, target set, supervised
-        task, resolved universe, and data cutoff.
+        task, resolved universe, and data window.
 
     Returns
     -------
@@ -181,7 +181,8 @@ def build_temporal_dataset(
         engine=engine,
         provider=spec.universe.provider,
         tickers=spec.universe.tickers,
-        end_date=spec.data_cutoff,
+        start_date=spec.data_start,
+        end_date=spec.data_end,
         columns=source_columns,
     )
     prices = loaded.set_index(list(MARKET_PRICE_INDEX_NAMES)).sort_index()
@@ -189,7 +190,7 @@ def build_temporal_dataset(
         provider=spec.universe.provider,
         tickers=spec.universe.tickers,
         engine=engine,
-        data_cutoff=spec.data_cutoff,
+        data_cutoff=spec.data_end,
     )
     eligibility = {
         state.ticker: TickerEligibility(
@@ -265,7 +266,7 @@ def construct_temporal_dataset(
     targets = targets.loc[retained].copy()
     samples = samples.loc[retained].copy()
 
-    _validate_target_dates(samples, data_cutoff=spec.data_cutoff)
+    _validate_target_dates(samples, data_cutoff=spec.data_end)
     manifest = _build_manifest(
         spec=spec,
         features=features,
@@ -309,7 +310,7 @@ def _validate_source_scope(
         names = ", ".join(unexpected_tickers)
         raise ValueError(f"Source history contains unexpected tickers: {names}")
     signal_dates = pd.DatetimeIndex(prices.index.get_level_values("trading_date"))
-    if signal_dates.max().date() > spec.data_cutoff:
+    if signal_dates.max().date() > spec.data_end:
         raise ValueError("Source history contains rows after the dataset cutoff.")
     eligibility_tickers = set(eligibility)
     if eligibility_tickers != set(spec.universe.tickers):
@@ -448,7 +449,7 @@ def _validate_bundle_frames(
         raise ValueError("Manifest source and excluded row counts are inconsistent.")
     if targets[manifest.spec.task.target_column].isna().any():
         raise ValueError("The selected supervised target must be complete.")
-    _validate_target_dates(samples, data_cutoff=manifest.spec.data_cutoff)
+    _validate_target_dates(samples, data_cutoff=manifest.spec.data_end)
 
 
 def _selected_target_summary(

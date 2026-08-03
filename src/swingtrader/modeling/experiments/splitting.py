@@ -353,7 +353,7 @@ def split_temporal_dataset(
         raise TypeError("Temporal splitting requires a TemporalDatasetBundle.")
     if not isinstance(spec, TemporalSplitSpec):
         raise TypeError("Temporal splitting requires a TemporalSplitSpec.")
-    if spec.test_end > dataset.manifest.spec.data_cutoff:
+    if spec.test_end > dataset.manifest.spec.data_end:
         raise ValueError("Split test end must not exceed the temporal dataset cutoff.")
 
     signal_dates = pd.DatetimeIndex(dataset.samples.index.get_level_values("trading_date"))

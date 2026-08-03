@@ -146,7 +146,8 @@ def _bundle_and_experiment() -> tuple[TemporalDatasetBundle, ExperimentSpec]:
         target_set=target_set,
         task=task,
         universe=universe,
-        data_cutoff=all_dates[-1].date(),
+        data_start=all_dates[0].date(),
+        data_end=all_dates[-1].date(),
     )
     manifest = TemporalDatasetManifest(
         spec=dataset_spec,
@@ -192,7 +193,7 @@ def _bundle_and_experiment() -> tuple[TemporalDatasetBundle, ExperimentSpec]:
         target_set=target_set,
         task=task,
         universe=universe,
-        data_cutoff=dataset_spec.data_cutoff,
+        data_cutoff=dataset_spec.data_end,
         split=split,
         model=ModelSpec(
             name="logistic",

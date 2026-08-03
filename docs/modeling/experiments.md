@@ -47,7 +47,8 @@ classDiagram
     }
     class UniverseSpec
     class TemporalDatasetSpec {
-        +data_cutoff
+        +data_start
+        +data_end
     }
     class TemporalSplitSpec {
         +train_range

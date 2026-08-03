@@ -128,7 +128,8 @@ def _bundle() -> TemporalDatasetBundle:
             provider="yfinance",
             tickers=("AAA.ST", "BBB.ST"),
         ),
-        data_cutoff=date(2022, 1, 20),
+        data_start=date(2021, 12, 27),
+        data_end=date(2022, 1, 20),
     )
     manifest = TemporalDatasetManifest(
         spec=spec,

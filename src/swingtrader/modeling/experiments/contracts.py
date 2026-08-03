@@ -240,12 +240,14 @@ class ExperimentSpec:
     def __post_init__(self) -> None:
         _require_text(self.name, field_name="Experiment name")
         _require_text(self.version, field_name="Experiment version")
+        _require_date(self.data_cutoff, field_name="Data cutoff")
         _ = TemporalDatasetSpec(
             feature_set=self.feature_set,
             target_set=self.target_set,
             task=self.task,
             universe=self.universe,
-            data_cutoff=self.data_cutoff,
+            data_start=self.split.train_start,
+            data_end=self.data_cutoff,
         )
 
         if self.data_cutoff < self.split.test_end:
@@ -275,7 +277,8 @@ class ExperimentSpec:
             target_set=self.target_set,
             task=self.task,
             universe=self.universe,
-            data_cutoff=self.data_cutoff,
+            data_start=self.split.train_start,
+            data_end=self.data_cutoff,
         )
 
     def to_manifest(self) -> dict[str, object]:

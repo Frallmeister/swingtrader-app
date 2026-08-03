@@ -238,7 +238,8 @@ def test_feature_blocks_cannot_mutate_the_index_in_place() -> None:
         target_set=spec.target_set,
         task=spec.task,
         universe=spec.universe,
-        data_cutoff=spec.data_cutoff,
+        data_start=spec.data_start,
+        data_end=spec.data_end,
     )
 
     with pytest.raises(ValueError, match="changed the canonical sample index"):
@@ -595,7 +596,8 @@ def _spec(
             provider="test",
             tickers=("BBB", "AAA"),
         ),
-        data_cutoff=data_cutoff,
+        data_start=date(2026, 1, 1),
+        data_end=data_cutoff,
     )
 
 
