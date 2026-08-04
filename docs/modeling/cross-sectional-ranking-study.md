@@ -21,16 +21,21 @@ The date-level results remain available for distribution plots and regime inspec
 
 ## Ranker Feature and Parameter Tuning
 
-`notebooks/workflows/modeling/11_cross_sectional_xgboost_ranker_tuning.ipynb` narrows the study to `XGBRanker`. It calculates one broad `FeatureSetSpec` once, then slices that loaded frame into curated feature candidates for every trial. Expanding folds remain confined to outer train.
+`notebooks/workflows/modeling/11_cross_sectional_xgboost_ranker_tuning.ipynb` narrows the study to `XGBRanker`. It calculates one broad `FeatureSetSpec` once, then slices every trial from the loaded frame. Expanding folds remain confined to outer train.
+
+The notebook starts from one interpretable feature selection and repeats a small Optuna study. After each feature iteration, it averages gain importance across folds and the strongest trials, removes a small low-importance fraction, and randomly adds individual excluded features. Progress output reports each completed Optuna trial and feature iteration.
 
 The search evaluates the highest-ranked stocks using:
 
 - mean future cross-sectional percentile among the top `k`;
 - mean and median market-relative forward return among the top `k`;
 - top-quintile enrichment and the fraction of dates with positive top-`k` relative return;
-- fold-level dispersion and worst-fold performance.
+- fold-level dispersion and worst-fold performance;
+- train-versus-fold generalization gaps.
 
-The generic base uses a small deterministic sample of hyperparameters for every feature candidate. The search size is intentionally visible and modest; it is an exploratory comparison, not a reusable production tuner. One chosen trial is fitted on complete outer train and inspected once on outer validation. The locked test remains untouched.
+The search size and feature-update settings remain visible in the notebook. This is an exploratory comparison, not a reusable production tuner. Outer validation requires an explicitly chosen inner-fold trial, and the locked test remains untouched.
+
+The notebook applies the current configured Large/Mid Cap universe retrospectively across the study period. Results are conditional on today's configured universe and may contain survivorship bias; they are not a reconstruction of historical point-in-time membership.
 
 ## Reusable Helpers
 
@@ -39,7 +44,7 @@ The generic base uses a small deterministic sample of hyperparameters for every 
 - `prepare_xgboost_ranking_data()` sorts rows into contiguous provider/date groups and returns XGBoost query IDs;
 - `evaluate_cross_sectional_scores()` calculates the common date-level and aggregate ranking diagnostics.
 
-Model fitting, feature candidates, tuning metrics, and parameter choices remain visible in the notebooks so they can be changed quickly during exploration.
+Model fitting, feature-selection rules, tuning metrics, and parameter choices remain visible in the notebooks so they can be changed quickly during exploration.
 
 ## Working With the Notebooks
 

@@ -1,6 +1,6 @@
 # Modeling
 
-Model development and inference code lives here. The package owns reusable target calculations, versioned target contracts, canonical unsplit temporal dataset construction, immutable experiment specifications, purged fixed temporal splitting, baseline fitting, standardized evaluation, interactive entry-labeling support, a small daily-bar backtesting pilot, generated model artifacts, and optional local MLflow tracking. A notebook-led cross-sectional XGBoost comparison is available for exploration. Reusable nonlinear training contracts, model registration, and production inference remain follow-up work.
+Model development and inference code lives here. The package owns reusable target calculations, versioned target contracts, canonical unsplit temporal dataset construction, immutable experiment specifications, purged fixed temporal splitting, baseline fitting, standardized evaluation, interactive entry-labeling support, a small daily-bar backtesting pilot, generated model artifacts, and optional local MLflow tracking. Notebook-led cross-sectional XGBoost comparison and iterative ranker-tuning studies are available for exploration. Reusable nonlinear training contracts, model registration, and production inference remain follow-up work.
 
 ## Dataset Package
 

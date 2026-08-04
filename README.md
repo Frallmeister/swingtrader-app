@@ -30,7 +30,7 @@ The project currently implements the data and initial modeling foundation:
 * train-only median imputation and standardization retained with the fitted logistic artifact
 * explicit ordered model-input schemas and expanding temporal cross-validation confined to outer train
 * standardized classification, calibration, daily ranking, and dataset-context evaluation reports
-* reusable validation-only notebooks comparing XGBoost formulations and tuning XGBRanker feature/hyperparameter combinations
+* reusable validation-only notebooks comparing XGBoost formulations and iteratively tuning XGBRanker features and hyperparameters with Optuna
 * deterministic local or MLflow model, prediction, table, Markdown, and SVG artifacts
 * resumable rolling-window candle labeling with interactive Plotly charts and commission-aware forward-outcome heatmaps
 * a small daily-bar backtesting pilot with next-open execution and ATR-based risk sizing
