@@ -1,4 +1,4 @@
-"""Target builders and execution helpers for canonical modeling datasets."""
+"""Forward-return target builders for canonical modeling datasets."""
 
 import numpy as np
 import pandas as pd
