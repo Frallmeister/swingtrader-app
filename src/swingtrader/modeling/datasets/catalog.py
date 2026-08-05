@@ -32,6 +32,12 @@ from swingtrader.modeling.datasets.labels import (
     add_fixed_return_target,
     add_forward_return_targets,
 )
+from swingtrader.modeling.datasets.max_return import (
+    MAX_RETURN_HORIZONS,
+    MAX_RETURN_REQUIRED_PRICE_COLUMNS,
+    add_future_max_return_targets,
+    future_max_return_target_columns,
+)
 from swingtrader.modeling.datasets.triple_barrier import (
     TRIPLE_BARRIER_REQUIRED_PRICE_COLUMNS,
     add_triple_barrier_targets,
@@ -149,3 +155,31 @@ CROSS_SECTIONAL_RETURN_PRIMARY_TASK = SupervisedTaskSpec(
     horizon_sessions=5,
 )
 CROSS_SECTIONAL_RETURN_PRIMARY_TASK.validate_target_set(CROSS_SECTIONAL_RETURN_TARGET_SET)
+
+
+MAX_RETURN_OUTPUT_COLUMNS = future_max_return_target_columns(MAX_RETURN_HORIZONS)
+
+MAX_RETURN_TARGET_SET = TargetSetSpec(
+    name="max_return_targets",
+    version="1",
+    families=(
+        TargetFamilySpec(
+            name="future_max_return",
+            builder=add_future_max_return_targets,
+            parameters={"horizons": MAX_RETURN_HORIZONS},
+            required_columns=frozenset(MAX_RETURN_REQUIRED_PRICE_COLUMNS),
+            output_columns=MAX_RETURN_OUTPUT_COLUMNS,
+            maximum_horizon_sessions=max(MAX_RETURN_HORIZONS),
+        ),
+    ),
+)
+
+MAX_RETURN_PRIMARY_TASK = SupervisedTaskSpec(
+    name="future_max_return_5d_regression",
+    target_set_name=MAX_RETURN_TARGET_SET.name,
+    target_set_version=MAX_RETURN_TARGET_SET.version,
+    target_column="future_max_return_5d",
+    task_type="regression",
+    horizon_sessions=5,
+)
+MAX_RETURN_PRIMARY_TASK.validate_target_set(MAX_RETURN_TARGET_SET)
