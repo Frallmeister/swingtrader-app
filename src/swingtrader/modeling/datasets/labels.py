@@ -1,7 +1,5 @@
 """Target builders and execution helpers for canonical modeling datasets."""
 
-from typing import TYPE_CHECKING
-
 import numpy as np
 import pandas as pd
 
@@ -10,9 +8,6 @@ from swingtrader.data.market_frame import (
     validate_market_price_index,
     validate_required_columns,
 )
-
-if TYPE_CHECKING:
-    from swingtrader.modeling.datasets.contracts import TargetSetSpec
 
 FORWARD_RETURN_HORIZONS = (5, 10, 15)
 SIGNIFICANT_RETURN_COMMISSION = 0.0025
@@ -81,33 +76,3 @@ def add_fixed_return_target(
     target.loc[valid] = result.loc[valid, forward_return_column].gt(threshold).astype("boolean")
     result[output_column] = target
     return result
-
-
-def generate_target_set(
-    prices: pd.DataFrame,
-    *,
-    target_set: "TargetSetSpec",
-) -> pd.DataFrame:
-    """Return prices with the targets enforced by ``target_set`` appended."""
-    return target_set.apply(prices)
-
-
-def generate_forward_return_labels(prices: pd.DataFrame) -> pd.DataFrame:
-    """Generate forward-return targets for a canonical market-price DataFrame."""
-    from swingtrader.modeling.datasets.catalog import FORWARD_RETURN_TARGET_SET
-
-    return generate_target_set(prices, target_set=FORWARD_RETURN_TARGET_SET)
-
-
-def generate_triple_barrier_labels(prices: pd.DataFrame) -> pd.DataFrame:
-    """Generate triple-barrier targets for a canonical market-price DataFrame."""
-    from swingtrader.modeling.datasets.catalog import TRIPLE_BARRIER_TARGET_SET
-
-    return generate_target_set(prices, target_set=TRIPLE_BARRIER_TARGET_SET)
-
-
-def generate_cross_sectional_return_labels(prices: pd.DataFrame) -> pd.DataFrame:
-    """Generate cross-sectional return targets for a canonical market-price DataFrame."""
-    from swingtrader.modeling.datasets.catalog import CROSS_SECTIONAL_RETURN_TARGET_SET
-
-    return generate_target_set(prices, target_set=CROSS_SECTIONAL_RETURN_TARGET_SET)

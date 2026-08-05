@@ -27,14 +27,14 @@ The label-generation code for this contract is implemented in the modeling datas
 Modeling uses the same canonical market-price representation as indicators and features: a unique, sorted `MultiIndex` named `provider`, `ticker`, and `trading_date`, in that exact order. Those identifiers must not also be ordinary columns. Bronze loader output is column-oriented and should be converted once at the caller boundary:
 
 ```python
-from swingtrader.modeling.datasets import generate_forward_return_labels
+from swingtrader.modeling.datasets import FORWARD_RETURN_TARGET_SET
 
 prices = (
     prices
     .set_index(["provider", "ticker", "trading_date"])
     .sort_index()
 )
-labels = generate_forward_return_labels(prices)
+labels = FORWARD_RETURN_TARGET_SET.apply(prices)
 ```
 
 Target builders preserve this index. Feature and label frames can therefore be aligned or joined directly without reconstructing observation identity.

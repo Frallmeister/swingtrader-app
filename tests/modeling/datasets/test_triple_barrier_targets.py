@@ -7,7 +7,6 @@ from swingtrader.modeling.datasets import (
     TRIPLE_BARRIER_PRIMARY_TASK,
     TRIPLE_BARRIER_TARGET_SET,
     add_triple_barrier_targets,
-    generate_triple_barrier_labels,
 )
 from swingtrader.modeling.datasets.contracts import TargetFamilySpec, TargetSetSpec
 
@@ -310,7 +309,7 @@ def test_triple_barrier_manifest_contains_material_triple_barrier_parameters() -
 def test_generate_triple_barrier_labels_produces_only_triple_barrier_columns() -> None:
     prices = _prices([(100.0, 101.0, 99.0, 100.0)] * 29)
 
-    result = generate_triple_barrier_labels(prices)
+    result = TRIPLE_BARRIER_TARGET_SET.apply(prices)
 
     assert set(TRIPLE_BARRIER_TARGET_SET.target_columns).issubset(result.columns)
     assert result.iloc[13]["triple_barrier_label_5d"] == 0

@@ -113,9 +113,9 @@ labeled = add_triple_barrier_targets(
 Generate the triple-barrier target set, which produces only triple-barrier outputs, with:
 
 ```python
-from swingtrader.modeling.datasets import generate_triple_barrier_labels
+from swingtrader.modeling.datasets import TRIPLE_BARRIER_TARGET_SET
 
-labeled = generate_triple_barrier_labels(prices)
+labeled = TRIPLE_BARRIER_TARGET_SET.apply(prices)
 ```
 
 The current baseline harness and evaluation reports are binary-specific. This target set can be used by the temporal dataset layer, but multiclass estimators and evaluation must handle `-1`, `0`, and `1` explicitly. Estimators requiring zero-based class IDs should encode the labels at the model boundary without changing the stored target contract.

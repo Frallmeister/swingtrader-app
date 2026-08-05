@@ -34,10 +34,6 @@ from swingtrader.modeling.datasets.labels import (
     SIGNIFICANT_RETURN_REQUIRED_NET,
     SIGNIFICANT_RETURN_THRESHOLD,
     TRADING_DAYS_PER_YEAR,
-    generate_cross_sectional_return_labels,
-    generate_forward_return_labels,
-    generate_target_set,
-    generate_triple_barrier_labels,
 )
 from swingtrader.modeling.datasets.specifications import TemporalDatasetSpec, UniverseSpec
 from swingtrader.modeling.datasets.tabular import TabularDataset, to_tabular_dataset
@@ -102,10 +98,6 @@ __all__ = [
     "build_temporal_dataset",
     "construct_temporal_dataset",
     "cross_sectional_return_target_columns",
-    "generate_cross_sectional_return_labels",
-    "generate_forward_return_labels",
-    "generate_target_set",
-    "generate_triple_barrier_labels",
     "to_tabular_dataset",
     "triple_barrier_output_columns",
 ]

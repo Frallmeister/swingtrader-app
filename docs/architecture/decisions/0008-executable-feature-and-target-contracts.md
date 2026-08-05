@@ -15,7 +15,7 @@ Feature and target specifications are executable contracts rather than descripti
 - `FeatureBlockSpec` and `TargetFamilySpec` require every keyword-compatible builder parameter to be explicit, pass those parameters directly, validate required inputs and output collisions, require an unchanged index, and return only declared outputs in declaration order.
 - `FeatureSetSpec` and `TargetSetSpec` execute their blocks or families in declaration order and append only the enforced outputs to an independent copy of the source frame.
 - Later blocks or families may consume outputs declared by earlier ones. External source requirements remain derivable from that ordered contract.
-- Compatibility helpers such as `add_feature_set()` and `generate_target_set()` delegate to the specifications instead of reimplementing contract validation.
+- Compatibility helpers such as `add_feature_set()` delegate to the specifications instead of reimplementing contract validation.
 - Temporal dataset construction consumes the executable feature and target sets directly, then performs only dataset-level alignment, target-resolution, eligibility, and manifest work.
 
 Individual feature and target builders remain public and independently callable. This decision does not introduce automatic discovery, a generic dependency graph, individual-column execution within a family, persistence, or a feature store.
