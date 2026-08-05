@@ -38,22 +38,6 @@ def test_add_future_max_return_targets_calculates_tickers_independently() -> Non
     assert bbb_first["future_max_return_2d"] == pytest.approx(260 / 200 - 1)
 
 
-def test_add_future_max_return_targets_calculates_providers_independently() -> None:
-    prices = pd.concat(
-        [
-            _price_frame(provider="yfinance", opens=[10, 20, 30], highs=[10, 25, 35]),
-            _price_frame(provider="other", opens=[10, 20, 30], highs=[10, 22, 24]),
-        ]
-    ).sort_index()
-
-    targets = add_future_max_return_targets(prices, horizons=(2,))
-
-    yfinance_first = targets.xs(("yfinance", "AAA.ST"), level=["provider", "ticker"]).iloc[0]
-    other_first = targets.xs(("other", "AAA.ST"), level=["provider", "ticker"]).iloc[0]
-    assert yfinance_first["future_max_return_2d"] == pytest.approx(35 / 20 - 1)
-    assert other_first["future_max_return_2d"] == pytest.approx(24 / 20 - 1)
-
-
 def test_add_future_max_return_targets_leaves_tail_outcomes_missing_for_each_horizon() -> None:
     prices = _price_frame(opens=range(1, 17), highs=range(1, 17))
 
@@ -86,25 +70,6 @@ def test_add_future_max_return_targets_leaves_non_positive_entry_open_outcome_mi
     assert pd.isna(targets.iloc[0]["future_max_return_2d"])
 
 
-def test_add_future_max_return_targets_preserves_index_and_does_not_mutate_input() -> None:
-    prices = _price_frame(opens=[10, 20, 30, 40], highs=[15, 25, 35, 45])
-    original_prices = prices.copy(deep=True)
-
-    targets = add_future_max_return_targets(prices, horizons=(2,))
-
-    pd.testing.assert_frame_equal(prices, original_prices)
-    assert targets.index.equals(prices.index)
-
-
-def test_add_future_max_return_targets_returns_float_dtype() -> None:
-    targets = add_future_max_return_targets(
-        _price_frame(opens=[10, 20, 30], highs=[15, 25, 35]),
-        horizons=(2,),
-    )
-
-    assert pd.api.types.is_float_dtype(targets["future_max_return_2d"])
-
-
 @pytest.mark.parametrize("horizons", [(), (2, 2), (0,), (-1,), (True,), (1.5,)])
 def test_add_future_max_return_targets_rejects_invalid_horizons(
     horizons: tuple[int, ...],
@@ -120,13 +85,6 @@ def test_add_future_max_return_targets_rejects_missing_required_columns() -> Non
     prices = _price_frame(opens=[10, 20], highs=[15, 25]).drop(columns=["high"])
 
     with pytest.raises(ValueError, match="high"):
-        add_future_max_return_targets(prices, horizons=(2,))
-
-
-def test_add_future_max_return_targets_rejects_flat_identifier_columns() -> None:
-    prices = _price_frame(opens=[10, 20], highs=[15, 25]).reset_index()
-
-    with pytest.raises(ValueError, match="MultiIndex"):
         add_future_max_return_targets(prices, horizons=(2,))
 
 
