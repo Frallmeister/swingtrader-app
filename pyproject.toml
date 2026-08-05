@@ -38,10 +38,16 @@ modeling = [
     "sqlalchemy>=2.0.51,<3",
     "xgboost>=3.3.0",
 ]
-# Add an `api` extra when the FastAPI backend is introduced.
+api = [
+    "fastapi>=0.140.0,<1",
+    "pydantic>=2.12,<3",
+    "sqlalchemy>=2.0.51,<3",
+    "uvicorn>=0.51.0,<1",
+]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "mypy>=2.3.0",
     "pytest>=9.1.1",
     "ruff>=0.15.18",

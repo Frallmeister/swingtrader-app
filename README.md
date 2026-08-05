@@ -34,6 +34,7 @@ The project currently implements the data and initial modeling foundation:
 * deterministic local or MLflow model, prediction, table, Markdown, and SVG artifacts
 * resumable rolling-window candle labeling with interactive Plotly charts and commission-aware forward-outcome heatmaps
 * a small daily-bar backtesting pilot with next-open execution and ATR-based risk sizing
+* a local FastAPI and React discretionary replay with indicator charts, screening, watchlists, next-open execution, and persistent portfolio state
 * local SQLite support and configurable SQLAlchemy database URLs
 * MkDocs-based project documentation
 * pytest/ruff-based local quality checks
@@ -65,6 +66,7 @@ Useful entry points:
 * [Baseline models and evaluation harness](docs/modeling/baseline-models.md)
 * [Cross-sectional XGBoost ranking study](docs/modeling/cross-sectional-ranking-study.md)
 * [Backtesting pilot](docs/modeling/backtesting.md)
+* [Discretionary replay](docs/replay/index.md)
 * [Triple-barrier targets](docs/modeling/targets/triple-barrier.md)
 * [Cross-sectional return targets](docs/modeling/targets/cross-sectional.md)
 * [Experiment specifications and MLflow tracking](docs/modeling/experiments.md)
@@ -92,6 +94,26 @@ Serve the documentation locally:
 ```powershell
 uv run --group docs mkdocs serve
 ```
+
+### Discretionary Replay Application
+
+Run the backend from the repository root in one terminal:
+
+```powershell
+uv sync --extra data --extra api --dev
+uv run --extra api uvicorn swingtrader.api.app:app --reload
+```
+
+Run the frontend in a second terminal:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open the address printed by Vite, normally `http://localhost:5173`. See the
+[replay runbook](docs/replay/running.md) for the full first-time setup and workflow.
 
 ## Local Data Workflow
 
@@ -248,16 +270,18 @@ The bundle aligns feature, target, and sample-metadata frames on the canonical m
 
 ```text
 swingtrader-app/
-├── frontend/                  Planned TypeScript/React application.
+├── frontend/                  TypeScript/React discretionary replay interface.
 ├── src/
 │   └── swingtrader/
-│       ├── api/               Planned FastAPI backend and HTTP schemas.
+│       ├── api/               FastAPI replay HTTP schemas and routes.
 │       ├── configs/           Source-controlled project configuration.
 │       ├── core/              Shared configuration, logging, numerical helpers,
 │       │                      and cross-cutting contracts.
 │       ├── data/              Clients, ingestion workflows, bronze storage,
 │       │                      feature generation, and scheduled data jobs.
 │       ├── indicators/        Reusable numerical indicator calculations.
+│       ├── replay/            Replay state machine, screening, persistence,
+│       │                      execution, and portfolio metrics.
 │       └── modeling/          Dataset construction, entry labeling, training,
 │                              evaluation, backtesting, inference, and metadata.
 ├── tests/                     Unit and integration-style tests using local fixtures.
@@ -295,6 +319,14 @@ uv run ruff format --check src tests
 uv run ruff check src tests
 uv run pytest
 uv run --group docs mkdocs build --strict
+```
+
+Frontend checks run from `frontend`:
+
+```powershell
+npm install
+npm run build
+npm test
 ```
 
 ## Copyright

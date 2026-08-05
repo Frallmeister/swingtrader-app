@@ -1,11 +1,15 @@
-# Frontend
+# Replay frontend
 
-This directory is reserved for the planned TypeScript and React frontend.
+This directory contains the TypeScript and React user interface for discretionary historical replay. It calls the FastAPI backend under `/api`; it never reads SQLite or imports Python code directly.
 
-The frontend will own presentation, browser-side state, routing, and calls to the
-FastAPI backend. It must not access the database directly or depend on Python package
-internals. Shared request and response types should be generated from the backend's
-OpenAPI specification where practical.
+The first version includes:
 
-The frontend application has not been initialized yet. Add its package manager,
-build tooling, and source tree when frontend implementation begins.
+- explicit evening and morning modes;
+- mandatory decisions for every open position;
+- new entries, full exits, and partial reductions;
+- configurable indicators with grouped multi-output visibility;
+- continuous indicator screening and reusable screening presets;
+- watchlists, portfolio metrics, metric history, and position-duration analysis;
+- TradingView Lightweight Charts using only data released by the replay backend.
+
+Run `npm install` once, then `npm run dev`. See the replay documentation for the full backend and frontend startup sequence.

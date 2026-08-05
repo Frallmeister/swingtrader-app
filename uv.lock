@@ -3262,6 +3262,12 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+api = [
+    { name = "fastapi" },
+    { name = "pydantic" },
+    { name = "sqlalchemy" },
+    { name = "uvicorn" },
+]
 data = [
     { name = "pyarrow" },
     { name = "requests" },
@@ -3283,6 +3289,7 @@ postgres = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "httpx" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "ruff" },
@@ -3308,10 +3315,12 @@ notebook = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", marker = "extra == 'modeling'", specifier = ">=1.13.0,<2" },
+    { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.140.0,<1" },
     { name = "matplotlib", marker = "extra == 'modeling'", specifier = ">=3.11.0" },
     { name = "mlflow-skinny", marker = "extra == 'modeling'", specifier = "==3.14.0" },
     { name = "numpy", specifier = ">=2.5.0" },
     { name = "pandas", specifier = ">=3.0.3" },
+    { name = "pydantic", marker = "extra == 'api'", specifier = ">=2.12,<3" },
     { name = "plotly", marker = "extra == 'modeling'", specifier = ">=5.24,<6" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.3.4" },
     { name = "pyarrow", marker = "extra == 'data'", specifier = ">=24.0.0" },
@@ -3319,16 +3328,19 @@ requires-dist = [
     { name = "requests", marker = "extra == 'data'", specifier = ">=2.34.2" },
     { name = "scikit-learn", marker = "extra == 'modeling'", specifier = ">=1.9.0" },
     { name = "scipy", specifier = ">=1.18.0" },
+    { name = "sqlalchemy", marker = "extra == 'api'", specifier = ">=2.0.51,<3" },
     { name = "sqlalchemy", marker = "extra == 'data'", specifier = ">=2.0.51" },
     { name = "sqlalchemy", marker = "extra == 'modeling'", specifier = ">=2.0.51,<3" },
     { name = "tqdm", specifier = ">=4.68.3" },
+    { name = "uvicorn", marker = "extra == 'api'", specifier = ">=0.51.0,<1" },
     { name = "xgboost", marker = "extra == 'modeling'", specifier = ">=3.3.0" },
     { name = "yfinance", marker = "extra == 'data'", specifier = ">=1.4.1" },
 ]
-provides-extras = ["data", "postgres", "modeling"]
+provides-extras = ["api", "data", "postgres", "modeling"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "mypy", specifier = ">=2.3.0" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.15.18" },

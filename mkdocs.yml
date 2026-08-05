@@ -75,6 +75,7 @@ nav:
           - Canonical Temporal Dataset Bundle: architecture/decisions/0006-canonical-temporal-dataset-bundle.md
           - Purged Fixed Temporal Splitting: architecture/decisions/0007-purged-fixed-temporal-splitting.md
           - Executable Feature and Target Contracts: architecture/decisions/0008-executable-feature-and-target-contracts.md
+          - Discretionary Replay State Machine: architecture/decisions/0009-discretionary-replay-state-machine.md
       - Trading Objective: architecture/trading-objective.md
       - Ticker Universes: architecture/ticker-universes.md
   - Data:
@@ -101,6 +102,10 @@ nav:
       - Cross-Sectional XGBoost Study: modeling/cross-sectional-ranking-study.md
       - Backtesting Pilot: modeling/backtesting.md
       - Experiment Specifications and MLflow: modeling/experiments.md
+  - Replay:
+      - Overview: replay/index.md
+      - Running the App: replay/running.md
+      - Indicator Screening: replay/screening.md
   - Deployment:
       - Render: deployment/render.md
   - Operations:

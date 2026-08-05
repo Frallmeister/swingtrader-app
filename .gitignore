@@ -233,3 +233,7 @@ temp_*.py
 /artifacts/
 
 /notebooks/exports/
+
+# Frontend
+/frontend/node_modules/
+/frontend/dist/
