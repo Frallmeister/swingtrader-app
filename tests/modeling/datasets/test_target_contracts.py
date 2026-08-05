@@ -11,9 +11,6 @@ from swingtrader.modeling.datasets import (
     SupervisedTaskSpec,
     TargetFamilySpec,
     TargetSetSpec,
-    generate_cross_sectional_return_labels,
-    generate_forward_return_labels,
-    generate_target_set,
 )
 
 
@@ -109,7 +106,7 @@ def test_execution_rejects_output_overwrite() -> None:
         families=(_family("overwrite", "existing"),),
     )
     with pytest.raises(ValueError, match="would overwrite columns"):
-        generate_target_set(prices, target_set=target_set)
+        target_set.apply(prices)
 
 
 def test_forward_return_task_selects_one_generated_target() -> None:
@@ -151,29 +148,10 @@ def test_target_families_execute_in_declared_order() -> None:
         ),
     )
 
-    result = generate_target_set(pd.DataFrame(index=[0]), target_set=target_set)
+    result = target_set.apply(pd.DataFrame(index=[0]))
 
     assert result.loc[0, "first"] == 1
     assert result.loc[0, "second"] == 2
-
-
-def test_forward_return_wrapper_delegates_to_forward_return_target_set() -> None:
-    prices = (
-        pd.DataFrame(
-            {
-                "provider": ["yfinance"] * 16,
-                "ticker": ["AAA.ST"] * 16,
-                "trading_date": pd.date_range("2026-01-01", periods=16),
-                "adjusted_close": range(100, 116),
-            }
-        )
-        .set_index(["provider", "ticker", "trading_date"])
-        .sort_index()
-    )
-    pd.testing.assert_frame_equal(
-        generate_target_set(prices, target_set=FORWARD_RETURN_TARGET_SET),
-        generate_forward_return_labels(prices),
-    )
 
 
 def test_cross_sectional_set_executes_independently_from_canonical_prices() -> None:
@@ -191,7 +169,7 @@ def test_cross_sectional_set_executes_independently_from_canonical_prices() -> N
         )
     prices = pd.concat(frames).set_index(["provider", "ticker", "trading_date"]).sort_index()
 
-    result = generate_cross_sectional_return_labels(prices)
+    result = CROSS_SECTIONAL_RETURN_TARGET_SET.apply(prices)
 
     assert "forward_return_5d_cross_sectional_percentile" in result.columns
     assert "market_relative_forward_return_5d" in result.columns

@@ -3,10 +3,8 @@ from datetime import date, timedelta
 import pandas as pd
 import pytest
 
-from swingtrader.modeling.datasets.labels import (
-    SIGNIFICANT_RETURN_THRESHOLD,
-    generate_forward_return_labels,
-)
+from swingtrader.modeling.datasets import FORWARD_RETURN_TARGET_SET
+from swingtrader.modeling.datasets.labels import SIGNIFICANT_RETURN_THRESHOLD
 
 
 def test_generate_forward_return_labels_calculates_known_forward_returns() -> None:
@@ -31,7 +29,7 @@ def test_generate_forward_return_labels_calculates_known_forward_returns() -> No
         ]
     )
 
-    labels = generate_forward_return_labels(prices)
+    labels = FORWARD_RETURN_TARGET_SET.apply(prices)
 
     first_row = labels.iloc[0]
     assert first_row["forward_return_5d"] == pytest.approx(0.10)
@@ -47,7 +45,7 @@ def test_generate_forward_return_labels_calculates_tickers_independently() -> No
         ]
     ).sort_index()
 
-    labels = generate_forward_return_labels(prices)
+    labels = FORWARD_RETURN_TARGET_SET.apply(prices)
 
     aaa_first = labels.xs(("yfinance", "AAA.ST"), level=["provider", "ticker"]).iloc[0]
     bbb_first = labels.xs(("yfinance", "BBB.ST"), level=["provider", "ticker"]).iloc[0]
@@ -63,7 +61,7 @@ def test_generate_forward_return_labels_calculates_providers_independently() -> 
         ],
     ).sort_index()
 
-    labels = generate_forward_return_labels(prices)
+    labels = FORWARD_RETURN_TARGET_SET.apply(prices)
 
     yfinance_first = labels.xs(("yfinance", "AAA.ST"), level=["provider", "ticker"]).iloc[0]
     other_first = labels.xs(("other", "AAA.ST"), level=["provider", "ticker"]).iloc[0]
@@ -75,14 +73,14 @@ def test_generate_forward_return_labels_rejects_unsorted_input() -> None:
     prices = _price_frame(adjusted_closes=[100, 101, 102, 103, 104, 110]).iloc[::-1]
 
     with pytest.raises(ValueError, match="must be sorted"):
-        generate_forward_return_labels(prices)
+        FORWARD_RETURN_TARGET_SET.apply(prices)
 
 
 def test_generate_forward_return_labels_preserves_index_and_does_not_mutate_input() -> None:
     prices = _price_frame(adjusted_closes=[100, 101, 102, 103, 104, 110])
     original_prices = prices.copy(deep=True)
 
-    labels = generate_forward_return_labels(prices)
+    labels = FORWARD_RETURN_TARGET_SET.apply(prices)
 
     pd.testing.assert_frame_equal(prices, original_prices)
     assert labels.index.equals(prices.index)
@@ -91,7 +89,7 @@ def test_generate_forward_return_labels_preserves_index_and_does_not_mutate_inpu
 def test_generate_forward_return_labels_leaves_tail_outcomes_missing_for_each_horizon() -> None:
     prices = _price_frame(adjusted_closes=range(1, 17))
 
-    labels = generate_forward_return_labels(prices)
+    labels = FORWARD_RETURN_TARGET_SET.apply(prices)
 
     assert labels["forward_return_5d"].tail(5).isna().all()
     assert labels["forward_return_10d"].tail(10).isna().all()
@@ -103,7 +101,7 @@ def test_generate_forward_return_labels_leaves_missing_current_adjusted_close_ou
 ):
     prices = _price_frame(adjusted_closes=[pd.NA, 101, 102, 103, 104, 110])
 
-    labels = generate_forward_return_labels(prices)
+    labels = FORWARD_RETURN_TARGET_SET.apply(prices)
 
     assert pd.isna(labels.iloc[0]["forward_return_5d"])
     assert labels.iloc[0]["target_significant_up_5d"] is pd.NA
@@ -114,7 +112,7 @@ def test_generate_forward_return_labels_leaves_zero_current_adjusted_close_outco
 ):
     prices = _price_frame(adjusted_closes=[0, 101, 102, 103, 104, 110])
 
-    labels = generate_forward_return_labels(prices)
+    labels = FORWARD_RETURN_TARGET_SET.apply(prices)
 
     assert pd.isna(labels.iloc[0]["forward_return_5d"])
     assert labels.iloc[0]["target_significant_up_5d"] is pd.NA
@@ -123,7 +121,7 @@ def test_generate_forward_return_labels_leaves_zero_current_adjusted_close_outco
 def test_generate_forward_return_labels_leaves_zero_future_adjusted_close_outcome_missing() -> None:
     prices = _price_frame(adjusted_closes=[100, 101, 102, 103, 104, 0])
 
-    labels = generate_forward_return_labels(prices)
+    labels = FORWARD_RETURN_TARGET_SET.apply(prices)
 
     assert pd.isna(labels.iloc[0]["forward_return_5d"])
     assert labels.iloc[0]["target_significant_up_5d"] is pd.NA
@@ -134,7 +132,7 @@ def test_generate_forward_return_labels_leaves_missing_future_adjusted_close_out
 ):
     prices = _price_frame(adjusted_closes=[100, 101, 102, 103, 104, pd.NA])
 
-    labels = generate_forward_return_labels(prices)
+    labels = FORWARD_RETURN_TARGET_SET.apply(prices)
 
     assert pd.isna(labels.iloc[0]["forward_return_5d"])
     assert labels.iloc[0]["target_significant_up_5d"] is pd.NA
@@ -159,7 +157,7 @@ def test_generate_forward_return_labels_uses_strict_threshold_for_nullable_targe
         ]
     )
 
-    labels = generate_forward_return_labels(prices)
+    labels = FORWARD_RETURN_TARGET_SET.apply(prices)
 
     assert pytest.approx(0.01311017, abs=0.00000001) == SIGNIFICANT_RETURN_THRESHOLD
     assert not labels.iloc[0]["target_significant_up_5d"]
@@ -169,7 +167,7 @@ def test_generate_forward_return_labels_uses_strict_threshold_for_nullable_targe
 
 
 def test_generate_forward_return_labels_returns_nullable_boolean_target_dtype() -> None:
-    labels = generate_forward_return_labels(
+    labels = FORWARD_RETURN_TARGET_SET.apply(
         _price_frame(adjusted_closes=[100, 100, 100, 100, 100, 110])
     )
 
@@ -185,14 +183,14 @@ def test_generate_forward_return_labels_rejects_duplicate_observations() -> None
     )
 
     with pytest.raises(ValueError, match="must have a unique index"):
-        generate_forward_return_labels(prices)
+        FORWARD_RETURN_TARGET_SET.apply(prices)
 
 
 def test_generate_forward_return_labels_returns_empty_frame_with_stable_label_columns() -> None:
     prices = _price_frame(adjusted_closes=[])
     prices["volume"] = pd.Series(index=prices.index, dtype="int64")
 
-    labels = generate_forward_return_labels(prices)
+    labels = FORWARD_RETURN_TARGET_SET.apply(prices)
 
     assert labels.empty
     assert list(labels.columns) == [
@@ -212,14 +210,14 @@ def test_generate_forward_return_labels_rejects_missing_required_columns() -> No
     prices = _price_frame(adjusted_closes=[100]).drop(columns=["adjusted_close"])
 
     with pytest.raises(ValueError, match="missing required inputs: adjusted_close"):
-        generate_forward_return_labels(prices)
+        FORWARD_RETURN_TARGET_SET.apply(prices)
 
 
 def test_generate_forward_return_labels_rejects_flat_identifier_columns() -> None:
     prices = _price_frame(adjusted_closes=[100, 101]).reset_index()
 
     with pytest.raises(ValueError, match="must use a MultiIndex"):
-        generate_forward_return_labels(prices)
+        FORWARD_RETURN_TARGET_SET.apply(prices)
 
 
 def _price_frame(
