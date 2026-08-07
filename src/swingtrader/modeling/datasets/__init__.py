@@ -9,6 +9,9 @@ from swingtrader.modeling.datasets.catalog import (
     CROSS_SECTIONAL_RETURN_TARGET_SET,
     FORWARD_RETURN_PRIMARY_TASK,
     FORWARD_RETURN_TARGET_SET,
+    MAX_RETURN_OUTPUT_COLUMNS,
+    MAX_RETURN_PRIMARY_TASK,
+    MAX_RETURN_TARGET_SET,
     TRIPLE_BARRIER_ATR_LENGTH,
     TRIPLE_BARRIER_HORIZONS,
     TRIPLE_BARRIER_INTRABAR_POLICY,
@@ -34,6 +37,12 @@ from swingtrader.modeling.datasets.labels import (
     SIGNIFICANT_RETURN_REQUIRED_NET,
     SIGNIFICANT_RETURN_THRESHOLD,
     TRADING_DAYS_PER_YEAR,
+)
+from swingtrader.modeling.datasets.max_return import (
+    MAX_RETURN_HORIZONS,
+    MAX_RETURN_REQUIRED_PRICE_COLUMNS,
+    add_future_max_return_targets,
+    future_max_return_target_columns,
 )
 from swingtrader.modeling.datasets.specifications import TemporalDatasetSpec, UniverseSpec
 from swingtrader.modeling.datasets.tabular import TabularDataset, to_tabular_dataset
@@ -65,6 +74,11 @@ __all__ = [
     "FORWARD_RETURN_HORIZONS",
     "FORWARD_RETURN_PRIMARY_TASK",
     "FORWARD_RETURN_TARGET_SET",
+    "MAX_RETURN_HORIZONS",
+    "MAX_RETURN_OUTPUT_COLUMNS",
+    "MAX_RETURN_PRIMARY_TASK",
+    "MAX_RETURN_REQUIRED_PRICE_COLUMNS",
+    "MAX_RETURN_TARGET_SET",
     "SAMPLE_METADATA_COLUMNS",
     "SIGNIFICANT_RETURN_ANNUAL_TARGET",
     "SIGNIFICANT_RETURN_COMMISSION",
@@ -94,10 +108,12 @@ __all__ = [
     "TickerEligibility",
     "UniverseSpec",
     "add_cross_sectional_return_targets",
+    "add_future_max_return_targets",
     "add_triple_barrier_targets",
     "build_temporal_dataset",
     "construct_temporal_dataset",
     "cross_sectional_return_target_columns",
+    "future_max_return_target_columns",
     "to_tabular_dataset",
     "triple_barrier_output_columns",
 ]
